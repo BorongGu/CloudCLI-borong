@@ -145,7 +145,8 @@
       "ctrlEnter": "Ctrl+Enter to send • Shift+Enter for new line • Tab to change modes • / for slash commands",
       "enter": "Enter to send • Shift+Enter for new line • Tab to change modes • / for slash commands",
       "queue": "Enter to queue your next message",
-      "appendQueued": "Enter to add to the queued message"
+      "appendQueued": "Enter to add to the queued message",
+      "steer": "Enter to steer · Tab to queue · Shift+Enter for newline"
     },
     "clickToChangeMode": "Click to change permission mode (or press Tab in input)",
     "showAllCommands": "Show all commands",
@@ -158,8 +159,11 @@
       "label": "Queued",
       "willSend": "Will send when this finishes",
       "edit": "Edit queued message",
-      "delete": "Delete queued message"
-    }
+      "delete": "Delete queued message",
+      "button": "Queue"
+    },
+    "steer": "Send to active turn",
+    "steerFailed": "Failed to add input: {{message}}"
   },
   "composer": {
     "reasoning": "Reasoning",
@@ -396,7 +400,9 @@
     "tokensLabel_one": "token",
     "tokensLabel_other": "tokens",
     "escClosesModal": "Esc closes the modal.",
-    "close": "Close"
+    "close": "Close",
+    "codexNeedsInput": "Codex has a question",
+    "workContinues": "Work continues"
   },
   "modelLibrary": {
     "effortLevels": "Reasoning levels",

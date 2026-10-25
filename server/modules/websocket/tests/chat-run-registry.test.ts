@@ -311,3 +311,26 @@ test('startRun rejects a second concurrent run for the same session', async () =
     assert.ok(third);
   });
 });
+
+
+test('a queued detached run retains phone and desktop viewers with increasing replay cursors', async () => {
+  await withIsolatedDatabase(() => {
+    sessionsDb.createAppSession('queued-stream', 'codex', '/workspace/demo');
+    const phone = new FakeConnection();const desktop = new FakeConnection();
+    const first = chatRunRegistry.startRun({ appSessionId: 'queued-stream', provider: 'codex', providerSessionId: 'native', connection: phone, userId: 'user-1' })!;
+    chatRunRegistry.attachConnection('queued-stream', desktop);
+    first.writer.send({ kind: 'text', provider: 'codex', sessionId: 'native', content: 'first' });
+    first.writer.sendComplete({ exitCode: 0 });
+    const previousSeq = first.lastSeq;
+    const next = chatRunRegistry.startRun({ appSessionId: 'queued-stream', provider: 'codex', providerSessionId: 'native', connection: null, userId: 'user-1' })!;
+    next.writer.send({ kind: 'text', provider: 'codex', sessionId: 'native', content: 'queued response' });
+    next.writer.sendComplete({ exitCode: 0 });
+    for (const viewer of [phone, desktop]) {
+      assert.equal(viewer.frames.at(-2)?.content, 'queued response');
+      assert.equal(viewer.frames.at(-1)?.kind, 'complete');
+      assert.ok(Number(viewer.frames.at(-2)?.seq) > previousSeq);
+      assert.equal(viewer.frames.find(frame => frame.seq === previousSeq + 1)?.kind, 'status');
+    }
+    assert.equal(chatRunRegistry.replayEvents('queued-stream', previousSeq).length, 3);
+  });
+});

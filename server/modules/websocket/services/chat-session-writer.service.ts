@@ -136,6 +136,13 @@ export class ChatSessionWriter {
    * method it stands in for, so runtime adapters keep working unchanged —
    * but it adds rather than replaces.
    */
+  /** The run registry carries viewers forward when a queued turn replaces a completed run. */
+  inheritConnections(previous: ChatSessionWriter): void {
+    for (const connection of previous.connections) {
+      if (connection.readyState === WS_OPEN_STATE) this.connections.add(connection);
+    }
+  }
+
   updateWebSocket(newConnection: RealtimeClientConnection): void {
     this.connections.add(newConnection);
   }

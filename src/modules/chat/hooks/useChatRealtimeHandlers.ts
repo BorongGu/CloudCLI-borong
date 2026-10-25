@@ -279,8 +279,10 @@ export function useChatRealtimeHandlers({
             onSessionIdle?.(sid);
           }
           if (sid === activeViewSessionId) {
-            pendingPermissionRequestsRef.current = [];
-            setPendingPermissionRequests([]);
+            // Native asynchronous questions stay actionable when the current response finishes.
+            const remaining = pendingPermissionRequestsRef.current.filter(request => (request.context as { isBlocking?: boolean } | undefined)?.isBlocking === false);
+            pendingPermissionRequestsRef.current = remaining;
+            setPendingPermissionRequests(remaining);
           }
 
           if (msg.aborted) {

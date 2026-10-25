@@ -211,7 +211,8 @@ export const chatRunRegistry = {
       provider: input.provider,
       providerSessionId: input.providerSessionId,
       status: 'running',
-      lastSeq: 0,
+      // Replay cursors belong to the session, including its queued follow-up runs.
+      lastSeq: existing?.lastSeq ?? 0,
       events: [],
       writer: null as unknown as ChatSessionWriter,
       startedAt: Date.now(),
@@ -229,7 +230,12 @@ export const chatRunRegistry = {
       decorateOutboundEvent: (message) => decorateAndRecordEvent(run, message),
     });
 
+    if (existing) run.writer.inheritConnections(existing.writer);
     runs.set(input.appSessionId, run);
+    if (existing && input.connection === null) {
+      run.writer.send({ kind: 'status', provider: run.provider, sessionId: run.appSessionId,
+        text: 'Processing', canInterrupt: true });
+    }
     return run;
   },
 

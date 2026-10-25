@@ -18,6 +18,7 @@ export class SharedCodexConnection extends EventEmitter {
   private opening: Promise<void> | null = null;
   private ready = false;
   private nextId = 0;
+  private serverRequests = new Map<number | string, RpcMessage>();
   private pending = new Map<number, {
     resolve(value: any): void;
     reject(error: Error): void;
@@ -51,6 +52,8 @@ export class SharedCodexConnection extends EventEmitter {
     let message: RpcMessage;
     try { message = JSON.parse(String(raw)) as RpcMessage; } catch { return; }
     if (message.method) {
+      if (message.id !== undefined) this.serverRequests.set(message.id, message);
+      if (message.method === 'serverRequest/resolved') this.serverRequests.delete(message.params?.requestId);
       this.emit(message.id === undefined ? 'notification' : 'serverRequest', message);
       return;
     }
@@ -67,7 +70,7 @@ export class SharedCodexConnection extends EventEmitter {
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer); pending.reject(error);
     }
-    this.pending.clear(); this.emit('disconnect', error);
+    this.pending.clear(); this.serverRequests.clear(); this.emit('disconnect', error);
   }
 
   async connect(): Promise<void> {
@@ -100,6 +103,18 @@ export class SharedCodexConnection extends EventEmitter {
 
   async call(method: string, params: unknown): Promise<any> {
     await this.connect(); return this.request(method, params);
+  }
+
+  /** Used by the Codex question bridge to answer on the initiating connection. */
+  respond(id: number | string, result: unknown): void {
+    if (!this.ready || this.socket?.readyState !== WebSocket.OPEN) throw new Error('Codex connection is recovering. Retry your answer.');
+    this.socket.send(JSON.stringify({ id, result }));
+  }
+
+  /** Replays native requests received before the runtime bound its app session. */
+  pendingRequests(threadId: string) {
+    return [...this.serverRequests.values()].filter(message => message.params?.threadId === threadId)
+      .map(message => ({ id: message.id!, method: message.method!, params: message.params! }));
   }
 
   /** Releases the test/runtime transport while the shared daemon keeps running. */

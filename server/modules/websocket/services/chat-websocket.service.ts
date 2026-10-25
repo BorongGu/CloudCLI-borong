@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 import type { WebSocket } from 'ws';
 
 import { sessionsDb } from '@/modules/database/index.js';
@@ -7,7 +5,7 @@ import { codexGoalsService, providerModelsService, sessionsService } from '@/mod
 import { chatRunRegistry } from '@/modules/websocket/services/chat-run-registry.service.js';
 import { connectedClients, WS_OPEN_STATE } from '@/modules/websocket/services/websocket-state.service.js';
 import {
-  getGlobalImageAssetsDir,
+  filterAttachmentsToUploadStore,
   isImageAttachmentDescriptor,
   normalizeAttachmentDescriptors,
   type ChatAttachmentDescriptor,
@@ -21,39 +19,8 @@ import type {
 } from '@/shared/types.js';
 import { parseIncomingJsonObject } from '@/shared/utils.js';
 
-/**
- * Trust boundary for client-supplied image attachments: chat.send options come
- * straight from the browser, and the provider runtimes read the referenced
- * files off disk (Claude base64-encodes them into the prompt). Only images
- * that live directly inside the global upload store (`~/.cloudcli/assets`,
- * where POST /api/assets/images puts them) are allowed through — anything
- * else (absolute paths elsewhere, traversal, subdirectories) is dropped.
- *
- * Exported for tests; `assetsRootOverride` exists only for them.
- */
-export function filterAttachmentsToUploadStore(
-  attachments: unknown,
-  assetsRootOverride?: string,
-): ChatAttachmentDescriptor[] {
-  const assetsRoot = path.resolve(assetsRootOverride ?? getGlobalImageAssetsDir());
-
-  return normalizeAttachmentDescriptors(attachments).filter((descriptor) => {
-    // Relative paths are anchored in the store; absolute ones must already be in it.
-    const resolved = path.resolve(assetsRoot, descriptor.path);
-    const relative = path.relative(assetsRoot, resolved);
-    const isDirectChild =
-      relative.length > 0 &&
-      !relative.startsWith('..') &&
-      !path.isAbsolute(relative) &&
-      !relative.includes(path.sep) &&
-      !relative.includes('/');
-
-    if (!isDirectChild) {
-      console.warn(`[Chat] Dropping attachment outside the upload store: ${descriptor.path}`);
-    }
-    return isDirectChild;
-  });
-}
+// Existing websocket tests import this boundary here; native steering uses the shared implementation.
+export { filterAttachmentsToUploadStore } from '@/shared/image-attachments.js';
 
 /** Backward-compatible image filter consumed by existing websocket tests. */
 export function filterImagesToUploadStore(
@@ -544,8 +511,7 @@ async function handleChatSubscribe(
       chatRunRegistry.attachConnection(sessionId, ws);
     }
 
-    // Pending approvals are tracked under the app session id inside the
-    // Claude runtime, so they can be looked up directly.
+    // Provider runtimes track their pending questions and approvals by app session id.
     const pendingPermissions = dependencies.runtime.getPendingApprovalsForSession(sessionId);
 
     sendJson(ws, {
@@ -571,8 +537,7 @@ async function handleChatSubscribe(
 
 /**
  * Handles `chat.permission-response`: forwards a tool-approval decision to the
- * pending approval resolver (Claude is the only provider with interactive
- * approvals today, but the message is intentionally provider-neutral).
+ * provider runtime that owns the pending native question or approval.
  */
 function handlePermissionResponse(data: AnyRecord, dependencies: ChatWebSocketDependencies): void {
   if (typeof data.requestId !== 'string' || data.requestId.length === 0) {

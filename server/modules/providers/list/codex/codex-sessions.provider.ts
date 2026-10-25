@@ -53,6 +53,19 @@ type CodexHistoryResult = {
   tokenUsage?: unknown;
 };
 
+/** Render native asynchronous answers as conversation text while preserving the wire payload on disk. */
+function displayQuestionReply(content: string): string {
+  const match = content.trim().match(/^<send_user_message_question_reply>([\s\S]*)<\/send_user_message_question_reply>$/);
+  if (!match) return content;
+  try {
+    const replies: unknown = JSON.parse(match[1]);
+    if (!Array.isArray(replies)) return content;
+    const text = replies.filter(reply => typeof reply?.question === 'string' && typeof reply?.answer === 'string')
+      .map(reply => [reply.question, reply.answer].filter(Boolean).join('\n')).join('\n\n');
+    return text || content;
+  } catch { return content; }
+}
+
 function readNonEmptyString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
@@ -2084,7 +2097,7 @@ export class CodexSessionsProvider implements IProviderSessions {
         provider: PROVIDER,
         kind: 'text',
         role: 'user',
-        content: parsedFiles.text,
+        content: displayQuestionReply(parsedFiles.text),
         images: rawImages,
         files,
         // The enclosing turn, when the reader could name one. `baseId` is not

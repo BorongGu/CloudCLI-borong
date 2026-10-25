@@ -215,6 +215,7 @@ function ChatInterface({
     isDragActive,
     openAttachmentPicker,
     handleSubmit,
+    queueCurrentMessage,
     backgroundSendPrompt,
     resolveBackgroundSendPrompt,
     queuedDraft,
@@ -261,6 +262,7 @@ function ChatInterface({
     scrollToBottom,
     addMessage,
     setIsUserScrolledUp,
+    pendingPermissionRequests,
     setPendingPermissionRequests,
     resolvePermissionModeForProvider,
   });
@@ -335,6 +337,7 @@ function ChatInterface({
         return;
       }
 
+      if (event.target instanceof Element && event.target.closest('[data-question-panel]')) return;
       event.preventDefault();
       handleAbortSession();
     };
@@ -428,7 +431,7 @@ function ChatInterface({
   // Mirrors ChatComposer's own visibility check so the message pane can
   // reserve enough bottom space to keep the floating status tab from
   // overlapping the last message.
-  const hasActivityIndicator = Boolean(sessionActivity && pendingPermissionRequests.length === 0);
+  const hasActivityIndicator = Boolean(sessionActivity && !pendingPermissionRequests.some(request => (request.context as { isBlocking?: boolean } | undefined)?.isBlocking !== false));
 
   const selectedProviderLabel =
     provider === 'cursor'
@@ -565,6 +568,8 @@ function ChatInterface({
           hasInput={Boolean(input.trim())}
           onClearInput={handleClearInput}
           onSubmit={handleSubmit}
+          canSteer={provider === 'codex'}
+          onQueueMessage={queueCurrentMessage}
           isDragActive={isDragActive}
           queuedDraft={queuedDraft}
           backgroundSendPrompt={backgroundSendPrompt}

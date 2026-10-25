@@ -9,6 +9,7 @@ import { providerTokenUsageService } from '@/modules/providers/services/provider
 import { providerSkillsService } from '@/modules/providers/services/skills.service.js';
 import { sessionConversationsSearchService } from '@/modules/providers/services/session-conversations-search.service.js';
 import { sessionsService } from '@/modules/providers/services/sessions.service.js';
+import { codexSteeringService } from '@/modules/providers/services/codex-steering.service.js';
 import { codexGoalsService } from '@/modules/providers/services/codex-goals.service.js';
 import type {
   CustomProviderModelEffort,
@@ -919,6 +920,16 @@ router.get(
     res.json(createApiSuccessResponse(result));
   }),
 );
+
+router.post('/sessions/:sessionId/steer', asyncHandler(async (req: Request, res: Response) => {
+  const content = req.body?.content;
+  const attachments = req.body?.attachments;
+  if (typeof content !== 'string' || (attachments !== undefined && !Array.isArray(attachments))) {
+    throw new AppError('Invalid mid-turn input.', { statusCode: 400, code: 'INVALID_INPUT' });
+  }
+  const result = await codexSteeringService.steer(parseSessionId(req.params.sessionId), content, attachments);
+  res.json(createApiSuccessResponse(result));
+}));
 
 router.get('/sessions/:sessionId/goal', asyncHandler(async (req: Request, res: Response) => {
   const result = await codexGoalsService.execute(parseSessionId(req.params.sessionId), { action: 'get' });

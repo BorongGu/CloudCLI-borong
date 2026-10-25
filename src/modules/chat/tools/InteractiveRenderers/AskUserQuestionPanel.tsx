@@ -19,10 +19,15 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
   const input = request.input as { questions?: Question[] } | undefined;
   const questions: Question[] = input?.questions ?? NO_QUESTIONS;
 
+  // Questions retain independent answers while the user navigates the card.
   const [currentStep, setCurrentStep] = useState(0);
+  // Selected option labels are sent verbatim to the native question.
   const [selections, setSelections] = useState<Map<number, Set<string>>>(() => new Map());
+  // Free-form text survives option and step changes.
   const [otherTexts, setOtherTexts] = useState<Map<number, string>>(() => new Map());
+  // Tracks whether an optional text answer is selected.
   const [otherActive, setOtherActive] = useState<Map<number, boolean>>(() => new Map());
+  // Enables the existing entrance transition after the panel mounts.
   const [mounted, setMounted] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,18 +37,14 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
     requestAnimationFrame(() => setMounted(true));
   }, []);
 
-  // Focus the container for keyboard events when step changes
+  // Blocking prompts take focus. An asynchronous card preserves typing in the main composer.
   useEffect(() => {
-    if (!otherActive.get(currentStep)) {
-      containerRef.current?.focus();
-    }
-  }, [currentStep, otherActive]);
-
-  useEffect(() => {
-    if (otherActive.get(currentStep)) {
-      otherInputRef.current?.focus();
-    }
-  }, [otherActive, currentStep]);
+    const blocking = (request.context as { isBlocking?: boolean } | undefined)?.isBlocking !== false;
+    if (!blocking && !containerRef.current?.contains(document.activeElement)) return;
+    const textAnswer = otherActive.get(currentStep) || questions[currentStep]?.options.length === 0;
+    if (textAnswer) otherInputRef.current?.focus();
+    else containerRef.current?.focus();
+  }, [currentStep, otherActive, questions, request.context]);
 
   const toggleOption = useCallback((qIdx: number, label: string, multiSelect: boolean) => {
     setSelections(prev => {
@@ -82,10 +83,10 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
     const answers: Record<string, string> = {};
     questions.forEach((q, idx) => {
       const selected = Array.from(selections.get(idx) || []);
-      const isOther = otherActive.get(idx) || false;
+      const isOther = otherActive.get(idx) || q.options.length === 0;
       const otherText = (otherTexts.get(idx) || '').trim();
       if (isOther && otherText) selected.push(otherText);
-      if (selected.length > 0) answers[q.question] = selected.join(', ');
+      if (selected.length > 0) answers[q.id ?? q.question] = selected.join(', ');
     });
     return answers;
   }, [questions, selections, otherActive, otherTexts]);
@@ -117,7 +118,7 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
     }
 
     // 0 for "Other"
-    if (e.key === '0') {
+    if (e.key === '0' && q.allowOther !== false) {
       e.preventDefault();
       toggleOther(currentStep, multi);
       return;
@@ -147,7 +148,7 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
   const q = questions[currentStep];
   const multi = q.multiSelect || false;
   const selected = selections.get(currentStep) || new Set<string>();
-  const isOtherOn = otherActive.get(currentStep) || false;
+  const isOtherOn = otherActive.get(currentStep) || q.options.length === 0;
   const isLast = currentStep === total - 1;
   const isFirst = currentStep === 0;
   const hasCurrentSelection = selected.size > 0 || (isOtherOn && (otherTexts.get(currentStep) || '').trim().length > 0);
@@ -155,6 +156,7 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
   return (
     <div
       ref={containerRef}
+      data-question-panel
       tabIndex={-1}
       onKeyDown={handleKeyDown}
       className={`w-full outline-none transition-all duration-500 ease-out ${
@@ -180,7 +182,8 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
 
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                Claude needs your input
+                {(request.context as { provider?: string } | undefined)?.provider === 'codex' ? t('chat:misc.codexNeedsInput') : 'Claude needs your input'}
+                {(request.context as { isBlocking?: boolean } | undefined)?.isBlocking === false && <span className="ml-2 normal-case">{t('chat:misc.workContinues')}</span>}
               </span>
               {q.header && (
                 <span className="inline-flex items-center rounded border border-blue-100 bg-blue-50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-blue-600 dark:border-blue-800/50 dark:bg-blue-900/30 dark:text-blue-400">
@@ -281,7 +284,7 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
             })}
 
             {/* "Other" option */}
-            <button
+            {(q.allowOther !== false || q.options.length === 0) && <button
               type="button"
               onClick={() => toggleOther(currentStep, multi)}
               className={`group flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-all duration-150 ${
@@ -309,7 +312,7 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               )}
-            </button>
+            </button>}
 
             {/* Other text input — inline */}
             {isOtherOn && (
@@ -317,7 +320,6 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
                 <div className="relative">
                   <input
                     ref={otherInputRef}
-                    type="text"
                     value={otherTexts.get(currentStep) || ''}
                     onChange={(e) => setOtherText(currentStep, e.target.value)}
                     onKeyDown={(e) => {
@@ -329,6 +331,8 @@ export const AskUserQuestionPanel: React.FC<PermissionPanelProps> = ({
                       // Prevent container keydown from firing
                       e.stopPropagation();
                     }}
+                    type={q.isSecret ? 'password' : 'text'}
+                    aria-label={q.question}
                     placeholder={t('chat:misc.typeAnswer')}
                     className="w-full rounded-lg border-0 bg-gray-50 px-3 py-1.5 text-[13px] text-gray-900 outline-none ring-1 ring-gray-200 transition-shadow duration-200 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-400 dark:bg-gray-900/60 dark:text-gray-100 dark:ring-gray-700 dark:placeholder:text-gray-600 dark:focus:ring-blue-500"
                   />

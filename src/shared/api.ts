@@ -443,6 +443,8 @@ export const api = {
     ) => get(sessionMessagesUrl(sessionId, pagination), options),
     sessionTokenUsage: (sessionId: string) =>
       get(`/api/providers/sessions/${encodeURIComponent(sessionId)}/token-usage`),
+    steerSession: (sessionId: string, content: string, attachments: unknown[]) =>
+      post(`/api/providers/sessions/${encodeURIComponent(sessionId)}/steer`, { content, attachments }),
     sessionGoal: (sessionId: string, options: ApiRequestOptions = {}) =>
       get(`/api/providers/sessions/${encodeURIComponent(sessionId)}/goal`, options),
     setSessionGoal: (sessionId: string, action: 'pause' | 'resume' | 'clear' | 'set', objective?: string) =>

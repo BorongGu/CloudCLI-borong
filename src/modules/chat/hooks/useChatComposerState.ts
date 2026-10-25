@@ -66,6 +66,7 @@ type UseChatComposerStateArgs = {
   scrollToBottom: () => void;
   addMessage: (msg: ChatMessage) => void;
   setIsUserScrolledUp: (isScrolledUp: boolean) => void;
+  pendingPermissionRequests?: PendingPermissionRequest[];
   setPendingPermissionRequests: Dispatch<SetStateAction<PendingPermissionRequest[]>>;
 };
 
@@ -96,6 +97,11 @@ type SubmitOptions = {
    * run that command instead of being sent.
    */
   skipCommandInterception?: boolean;
+  /** Explicitly defer a working Codex follow-up to its next turn. */
+  queue?: boolean;
+  /** Native question answers leave the independently typed composer draft in place. */
+  preserveDraft?: boolean;
+  displayContent?: string;
 };
 
 const createFakeSubmitEvent = () => {
@@ -218,6 +224,7 @@ export function useChatComposerState({
   scrollToBottom,
   addMessage,
   setIsUserScrolledUp,
+  pendingPermissionRequests = [],
   setPendingPermissionRequests,
 }: UseChatComposerStateArgs) {
   const { t } = useTranslation('chat');
@@ -266,7 +273,7 @@ export function useChatComposerState({
       event: FormEvent<HTMLFormElement> | MouseEvent | TouchEvent | KeyboardEvent<HTMLTextAreaElement>,
       queuedSubmission?: QueuedDraft,
       submitOptions?: SubmitOptions,
-    ) => Promise<void>) | null
+    ) => Promise<boolean | void>) | null
   >(null);
   const inputValueRef = useRef(input);
   const selectedProjectId = selectedProject?.projectId;
@@ -746,8 +753,8 @@ export function useChatComposerState({
   // anything typed since, and the composer says so, rather than showing a card
   // nothing will send.
   const queueMessage = useCallback(
-    async (durableDraft: QueuedDraft, queuedSessionKey: string | null) => {
-      const queuedFromOpenComposer = !queuedSessionKey || sessionKeyRef.current === queuedSessionKey;
+    async (durableDraft: QueuedDraft, queuedSessionKey: string | null, preserveComposer = false) => {
+      const queuedFromOpenComposer = !preserveComposer && (!queuedSessionKey || sessionKeyRef.current === queuedSessionKey);
       if (queuedFromOpenComposer) {
         setInput('');
         inputValueRef.current = '';
@@ -799,6 +806,7 @@ export function useChatComposerState({
           const withTypedSince = (typedSince: string) => (
             [durableDraft.content, typedSince].filter((part) => part.trim()).join('\n\n')
           );
+          if (preserveComposer) return false;
           if (sessionKeyRef.current === queuedSessionKey) {
             const restored = withTypedSince(inputValueRef.current);
             setInput(restored);
@@ -813,7 +821,7 @@ export function useChatComposerState({
             // Browser files cannot follow it into a composer that is not open.
             writeDraftText(queuedSessionKey, withTypedSince(readDraftText(queuedSessionKey)));
           }
-          return;
+          return false;
         }
       }
 
@@ -826,7 +834,7 @@ export function useChatComposerState({
       // sessions meanwhile, the durable record is already enough; do not
       // attach its UI card to the newly opened composer.
       if (queuedSessionKey && sessionKeyRef.current !== queuedSessionKey) {
-        return;
+        return true;
       }
 
       queuedDraftSessionRef.current = queuedSessionKey;
@@ -839,6 +847,7 @@ export function useChatComposerState({
           ? [...previous.attachments, ...queuedCard.attachments]
           : queuedCard.attachments,
       }));
+      return true;
     },
     [addMessage, recordSentMessage, resetCommandMenuState, setInput, t],
   );
@@ -900,7 +909,7 @@ export function useChatComposerState({
         // A run can restart in the tiny gap between scheduling and flushing a
         // queued submission. Put the same durable draft back without uploading
         // its files again.
-        if (queuedSubmission) {
+        if (queuedSubmission && !submitOptions?.preserveDraft) {
           queuedDraftSessionRef.current = sessionKey;
           setQueuedDraft(queuedSubmission);
           return;
@@ -910,7 +919,7 @@ export function useChatComposerState({
         const queuedSessionKey = sessionKey;
         let uploadedAttachments: unknown[] = [];
         try {
-          uploadedAttachments = await uploadAttachmentFiles(currentAttachments);
+          uploadedAttachments = queuedSubmission?.uploadedAttachments ?? await uploadAttachmentFiles(currentAttachments);
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Unknown error';
           console.error('Queued file upload failed:', error);
@@ -922,13 +931,41 @@ export function useChatComposerState({
           return;
         }
 
-        await queueMessage({
+        if (provider === 'codex' && !submitOptions?.queue && queuedSessionKey) {
+          try {
+            const response = await api.providers.steerSession(queuedSessionKey, currentInput, uploadedAttachments);
+            const result = await response.json();
+            if (!response.ok && result.error?.code !== 'CODEX_NO_ACTIVE_TURN') {
+              throw new Error(result.error?.message || `HTTP ${response.status}`);
+            }
+            if (response.ok) {
+              recordSentMessage(currentInput, queuedSessionKey);
+              if (sessionKeyRef.current === queuedSessionKey) {
+                const attachments = uploadedAttachments as ChatAttachment[];
+                addMessage({ type: 'user', content: submitOptions?.displayContent ?? currentInput,
+                  images: attachments.filter(isImageAttachment), files: attachments.filter(file => !isImageAttachment(file)), timestamp: new Date() });
+                if (!submitOptions?.preserveDraft && inputValueRef.current === currentInput) {
+                  setInput(''); inputValueRef.current = ''; setAttachedFiles([]); setFileErrors(new Map());
+                  resetCommandMenuState();
+                  if (draftScopeRef.current) writeDraftText(draftScopeRef.current, '');
+                }
+                setIsUserScrolledUp(false); scrollToBottom();
+              }
+              return true;
+            }
+            // The native turn settled during submission: retain the input in the durable next-turn queue.
+          } catch (error) {
+            addMessage({ type: 'error', content: t('input.steerFailed', { message: String(error instanceof Error ? error.message : error) }), timestamp: new Date() });
+            return false;
+          }
+        }
+
+        return await queueMessage({
           content: currentInput,
           attachments: currentAttachments,
           uploadedAttachments,
           options: queuedOptions,
-        }, queuedSessionKey);
-        return;
+        }, queuedSessionKey, submitOptions?.preserveDraft);
       }
 
       // Intercept slash commands only when "/" is the first input character.
@@ -1075,7 +1112,7 @@ export function useChatComposerState({
       const attachmentRecords = uploadedAttachments as ChatAttachment[];
       const userMessage: ChatMessage = {
         type: 'user',
-        content: currentInput,
+        content: submitOptions?.displayContent ?? currentInput,
         images: attachmentRecords.filter(isImageAttachment),
         files: attachmentRecords.filter((attachment) => !isImageAttachment(attachment)),
         timestamp: new Date(),
@@ -1126,20 +1163,23 @@ export function useChatComposerState({
       // navigated to. Queued drafts were recorded when they were queued; the
       // consecutive-duplicate check keeps this second call a no-op.
       recordSentMessage(currentInput, targetSessionId);
-      setInput('');
-      inputValueRef.current = '';
-      resetCommandMenuState();
-      setAttachedFiles([]);
-      setFileErrors(new Map());
-      setIsTextareaExpanded(false);
+      if (!submitOptions?.preserveDraft) {
+        setInput('');
+        inputValueRef.current = '';
+        resetCommandMenuState();
+        setAttachedFiles([]);
+        setFileErrors(new Map());
+        setIsTextareaExpanded(false);
+      }
 
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
 
-      if (draftScopeRef.current) {
+      if (draftScopeRef.current && !submitOptions?.preserveDraft) {
         writeDraftText(draftScopeRef.current, '');
       }
+      return true;
     },
     [
       selectedSession,
@@ -1188,7 +1228,7 @@ export function useChatComposerState({
       }
       submittingScopesRef.current.add(scope);
       try {
-        await submitMessage(event, queuedSubmission, submitOptions);
+        return await submitMessage(event, queuedSubmission, submitOptions);
       } finally {
         submittingScopesRef.current.delete(scope);
       }
@@ -1387,7 +1427,9 @@ export function useChatComposerState({
 
       if (event.key === 'Tab' && !showFileDropdown && !showCommandMenu) {
         event.preventDefault();
-        cyclePermissionMode();
+        if (provider === 'codex' && isLoading && inputValueRef.current.trim()) {
+          void handleSubmit(event, undefined, { queue: true });
+        } else cyclePermissionMode();
         return;
       }
 
@@ -1409,6 +1451,8 @@ export function useChatComposerState({
     },
     [
       cyclePermissionMode,
+      provider,
+      isLoading,
       handleCommandMenuKeyDown,
       handleFileMentionsKeyDown,
       handleHistoryKeyDown,
@@ -1476,8 +1520,10 @@ export function useChatComposerState({
     [provider],
   );
 
+  // Prevents duplicate answer submissions while the native input is being acknowledged.
+  const answeringQuestionsRef = useRef(new Set<string>());
   const handlePermissionDecision = useCallback(
-    (
+    async (
       requestIds: string | string[],
       decision: { allow?: boolean; message?: string; rememberEntry?: string | null; updatedInput?: unknown },
     ) => {
@@ -1487,22 +1533,38 @@ export function useChatComposerState({
         return;
       }
 
-      validIds.forEach((requestId) => {
-        sendMessage({
-          type: 'chat.permission-response',
-          requestId,
-          allow: Boolean(decision?.allow),
-          updatedInput: decision?.updatedInput,
-          message: decision?.message,
-          rememberEntry: decision?.rememberEntry,
-        });
-      });
-
-      setPendingPermissionRequests((previous) =>
-        previous.filter((request) => !validIds.includes(request.requestId)),
-      );
+      for (const requestId of validIds) {
+        const request = pendingPermissionRequests.find(candidate => candidate.requestId === requestId);
+        const context = request?.context as { nativeAsync?: boolean; itemId?: string; provider?: string } | undefined;
+        if (answeringQuestionsRef.current.has(requestId)) continue;
+        answeringQuestionsRef.current.add(requestId);
+        try {
+          if (context?.nativeAsync && context.itemId) {
+            const input = request?.input as { questions: Array<{ id: string; question: string }> };
+            const answers = (decision.updatedInput as { answers?: Record<string, string> })?.answers || {};
+            const replies = input.questions.map((question, index) => ({
+              answer: answers[question.id] ?? answers[question.question] ?? '', question: question.question,
+              questionItemId: JSON.stringify(['request_user_input_async', context.itemId, index]),
+            }));
+            const content = '<send_user_message_question_reply>\n' + JSON.stringify(replies) + '\n</send_user_message_question_reply>';
+            const sent = await handleSubmit(createFakeSubmitEvent(), { content, attachments: [], uploadedAttachments: [] }, {
+              preserveDraft: true, displayContent: replies.map(reply => `${reply.question}\n${reply.answer}`).join('\n\n'),
+            });
+            if (sent !== true) continue;
+          }
+          const sent = sendMessage({ type: 'chat.permission-response', requestId,
+            allow: Boolean(decision?.allow), updatedInput: decision?.updatedInput,
+            message: decision?.message, rememberEntry: decision?.rememberEntry });
+          if (sent === false) {
+            addMessage({ type: 'error', content: t('connection.sendFailed'), timestamp: new Date() });
+            continue;
+          }
+          // Codex resolution events clear its cards on every device after the native reply is written.
+          if (context?.provider !== 'codex') setPendingPermissionRequests(previous => previous.filter(request => request.requestId !== requestId));
+        } finally { answeringQuestionsRef.current.delete(requestId); }
+      }
     },
-    [sendMessage, setPendingPermissionRequests],
+    [sendMessage, setPendingPermissionRequests, pendingPermissionRequests, handleSubmit, addMessage, t],
   );
 
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -1560,6 +1622,7 @@ export function useChatComposerState({
     isDragActive,
     openAttachmentPicker: open,
     handleSubmit,
+    queueCurrentMessage: () => handleSubmit(createFakeSubmitEvent(), undefined, { queue: true }),
     backgroundSendPrompt,
     resolveBackgroundSendPrompt,
     queuedDraft,

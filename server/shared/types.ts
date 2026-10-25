@@ -42,6 +42,10 @@ export type CodexGoalCommand = {
 /** RPC/event contract consumed by the Codex thread adapter and goal operations. */
 export type CodexRpcConnection = {
   call(method: string, params: unknown): Promise<any>;
+  /** Replies to an app-server initiated JSON-RPC request on its original connection. */
+  respond?(id: number | string, result: unknown): void;
+  /** Requests retained until Codex confirms resolution, used when a thread attaches. */
+  pendingRequests?(threadId: string): Array<{ id: number | string; method: string; params: AnyRecord }>;
   on(event: string, listener: (...args: any[]) => void): unknown;
   off(event: string, listener: (...args: any[]) => void): unknown;
 };

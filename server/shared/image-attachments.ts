@@ -433,3 +433,37 @@ export function buildCodexInputItems(prompt: string, images: unknown, cwd?: stri
   }
   return items;
 }
+
+/**
+ * Trust boundary for client-supplied image attachments: chat.send options come
+ * straight from the browser, and the provider runtimes read the referenced
+ * files off disk (Claude base64-encodes them into the prompt). Only images
+ * that live directly inside the global upload store (`~/.cloudcli/assets`,
+ * where POST /api/assets/images puts them) are allowed through — anything
+ * else (absolute paths elsewhere, traversal, subdirectories) is dropped.
+ *
+ * Used by websocket sends and Codex mid-turn inputs; `assetsRootOverride` exists only for them.
+ */
+export function filterAttachmentsToUploadStore(
+  attachments: unknown,
+  assetsRootOverride?: string,
+): ChatAttachmentDescriptor[] {
+  const assetsRoot = path.resolve(assetsRootOverride ?? getGlobalImageAssetsDir());
+
+  return normalizeAttachmentDescriptors(attachments).filter((descriptor) => {
+    // Relative paths are anchored in the store; absolute ones must already be in it.
+    const resolved = path.resolve(assetsRoot, descriptor.path);
+    const relative = path.relative(assetsRoot, resolved);
+    const isDirectChild =
+      relative.length > 0 &&
+      !relative.startsWith('..') &&
+      !path.isAbsolute(relative) &&
+      !relative.includes(path.sep) &&
+      !relative.includes('/');
+
+    if (!isDirectChild) {
+      console.warn(`[Chat] Dropping attachment outside the upload store: ${descriptor.path}`);
+    }
+    return isDirectChild;
+  });
+}

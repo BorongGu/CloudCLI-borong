@@ -32,3 +32,10 @@ test('persisted assistant entries keep the history identity', () => {
   assert.equal(row.id, 'history-answer');
   assert.equal(row.content, 'Complete reply.');
 });
+
+test('native asynchronous question replies render their selected answers after a history reload', () => {
+  const [row] = new CodexSessionsProvider().normalizeMessage({
+    uuid: 'native-reply', message: { role: 'user', content: '<send_user_message_question_reply>\n[{"answer":"Mac","question":"Which host?","questionItemId":"native-id"}]\n</send_user_message_question_reply>' },
+  }, 'app-session');
+  assert.equal(row.role, 'user');assert.equal(row.content, 'Which host?\nMac');
+});

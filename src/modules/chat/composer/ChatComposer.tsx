@@ -52,6 +52,9 @@ type ChatComposerProps = {
   handleGrantToolPermission: (suggestion: { entry: string; toolName: string }) => { success: boolean };
   activity: SessionActivity | null;
   isLoading: boolean;
+  /** Codex accepts input directly into an active native turn. */
+  canSteer?: boolean;
+  onQueueMessage?: () => void;
   onAbortSession: () => void;
   permissionMode: PermissionMode;
   availablePermissionModes: PermissionMode[];
@@ -129,6 +132,8 @@ export default function ChatComposer({
   handleGrantToolPermission,
   activity,
   isLoading,
+  canSteer = false,
+  onQueueMessage,
   onAbortSession,
   permissionMode,
   availablePermissionModes,
@@ -249,23 +254,27 @@ export default function ChatComposer({
 
   // Detect if the AskUserQuestion interactive panel is active
   const hasQuestionPanel = pendingPermissionRequests.some(
-    (r) => r.toolName === 'AskUserQuestion'
+    (r) => r.toolName === 'AskUserQuestion' && (r.context as { isBlocking?: boolean } | undefined)?.isBlocking !== false
   );
 
   // Hide the thinking/status bar while any permission request is pending
-  const hasPendingPermissions = pendingPermissionRequests.length > 0;
+  const hasPendingPermissions = pendingPermissionRequests.some(request => (request.context as { isBlocking?: boolean } | undefined)?.isBlocking !== false);
   const hasActivityIndicator = Boolean(activity && !hasPendingPermissions);
 
   const hasQueuedDraft = Boolean(queuedDraft);
   const canQueueDraft = isLoading && Boolean(input.trim() || attachedFiles.length > 0);
-  const submitHint = canQueueDraft
+  const submitHint = canQueueDraft && canSteer
+    ? t('input.hintText.steer')
+    : canQueueDraft
     ? hasQueuedDraft
       ? t('input.hintText.appendQueued', { defaultValue: 'Enter to add to the queued message' })
       : t('input.hintText.queue', { defaultValue: 'Enter to queue your next message' })
     : sendByCtrlEnter
       ? t('input.hintText.ctrlEnter')
       : t('input.hintText.enter');
-  const submitAriaLabel = canQueueDraft
+  const submitAriaLabel = canQueueDraft && canSteer
+    ? t('input.steer')
+    : canQueueDraft
     ? hasQueuedDraft
       ? t('input.queue.append', { defaultValue: 'Add to queued message' })
       : t('input.queue.sendNext', { defaultValue: 'Queue next message' })
@@ -506,6 +515,11 @@ export default function ChatComposer({
               providerLabel={providerLabel}
             />
 
+            {canQueueDraft && canSteer && onQueueMessage && (
+              <button type="button" onClick={onQueueMessage} className="rounded-lg border border-border px-2 py-2 text-xs text-muted-foreground hover:bg-muted" title={t('input.queue.sendNext')}>
+                {t('input.queue.button')}
+              </button>
+            )}
             <PromptInputSubmit
               onClick={
                 canQueueDraft

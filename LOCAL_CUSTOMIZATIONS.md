@@ -37,6 +37,36 @@ POST accepts `action` (`set`, `pause`, `resume`, `clear`) and an `objective` for
 server. Goal controls execute immediately while a turn is running. A normal
 chat stop pauses an active Goal before interrupting its current turn.
 
+## Working input and questions
+
+While Codex is working, Enter or the send button appends input to the current
+native turn with `turn/steer`. Tab with text in the composer, or the Queue
+button, persists a separate follow-up for the next turn. An input accepted by
+Codex is echoed locally; a failed request retains the typed text. A native
+turn that finishes during submission falls back to the durable queue.
+
+The steering API is `POST /api/providers/sessions/:sessionId/steer`, with
+`content` and optional uploaded `attachments`. The server resolves the native
+thread, checks its current turn id, and validates the same upload boundary as
+an ordinary send. Model and permission settings apply at turn startup.
+
+Native `item/tool/requestUserInput` requests appear as inline choice/text
+cards. Answers retain the native request and question ids. Nonblocking cards
+keep the composer and activity indicator available, preserve independently
+typed drafts, and replay through the existing subscription snapshot. Async
+`agentMessage.questions` cards carry their original call id and question
+index when answered, and survive a completed response until they are answered.
+Native resolution events retract cards on every subscribed device. The
+question card handles its own Escape key. History renders the question and
+selected answer as conversation text.
+
+The deployed backend now includes the queued-message routes, user service,
+and draft repository used by the source client. Queued follow-ups are checked
+every second, independently from scheduled runs in other sessions, and retain
+the existing atomic SQLite claim behavior. Each queued run inherits the current
+phone/desktop viewers and continues their replay sequence, so its working
+status, streamed response and completion arrive on the already-open clients.
+
 ## Other included changes
 
 - Native CLI and web chat share the same Codex App Server and thread history.
@@ -78,13 +108,18 @@ plugin; private keys stay in the host's credential stores.
 
 ## Validation
 
-- Frontend suite: 842 tests passed across 116 files.
-- Related provider/websocket backend suite: 102 passed, one skipped.
+- Frontend suite: 851 tests passed across 117 files.
+- Related provider/websocket/user/queue backend suite: 164 passed, one skipped.
 - Go account-router suite: 24 tests passed.
 - Frontend and backend TypeScript checking passed with Node.js 22 type definitions.
 - Client production build and backend compilation passed.
 - Actual browser validation: mobile Goal creation, pause and reload; desktop
   resume; two native automatic turns streamed to chat; persisted file outputs;
   completed-goal reload and clear.
+- Actual working-input validation: mobile native question and refresh, desktop
+  answer, a second mobile instruction accepted into the same running turn,
+  queued HTTP 200 and a separate completed next turn. Phone and desktop both
+  receive that queued turn live and return to idle; history shows readable
+  question answers.
 
 Host validation records are kept under `~/.local/share/cloudcli-data/`.

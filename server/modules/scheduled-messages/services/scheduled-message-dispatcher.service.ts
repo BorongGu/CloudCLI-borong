@@ -13,6 +13,9 @@ import { readQueuedChatMessage } from '@/shared/utils.js';
  */
 const POLL_INTERVAL_MS = 30_000;
 
+// Next-turn follow-ups use a short poll independent of long scheduled runs.
+const QUEUED_POLL_INTERVAL_MS = 1000;
+let queuedPollTimer: ReturnType<typeof setInterval> | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let dispatchInFlight = false;
 
@@ -165,7 +168,6 @@ export function initializeScheduledMessageDispatcher(runtime: ProviderRuntimeGat
     }
     dispatchInFlight = true;
     void dispatchDueScheduledMessages(runtime)
-      .then(() => dispatchQueuedMessages(runtime))
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         console.error('[ScheduledMessages] Dispatch pass failed', { error: message });
@@ -175,15 +177,26 @@ export function initializeScheduledMessageDispatcher(runtime: ProviderRuntimeGat
       });
   };
 
+  const pollQueued = () => {
+    // The persisted claim and run registry reserve each session atomically.
+    // An in-flight turn in one session leaves the other sessions free to dispatch.
+    void dispatchQueuedMessages(runtime).catch((error: unknown) => {
+      console.error('[ScheduledMessages] Queued dispatch failed', error);
+    });
+  };
+  queuedPollTimer = setInterval(pollQueued, QUEUED_POLL_INTERVAL_MS);
+  queuedPollTimer.unref?.();
   pollTimer = setInterval(poll, POLL_INTERVAL_MS);
   // Never keep the process alive just to poll for scheduled messages.
   pollTimer.unref?.();
 
   // Catch up on anything that came due while the server was not running.
   poll();
+  pollQueued();
 }
 
 export function closeScheduledMessageDispatcher(): void {
+  if (queuedPollTimer) { clearInterval(queuedPollTimer); queuedPollTimer = null; }
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;

@@ -98,6 +98,22 @@ test('goal routes validate input and return empty state for a new Codex session'
   });
 });
 
+test('mid-turn input route validates the session and rejects a settled native turn for durable retry', async () => {
+  await withProviderServer(async (baseUrl, workspacePath) => {
+    sessionsDb.createAppSession('steer-new', 'codex', workspacePath);
+    sessionsDb.createAppSession('steer-other', 'opencode', workspacePath);
+    const post = (id: string, body: unknown) => fetch(baseUrl + '/api/providers/sessions/' + id + '/steer', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    assert.equal((await post('steer-new', { content: 123 })).status, 400);
+    assert.equal((await post('steer-new', { content: 'hello', attachments: 'bad' })).status, 400);
+    const idle = await post('steer-new', { content: 'hello' });
+    assert.equal(idle.status, 409);assert.equal((await idle.json() as any).error.code, 'CODEX_NO_ACTIVE_TURN');
+    assert.equal((await post('steer-other', { content: 'hello' })).status, 400);
+    assert.equal((await post('missing', { content: 'hello' })).status, 404);
+  });
+});
+
 test('conversation search streams title matches before transcript results', async () => {
   await withProviderServer(async (baseUrl, workspacePath) => {
     sessionsDb.createAppSession(

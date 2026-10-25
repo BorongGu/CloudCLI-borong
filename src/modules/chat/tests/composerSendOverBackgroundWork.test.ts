@@ -83,7 +83,7 @@ const render = (processingSessions: SessionActivityMap) => {
 type View = ReturnType<typeof render>['view'];
 
 const startSubmit = (view: View) => {
-  let pending!: Promise<void>;
+  let pending!: Promise<unknown>;
   act(() => {
     pending = view.result.current.handleSubmit({ preventDefault: () => undefined } as never);
   });

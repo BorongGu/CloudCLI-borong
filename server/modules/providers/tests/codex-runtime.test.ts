@@ -6,12 +6,15 @@ import { SharedCodex as Codex } from '../list/codex/codex-shared-sdk.js';
 import type { SharedCodexThread as Thread } from '../list/codex/codex-shared-sdk.js';
 import type { ThreadOptions } from '@openai/codex-sdk';
 
+import { codexQuestions } from '@/modules/providers/list/codex/codex-questions.provider.js';
 import { codexRuntime } from '@/modules/providers/list/codex/codex-runtime.provider.js';
 import type { ProviderRuntimeContext } from '@/shared/index.js';
 
 for (const resumed of [false, true]) {
   for (const permissionMode of [undefined, 'default', 'unknown', 'acceptEdits', 'bypassPermissions']) {
     test(`Codex ${resumed ? 'resumes' : 'starts'} with supported permissions (${permissionMode ?? 'omitted'})`, async (t) => {
+      // This suite scripts SDK output; question transport has separate RPC coverage.
+      t.mock.method(codexQuestions, 'bind', () => {});
       let capturedOptions: ThreadOptions | undefined;
       let capturedPrompt: unknown;
       const messages: unknown[] = [];
@@ -61,6 +64,8 @@ for (const resumed of [false, true]) {
 
 for (const command of ['', '  \n\t']) {
   test(`Codex supplies a prompt for an image-only turn (${JSON.stringify(command)})`, async (t) => {
+      // This suite scripts SDK output; question transport has separate RPC coverage.
+      t.mock.method(codexQuestions, 'bind', () => {});
     let capturedPrompt: unknown;
     const imagePath = path.join(process.cwd(), 'public', 'favicon.png');
     const thread = {

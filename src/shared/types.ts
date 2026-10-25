@@ -466,6 +466,11 @@ export type PendingPermissionRequest = {
 
 /** One question asked by the AskUserQuestion tool, with its answer options and whether more than one option may be selected. */
 export type Question = {
+  /** Native Codex question identity, retained independently from translated prose. */
+  id?: string;
+  /** Native questions can offer only a text field or hide sensitive answers. */
+  allowOther?: boolean;
+  isSecret?: boolean;
   question: string;
   header?: string;
   options: QuestionOption[];

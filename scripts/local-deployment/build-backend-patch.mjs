@@ -7,6 +7,17 @@ import ts from 'typescript';
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const output = process.env.CLOUDCLI_PATCH_DIR || path.join(os.homedir(), '.config/cloudcli/backend-patch');
 const files = [
+  'server/modules/websocket/services/chat-session-writer.service.ts',
+  'server/modules/websocket/services/chat-run-registry.service.ts',
+  'server/modules/scheduled-messages/services/scheduled-message-dispatcher.service.ts',
+  'server/modules/user/user.routes.ts',
+  'server/modules/user/user.service.ts',
+  'server/modules/user/user.module.ts',
+  'server/modules/database/repositories/session-drafts.db.ts',
+  'server/shared/utils.ts',
+  'server/shared/image-attachments.ts',
+  'server/modules/providers/list/codex/codex-questions.provider.ts',
+  'server/modules/providers/services/codex-steering.service.ts',
   'server/modules/providers/list/codex/codex-shared-connection.ts',
   'server/modules/providers/list/codex/codex-shared-sdk.ts',
   'server/modules/providers/list/codex/codex-goals.provider.ts',

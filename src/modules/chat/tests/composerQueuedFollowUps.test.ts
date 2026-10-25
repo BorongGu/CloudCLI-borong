@@ -198,7 +198,7 @@ const hold = () => {
 
 // Presses Enter without waiting for the submit to finish.
 const startSubmit = (view: View) => {
-  let pending!: Promise<void>;
+  let pending!: Promise<unknown>;
   act(() => {
     pending = view.result.current.handleSubmit({ preventDefault: () => undefined } as never);
   });
@@ -276,7 +276,7 @@ test('queueing behind background work adds to a message already waiting there', 
 
   const queueBehindWork = async (text: string) => {
     await act(async () => { view.result.current.setInput(text); });
-    let pending!: Promise<void>;
+    let pending!: Promise<unknown>;
     act(() => {
       pending = view.result.current.handleSubmit({ preventDefault: () => undefined } as never);
     });
@@ -393,7 +393,7 @@ test('switching sessions during the upload still queues the follow-up behind the
     view.result.current.setInput('follow-up B');
     view.result.current.setAttachedFiles([new File(['b'], 'b.txt', { type: 'text/plain' })]);
   });
-  let pending!: Promise<void>;
+  let pending!: Promise<unknown>;
   act(() => {
     pending = view.result.current.handleSubmit({ preventDefault: () => undefined } as never);
   });

@@ -12,6 +12,7 @@
  */
 
 import { SharedCodex as Codex } from './codex-shared-sdk.js';
+import { codexQuestions } from './codex-questions.provider.js';
 import { parseCodexGoalCommand } from './codex-goals.provider.js';
 import type { SharedCodexThread as Thread } from './codex-shared-sdk.js';
 import type { ModelReasoningEffort, ThreadOptions } from '@openai/codex-sdk';
@@ -342,6 +343,7 @@ async function queryCodex(
 
     if (sessionKey()) {
       registerSession(sessionKey());
+      if (providerSessionId) codexQuestions.bind(sessionKey()!, providerSessionId, ws);
     }
 
     // Execute with streaming. Turns with image attachments send structured
@@ -369,6 +371,7 @@ async function queryCodex(
       // Capture thread/session id lazily from the stream (Codex emits this asynchronously).
       if (event.type === 'thread.started') {
         const discoveredSessionId = typeof event.thread_id === 'string' ? event.thread_id : null;
+        if (discoveredSessionId) codexQuestions.bind(sessionKey() || discoveredSessionId, discoveredSessionId, ws);
         if (discoveredSessionId && !capturedSessionId) {
           capturedSessionId = discoveredSessionId;
           registerSession(sessionKey());
@@ -501,6 +504,7 @@ async function queryCodex(
     }
 
   } finally {
+    if (capturedSessionId) codexQuestions.release(capturedSessionId);
     // Update session status
     if (sessionKey()) {
       const session = activeCodexSessions.get(sessionKey() || '');
@@ -537,6 +541,7 @@ function abortCodexSession(sessionId: string) {
 export const codexRuntime = {
   run: queryCodex,
   abort: abortCodexSession,
+  permissions: codexQuestions,
 };
 
 /**
