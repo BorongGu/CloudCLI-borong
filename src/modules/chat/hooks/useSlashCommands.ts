@@ -8,6 +8,9 @@ import { isSkillCommand } from '@/shared/utils';
 
 const COMMAND_QUERY_DEBOUNCE_MS = 150;
 
+const insertsIntoInput = (command: SlashCommand): boolean =>
+  isSkillCommand(command) || command.metadata?.type === 'codex-goal';
+
 
 type UseSlashCommandsOptions = {
   selectedProject: Project | null;
@@ -211,7 +214,7 @@ export function useSlashCommands({
 
   const selectCommandFromKeyboard = useCallback(
     (command: SlashCommand) => {
-      if (isSkillCommand(command)) {
+      if (insertsIntoInput(command)) {
         insertCommandIntoInput(command);
         return;
       }
@@ -233,7 +236,7 @@ export function useSlashCommands({
       }
 
       trackCommandUsage(command);
-      if (isSkillCommand(command)) {
+      if (insertsIntoInput(command)) {
         insertCommandIntoInput(command);
         return;
       }

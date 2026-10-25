@@ -81,6 +81,23 @@ test('session creation route names a CloudCLI session from the initial message',
   });
 });
 
+test('goal routes validate input and return empty state for a new Codex session', async () => {
+  await withProviderServer(async (baseUrl, workspacePath) => {
+    sessionsDb.createAppSession('goal-new', 'codex', workspacePath);
+    const read = await fetch(baseUrl + '/api/providers/sessions/goal-new/goal');
+    assert.equal(read.status, 200);assert.equal((await read.json() as any).data.goal, null);
+    for (const body of [{ action: 'set', objective: '' }, { action: 'set', objective: 'x'.repeat(4001) }, { action: 'invalid' }]) {
+      const response = await fetch(baseUrl + '/api/providers/sessions/goal-new/goal', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      assert.equal(response.status, 400);
+    }
+    sessionsDb.createAppSession('goal-other', 'opencode', workspacePath);
+    assert.equal((await fetch(baseUrl + '/api/providers/sessions/goal-other/goal')).status, 400);
+    assert.equal((await fetch(baseUrl + '/api/providers/sessions/missing/goal')).status, 404);
+  });
+});
+
 test('conversation search streams title matches before transcript results', async () => {
   await withProviderServer(async (baseUrl, workspacePath) => {
     sessionsDb.createAppSession(

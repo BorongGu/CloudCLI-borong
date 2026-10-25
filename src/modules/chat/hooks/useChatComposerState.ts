@@ -50,7 +50,7 @@ type UseChatComposerStateArgs = {
   processingSessions?: SessionActivityMap;
   canAbortSession: boolean;
   tokenBudget: Record<string, unknown> | null;
-  sendMessage: (message: unknown) => void;
+  sendMessage: (message: unknown) => boolean | void;
   sendByCtrlEnter?: boolean;
   onSessionProcessing?: MarkSessionProcessing;
   /**
@@ -867,6 +867,35 @@ export function useChatComposerState({
       // A turn is already in flight: stash this message instead of sending it.
       // Upload attached files now so the queued record contains durable image
       // descriptors that can be sent even if another session is open later.
+      const goalArgument = provider === 'codex' && /^\/goal(?:\s|$)/.test(currentInput)
+        ? currentInput.slice(5).trim() : null;
+      // Goal controls act immediately, including while a turn is running.
+      // A new objective on an idle thread goes through the runtime so its
+      // native continuation events are observed from the moment it is set.
+      if (goalArgument !== null && (!goalArgument || ['pause', 'resume', 'clear'].includes(goalArgument) || isLoading)) {
+        const action = !goalArgument ? 'get'
+          : ['pause', 'resume', 'clear'].includes(goalArgument) ? goalArgument as 'pause' | 'resume' | 'clear' : 'set';
+        const targetId = selectedSession?.id || currentSessionId;
+        try {
+          if (targetId) {
+            const response = action === 'get' ? await api.providers.sessionGoal(targetId)
+              : await api.providers.setSessionGoal(targetId, action, action === 'set' ? goalArgument : undefined);
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error?.message || 'Goal operation failed.');
+            if (action === 'get') addMessage({ type: 'assistant', content: result.data?.goal
+              ? `Goal (${result.data.goal.status}): ${result.data.goal.objective}`
+              : t('goal.empty', { defaultValue: '当前会话尚未设置目标。输入 /goal 加目标内容即可开始。' }), timestamp: Date.now() });
+          } else if (action !== 'get' && action !== 'clear') {
+            throw new Error(t('goal.startFirst', { defaultValue: '请先输入 /goal 和目标内容。' }));
+          } else {
+            addMessage({ type: 'assistant', content: t('goal.empty', { defaultValue: '当前会话尚未设置目标。输入 /goal 加目标内容即可开始。' }), timestamp: Date.now() });
+          }
+          setInput(''); inputValueRef.current = ''; resetCommandMenuState();
+        } catch (error) {
+          addMessage({ type: 'error', content: String(error instanceof Error ? error.message : error), timestamp: new Date() });
+        }
+        return;
+      }
       if (isLoading) {
         // A run can restart in the tiny gap between scheduling and flushing a
         // queued submission. Put the same durable draft back without uploading
@@ -923,7 +952,7 @@ export function useChatComposerState({
                 metadata: { type: 'builtin' },
               } as SlashCommand)
             : undefined);
-        if (matchedCommand && matchedCommand.type !== 'skill') {
+        if (matchedCommand && matchedCommand.type !== 'skill' && matchedCommand.metadata?.type !== 'codex-goal') {
           executeCommand(matchedCommand, isHelpAlias ? '/help' : commandInput);
           recordSentMessage(currentInput);
           setInput('');
@@ -1056,22 +1085,10 @@ export function useChatComposerState({
         ...(editingAnchorId ? { replacesAnchorId: editingAnchorId } : {}),
       };
 
-      addMessage(userMessage);
-      // Mark this request as processing in the per-session activity map (the
-      // single source of truth the indicator derives from). The id is always
-      // concrete at this point — no pending placeholder exists anymore.
-      onSessionProcessing?.(targetSessionId, {
-        statusText: null,
-        canInterrupt: true,
-      });
-
-      setIsUserScrolledUp(false);
-      setTimeout(() => scrollToBottom(), 100);
-
       // One message shape for every provider. The backend resolves the
       // provider, project path, and provider-native resume id from the
       // session row; `options` only carries composer-level preferences.
-      sendMessage({
+      const sent = sendMessage({
         // Replacing an already-sent message is its own frame: it changes the
         // shape of the conversation, so it gets validated separately and can
         // report why it was refused.
@@ -1084,6 +1101,24 @@ export function useChatComposerState({
           attachments: uploadedAttachments,
         },
       });
+      if (sent === false) {
+        addMessage({
+          type: 'error',
+          content: t('connection.sendFailed', { defaultValue: '聊天连接正在恢复，消息已保留在输入框。连接恢复后请点击发送。' }),
+          timestamp: new Date(),
+        });
+        return;
+      }
+
+      // Show a sent message only after the transport accepts it. An offline
+      // send keeps the text, attachments, edit anchor and saved draft intact.
+      addMessage(userMessage);
+      onSessionProcessing?.(targetSessionId, {
+        statusText: null,
+        canInterrupt: true,
+      });
+      setIsUserScrolledUp(false);
+      setTimeout(() => scrollToBottom(), 100);
       setEditingAnchorId(null);
 
       // Recorded under the (possibly just-allocated) session id, so the first

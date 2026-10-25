@@ -406,5 +406,20 @@
     "customModelsOnlyHint": "Hide the built-in {{provider}} models from every model picker and make your first model the default. Built-in models stay listed until you add a model.",
     "builtInModelsHidden": "Hidden from model pickers while “Use only my models” is on.",
     "customModelsOnlyFailed": "Unable to change this setting."
+  },
+  "goal": {
+    "pause": "Pause",
+    "resume": "Resume",
+    "clear": "Clear",
+    "empty": "This chat has no goal yet. Enter /goal followed by your objective.",
+    "startFirst": "Enter /goal followed by your objective first.",
+    "status": {
+      "active": "Active",
+      "paused": "Paused",
+      "complete": "Complete",
+      "blocked": "Waiting for input",
+      "budget_limited": "Budget reached",
+      "budgetLimited": "Budget reached"
+    }
   }
 }

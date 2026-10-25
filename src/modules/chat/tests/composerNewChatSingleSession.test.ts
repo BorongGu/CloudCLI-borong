@@ -6,6 +6,7 @@ import { afterEach, beforeEach, test, vi } from 'vitest';
 import '@/modules/i18n';
 import { useChatComposerState } from '@/modules/chat/hooks/useChatComposerState';
 import type { PermissionMode, Project, ProjectSession } from '@/shared/types';
+import { readDraftText } from '@/shared/chatDrafts';
 
 /**
  * The first message of a brand-new chat allocates its session id with
@@ -47,9 +48,11 @@ const releaseCreates = async (status = 201) => {
 const createRequests = (fetchMock: ReturnType<typeof vi.fn>) => fetchMock.mock.calls
   .filter(([url, init]) => String(url) === '/api/providers/sessions' && (init as RequestInit | undefined)?.method === 'POST');
 
-const renderComposer = (initialSession: ProjectSession | null) => {
+const renderComposer = (initialSession: ProjectSession | null, canSend = () => true) => {
   const sent: Array<{ type: string; sessionId?: string; content?: string }> = [];
   const established: string[] = [];
+  const added: Array<{ type: string; content?: string }> = [];
+  const processing: string[] = [];
   const view = renderHook(({ session }: { session: ProjectSession | null }) =>
     useChatComposerState({
       selectedProject: PROJECT,
@@ -64,15 +67,20 @@ const renderComposer = (initialSession: ProjectSession | null) => {
       isLoading: false,
       canAbortSession: false,
       tokenBudget: null,
-      sendMessage: (message) => { sent.push(message as { type: string }); },
+      sendMessage: (message) => {
+        if (!canSend()) return false;
+        sent.push(message as { type: string });
+        return true;
+      },
+      onSessionProcessing: (sessionId) => { if (sessionId) processing.push(sessionId); },
       onSessionEstablished: (sessionId) => { established.push(sessionId); },
       scrollToBottom: () => undefined,
-      addMessage: () => undefined,
+      addMessage: (message) => { added.push(message); },
       setIsUserScrolledUp: () => undefined,
       setPendingPermissionRequests: () => undefined,
     }),
   { initialProps: { session: initialSession } });
-  return { view, established, chatSends: () => sent.filter((message) => message.type === 'chat.send') };
+  return { view, established, added, processing, chatSends: () => sent.filter((message) => message.type === 'chat.send') };
 };
 
 const renderNewChat = () => renderComposer(null);
@@ -103,6 +111,25 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   localStorage.clear();
+});
+
+test('an offline send keeps the draft and shows an error, then a connected retry sends once', async () => {
+  let online = false;
+  const { view, chatSends, added, processing } = renderComposer({ id: 'session-offline' }, () => online);
+  await act(async () => { view.result.current.setInput('my unsent question'); });
+  await act(async () => { await view.result.current.handleSubmit({ preventDefault() {} } as never); });
+  assert.equal(view.result.current.input, 'my unsent question');
+  assert.equal(readDraftText('session-offline'), 'my unsent question');
+  assert.equal(chatSends().length, 0);
+  assert.deepEqual(processing, []);
+  assert.deepEqual(added.map(message => message.type), ['error']);
+  online = true;
+  await act(async () => { await view.result.current.handleSubmit({ preventDefault() {} } as never); });
+  assert.equal(chatSends().length, 1);
+  assert.equal(view.result.current.input, '');
+  assert.equal(readDraftText('session-offline'), '');
+  assert.deepEqual(processing, ['session-offline']);
+  assert.deepEqual(added.map(message => message.type), ['error', 'user']);
 });
 
 test('submitting again while the new chat\'s session is being created allocates one session and sends once', async () => {

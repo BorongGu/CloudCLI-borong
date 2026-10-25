@@ -1,0 +1,323 @@
+/* The default application appearance, shared by every workspace and provider. */
+:root {
+  --font-text: "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, "Times New Roman", serif;
+  --font-code: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --surface-sidebar: #f0eee6;
+  --surface-user: #edeae0;
+  --surface-code: #f3f1ea;
+  --brand-terracotta: #d97757;
+  --surface-shadow: 0 4px 24px rgb(31 30 27 / 6%);
+}
+
+.dark {
+  --surface-sidebar: #262523;
+  --surface-user: #33302b;
+  --surface-code: #232220;
+  --surface-shadow: 0 4px 24px rgb(0 0 0 / 18%);
+}
+
+body {
+  font-family: var(--font-text);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+button, input, textarea, select {
+  font-family: inherit;
+  accent-color: hsl(var(--primary));
+}
+
+code, pre, kbd, samp, .font-mono {
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
+}
+
+::selection {
+  color: hsl(var(--foreground));
+  background: rgb(217 119 87 / 22%);
+}
+
+.workspace-sidebar {
+  background: var(--surface-sidebar);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.workspace-sidebar h1 {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+}
+
+.workspace-sidebar .nav-search-input {
+  background: hsl(var(--background) / 70%);
+  border: 1px solid hsl(var(--border) / 80%);
+}
+
+.workspace-sidebar .nav-divider {
+  background: hsl(var(--border) / 70%);
+}
+
+.workspace-sidebar button,
+.workspace-sidebar a {
+  border-radius: 10px;
+}
+
+.workspace-sidebar .sidebar-session-row {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workspace-sidebar .sidebar-session-row:hover {
+  background: hsl(var(--accent) / 55%);
+}
+
+.workspace-sidebar .sidebar-session-row[data-selected="true"] {
+  background: var(--surface-user);
+}
+
+.workspace-sidebar .sidebar-session-row[aria-checked="true"] {
+  border-color: hsl(var(--primary) / 30%);
+  background: hsl(var(--primary) / 10%);
+}
+
+.workspace-header {
+  min-height: 58px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background: hsl(var(--background));
+  border-bottom-color: hsl(var(--border) / 55%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.nav-tab-active {
+  box-shadow: 0 1px 3px rgb(31 30 27 / 5%);
+}
+
+.chat-messages-pane {
+  background: hsl(var(--background));
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.chat-transcript-content {
+  padding-top: 12px;
+  padding-bottom: 20px;
+}
+
+.chat-message {
+  margin-top: 18px;
+  margin-bottom: 18px;
+}
+
+.chat-message.grouped {
+  margin-top: 6px;
+}
+
+.chat-message .prose {
+  font-family: var(--font-text);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.85;
+  color: hsl(var(--foreground));
+  --tw-prose-body: hsl(var(--foreground));
+  --tw-prose-headings: hsl(var(--foreground));
+  --tw-prose-bold: hsl(var(--foreground));
+  --tw-prose-links: hsl(var(--primary));
+  --tw-prose-bullets: hsl(var(--muted-foreground));
+  --tw-prose-quotes: hsl(var(--muted-foreground));
+  --tw-prose-quote-borders: hsl(var(--border));
+  --tw-prose-hr: hsl(var(--border));
+  --tw-prose-th-borders: hsl(var(--border));
+  --tw-prose-td-borders: hsl(var(--border));
+}
+
+.chat-message .prose :where(h1, h2, h3, h4) {
+  font-family: var(--font-text);
+  font-weight: 650;
+  line-height: 1.5;
+  letter-spacing: -0.015em;
+}
+
+.chat-message .prose :where(p, ul, ol, blockquote) {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+
+.chat-user-bubble {
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface-user) !important;
+  box-shadow: none;
+}
+
+.chat-user-bubble .prose {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.chat-message pre {
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: var(--surface-code) !important;
+}
+
+.chat-message pre,
+.chat-message pre code,
+.chat-message pre code span {
+  font-family: var(--font-code) !important;
+  font-size: 13px;
+  line-height: 1.7;
+  font-variant-ligatures: none;
+}
+
+.chat-message pre code {
+  background: transparent !important;
+}
+
+.chat-message .prose :not(pre) > code {
+  padding: 0.15em 0.35em;
+  border-radius: 5px;
+  background: var(--surface-code);
+  color: hsl(var(--foreground));
+  font-family: var(--font-code);
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
+.chat-message .prose :not(pre) > code::before,
+.chat-message .prose :not(pre) > code::after {
+  content: none;
+}
+
+.chat-empty-state h2 {
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.025em;
+}
+
+.chat-composer-shell {
+  padding-bottom: 24px;
+}
+
+.chat-composer-form {
+  border: 1px solid hsl(var(--input));
+  border-radius: 20px;
+  background: hsl(var(--card));
+  box-shadow: var(--surface-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.chat-composer-form:focus-within {
+  border-color: hsl(var(--ring) / 65%);
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 8%), var(--surface-shadow);
+}
+
+.chat-composer-form.rounded-t-none {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* Keep the mention overlay aligned with the textarea at the larger type size. */
+.chat-composer-form .chat-input-placeholder {
+  padding: 16px 18px;
+  font-family: var(--font-text);
+  font-size: 16px;
+  line-height: 26px;
+}
+
+.chat-composer-form [data-slot="prompt-input-footer"] {
+  padding: 2px 12px 10px;
+}
+
+.chat-composer-form button[type="submit"] {
+  border-radius: 12px;
+}
+
+.settings-dialog {
+  background: hsl(var(--background));
+  box-shadow: 0 16px 64px rgb(31 30 27 / 16%);
+}
+
+.settings-dialog > div:first-child {
+  background: hsl(var(--card));
+}
+
+.settings-dialog aside {
+  background: var(--surface-sidebar);
+}
+
+.settings-dialog h2,
+.settings-dialog h3 {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.auth-screen > [aria-hidden] {
+  display: none;
+}
+
+.auth-card {
+  border: 1px solid hsl(var(--border));
+  border-radius: 22px;
+  background: hsl(var(--card));
+  box-shadow: var(--surface-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.auth-card button[type="submit"] {
+  box-shadow: none;
+}
+
+@media (min-width: 768px) {
+  .chat-messages-pane {
+    padding-top: 20px;
+  }
+
+  .settings-dialog {
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 767px) {
+  .workspace-header {
+    min-height: 52px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: 8px;
+  }
+
+  .chat-transcript-content {
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+
+  .chat-composer-shell {
+    padding-right: 10px;
+    padding-bottom: 12px;
+    padding-left: 10px;
+  }
+
+  .chat-composer-form .chat-input-placeholder {
+    padding-right: 14px;
+    padding-left: 14px;
+    font-size: 16px;
+  }
+
+  .chat-message .prose,
+  .chat-user-bubble .prose {
+    font-size: 16px;
+  }
+
+  .chat-user-bubble {
+    padding: 10px 14px;
+  }
+
+  .chat-empty-state h2 {
+    font-size: 26px;
+  }
+}

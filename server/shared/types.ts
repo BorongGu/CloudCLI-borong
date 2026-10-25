@@ -22,6 +22,31 @@ export type ApiSuccessShape<TData = unknown> = {
 export type AnyRecord = Record<string, any>;
 
 // ---------------------------
+//----------------- CODEX NATIVE GOALS ------------
+/** Persisted Codex goal returned by App Server and forwarded to the chat client. */
+export type CodexGoal = {
+  threadId: string;
+  objective: string;
+  status: string;
+  tokenBudget?: number | null;
+  tokensUsed: number;
+  timeUsedSeconds: number;
+};
+
+/** Validated native /goal operation shared by the runtime and goal API service. */
+export type CodexGoalCommand = {
+  action: 'get' | 'set' | 'pause' | 'resume' | 'clear';
+  objective?: string;
+};
+
+/** RPC/event contract consumed by the Codex thread adapter and goal operations. */
+export type CodexRpcConnection = {
+  call(method: string, params: unknown): Promise<any>;
+  on(event: string, listener: (...args: any[]) => void): unknown;
+  off(event: string, listener: (...args: any[]) => void): unknown;
+};
+
+// ---------------------------
 //----------------- WEBSOCKET TRANSPORT TYPES ------------
 /**
  * Minimal websocket client contract used by backend broadcaster services.

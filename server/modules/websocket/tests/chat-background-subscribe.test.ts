@@ -9,6 +9,7 @@ import { closeConnection, initializeDatabase, sessionsDb } from '@/modules/datab
 import { handleChatConnection } from '@/modules/websocket/services/chat-websocket.service.js';
 import { chatRunRegistry } from '@/modules/websocket/services/chat-run-registry.service.js';
 import { connectedClients } from '@/modules/websocket/services/websocket-state.service.js';
+import { codexGoalsService } from '@/modules/providers/index.js';
 
 /**
  * A session's turn ends while its agents, workflow or backgrounded command are
@@ -73,6 +74,29 @@ function startAndCompleteRun(connection: ReturnType<typeof createFakeSocket>) {
 }
 
 const settle = () => new Promise((resolve) => { setTimeout(resolve, 30); });
+
+test('reconnect reattaches an active native goal once without submitting another prompt', async () => {
+  await withIsolatedDatabase(async () => {
+    const id = 'native-goal-app';sessionsDb.createAppSession(id, 'codex', '/workspace');
+    sessionsDb.assignProviderSessionId(id, 'native-goal');
+    const mocked = mock.method(codexGoalsService, 'execute', async () => ({ goal: { status: 'active' } } as never));
+    let finish!: () => void;const held = new Promise<void>(resolve => { finish = resolve; });
+    const calls: any[] = [];
+    const runtime = { hasBackgroundWork: () => false, getPendingApprovalsForSession: () => [],
+      async run(provider: string, command: string, options: any, writer: any) {
+        calls.push({ provider, command, options });await held;
+        writer.send({ kind: 'complete', provider: 'codex', sessionId: 'native-goal', exitCode: 0 });
+      },
+    };
+    try {
+      const socket = createFakeSocket();handleChatConnection(socket as never, { user: { id: 1 } } as never, { runtime: runtime as never });
+      const frame = JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: id, watchGoal: true }] });
+      socket.emit('message', frame);await settle();socket.emit('message', frame);await settle();
+      assert.equal(calls.length, 1);assert.equal(calls[0].command, '');assert.equal(calls[0].options.codexGoalObserve, true);
+      assert.ok(socket.frames.some(f => f.kind === 'chat_subscribed' && f.isProcessing === true));
+    } finally { finish();await settle();mocked.mock.restore(); }
+  });
+});
 
 test('a tab that subscribes during background work receives the run\'s later events', async () => {
   await withIsolatedDatabase(async () => {

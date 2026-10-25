@@ -2159,7 +2159,9 @@ export class CodexSessionsProvider implements IProviderSessions {
       return [];
     }
 
-    if (raw.message?.role) {
+    // Live item snapshots carry a message role too. Keep them on the item
+    // path so updates retain their provider id and reasoning discriminator.
+    if (raw.type !== 'item' && raw.message?.role) {
       return this.normalizeHistoryEntry(raw, sessionId);
     }
 

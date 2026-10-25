@@ -11,8 +11,10 @@
  * - codexRuntime.abort(sessionId) - Cancel an active session
  */
 
-import { Codex } from '@openai/codex-sdk';
-import type { ModelReasoningEffort, Thread, ThreadOptions } from '@openai/codex-sdk';
+import { SharedCodex as Codex } from './codex-shared-sdk.js';
+import { parseCodexGoalCommand } from './codex-goals.provider.js';
+import type { SharedCodexThread as Thread } from './codex-shared-sdk.js';
+import type { ModelReasoningEffort, ThreadOptions } from '@openai/codex-sdk';
 
 import {
   appendFilesInputTag,
@@ -40,9 +42,9 @@ const CODEX_IMAGE_ONLY_PROMPT = 'Please analyze the attached image(s).';
 
 /**
  * Item types whose in-flight updates are worth showing. These are the ones a
- * user waits on — a shell command's output, an MCP call, and the running plan.
+ * user waits on — assistant text, reasoning, shell output, tools, and the plan.
  */
-const PROGRESSIVE_CODEX_ITEM_TYPES = new Set(['command_execution', 'mcp_tool_call', 'todo_list']);
+const PROGRESSIVE_CODEX_ITEM_TYPES = new Set(['command_execution', 'mcp_tool_call', 'todo_list', 'agent_message', 'reasoning']);
 
 function readUsageNumber(value: unknown) {
   const parsed = Number(value);
@@ -353,13 +355,20 @@ async function queryCodex(
       ? buildCodexInputItems(promptWithImageFallback, normalizedImages, workingDirectory)
       : promptWithFiles;
     const streamedTurn = await thread.runStreamed(turnInput, {
-      signal: abortController.signal
+      signal: abortController.signal,
+      goalCommand: parseCodexGoalCommand(command),
+      observeGoal: options.codexGoalObserve === true,
     });
 
     for await (const event of streamedTurn.events) {
+      if (event.type === 'goal.updated') {
+        sendMessage(ws, createNormalizedMessage({ kind: 'status', text: 'codex_goal', goal: event.goal,
+          sessionId: capturedSessionId || sessionId || null, provider: 'codex' }));
+        continue;
+      }
       // Capture thread/session id lazily from the stream (Codex emits this asynchronously).
       if (event.type === 'thread.started') {
-        const discoveredSessionId = event.thread_id || null;
+        const discoveredSessionId = typeof event.thread_id === 'string' ? event.thread_id : null;
         if (discoveredSessionId && !capturedSessionId) {
           capturedSessionId = discoveredSessionId;
           registerSession(sessionKey());
@@ -389,9 +398,8 @@ async function queryCodex(
       // Progress events used to be dropped, so a long shell command or a
       // growing plan showed nothing until it finished. They are forwarded now;
       // every item carries a stable id, so the client replaces the row it
-      // already has rather than stacking a new one per tick. Text items are
-      // still skipped mid-flight because assistant prose arrives through the
-      // separate streaming path.
+      // already has rather than stacking a new one per tick. The shared
+      // app-server delivers assistant text and reasoning as item snapshots too.
       if (
         (event.type === 'item.started' || event.type === 'item.updated')
         && !PROGRESSIVE_CODEX_ITEM_TYPES.has(event.item?.type)
@@ -405,7 +413,9 @@ async function queryCodex(
       }
 
       // Normalize the transformed event into NormalizedMessage(s) via adapter
-      const normalizedMsgs = context.normalizeMessage(transformed, capturedSessionId || sessionId || null);
+      // The final completion below carries exitCode/success for the gateway.
+      const normalizedMsgs = event.type === 'turn.completed' ? []
+        : context.normalizeMessage(transformed, capturedSessionId || sessionId || null);
       for (const msg of normalizedMsgs) {
         sendMessage(ws, msg);
       }

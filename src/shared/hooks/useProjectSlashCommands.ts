@@ -122,6 +122,8 @@ export function useProjectSlashCommands(
         const skillCommands = dedupeProviderSkills(skillsData?.data?.skills || [])
           .map(mapSkillToSlashCommand);
         const allCommands: SlashCommand[] = [
+          ...(provider === 'codex' ? [{ name: '/goal', description: 'Manage a persistent Codex goal: /goal <objective>, pause, resume, clear',
+            namespace: 'codex', type: 'built-in', metadata: { type: 'codex-goal' } } as SlashCommand] : []),
           ...((data.builtIn || []) as SlashCommand[]).map((command) => ({
             ...command,
             type: 'built-in',

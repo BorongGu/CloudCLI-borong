@@ -24,7 +24,7 @@ type GitStatusFileGroup = 'modified' | 'added' | 'deleted' | 'untracked';
  * appears as text. Apply it inline so the wordmark does not inherit a themed font.
  */
 export const CLOUDCLI_WORDMARK_FONT_FAMILY =
-  'ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji';
+  '"Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif';
 
 // ---------------------------
 

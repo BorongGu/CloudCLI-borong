@@ -174,9 +174,10 @@ function SidebarSessionItem({
           role={isSelecting ? 'checkbox' : undefined}
           aria-checked={isSelecting ? isChecked : undefined}
           aria-disabled={isSelecting && !isSelectable ? true : undefined}
+          data-selected={isSelected}
           tabIndex={isSelecting ? 0 : undefined}
           className={cn(
-            'p-2 mx-3 my-0.5 rounded-md bg-card border active:scale-[0.98] transition-all duration-150 relative',
+            'sidebar-session-row p-2 mx-3 my-0.5 rounded-md bg-card border active:scale-[0.98] transition-all duration-150 relative',
             isSelected ? 'bg-primary/5 border-primary/20' : '',
             !isSelected && isProcessing
               ? 'border-border/60 bg-muted/20'
@@ -381,12 +382,13 @@ function SidebarSessionItem({
       <div>
         <a
           href={`/session/${session.id}`}
+          data-selected={isSelected}
           role={isSelecting ? 'checkbox' : undefined}
           aria-checked={isSelecting ? isChecked : undefined}
           aria-disabled={isSelecting && !isSelectable ? true : undefined}
           className={cn(
             buttonVariants({ variant: 'ghost' }),
-            'h-auto w-full justify-start rounded-md border bg-card p-2 text-left font-normal transition-all duration-150',
+            'sidebar-session-row h-auto w-full justify-start rounded-md border bg-card p-2 text-left font-normal transition-all duration-150',
             isSelecting ? 'pr-2' : 'pr-11',
             isSelected ? 'border-primary/20 bg-primary/5' : 'border-border/30',
             !isSelected && isProcessing

@@ -15,10 +15,23 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"Encode Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        serif: ['Merriweather', 'Georgia', 'Cambria', '"Times New Roman"', 'serif'],
+        sans: ['"Source Han Serif SC VF"', '"Noto Serif CJK SC"', 'Georgia', 'serif'],
+        serif: ['"Source Han Serif SC VF"', '"Noto Serif CJK SC"', 'Georgia', 'serif'],
+        mono: ['ui-monospace', '"SF Mono"', '"JetBrains Mono"', 'Menlo', 'Consolas', 'monospace'],
       },
       colors: {
+        // Warm neutrals also cover the older panels that use gray utilities.
+        gray: {
+          50: '#faf9f5', 100: '#f3f1ea', 200: '#e4e1d6', 300: '#d3cfc1',
+          400: '#9b968a', 500: '#797469', 600: '#6e6a5f', 700: '#4a4741',
+          800: '#33302b', 900: '#262523', 950: '#1c1b19',
+        },
+        // Existing navigation and action controls share the terracotta accent.
+        blue: {
+          50: '#fcf3ed', 100: '#f8e4d8', 200: '#efc7b4', 300: '#e5a48a',
+          400: '#df8b6c', 500: '#d97757', 600: '#c15f3c', 700: '#a34d30',
+          800: '#813e2b', 900: '#643426', 950: '#351c16',
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

@@ -1,0 +1,22 @@
+[Unit]
+Description=Codex chat web interface (CloudCLI over Tailnet)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h
+EnvironmentFile=%h/.config/cloudcli/server.env
+Environment="PATH=%h/.local/share/cloudcli-runtime/node_modules/node/bin:%h/.npm-global/bin:%h/.local/bin:%h/.bun/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStartPre=%h/.npm-global/bin/codex app-server daemon start
+ExecStartPre=/usr/bin/python3 %h/.config/cloudcli/apply-defaults.py
+ExecStart=%h/.local/share/cloudcli-runtime/node_modules/node/bin/node %h/.local/share/cloudcli-runtime/node_modules/@cloudcli-ai/cloudcli/dist-server/server/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0077
+
+[Install]
+WantedBy=default.target

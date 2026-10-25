@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN" data-appearance="claude">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -7,13 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>CloudCLI UI</title>
 
-    <!-- Fonts: Encode Sans (UI) + Merriweather (chat) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Encode+Sans:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400;1,700&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Self-hosted variable serif text and the non-Apple code-font fallback. -->
+    <link rel="stylesheet" href="/fonts/claude/shs-bc4b18d5fb4d.css" />
+    <link rel="stylesheet" href="/fonts/claude/jbm.css" />
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" crossorigin="use-credentials"  />
@@ -21,15 +17,15 @@
     <!-- iOS Safari PWA Meta Tags -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Claude UI" />
+    <meta name="apple-mobile-web-app-title" content="CloudCLI" />
     
     <!-- iOS Safari Icons -->
     <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
     
     <!-- Theme Color -->
-    <meta name="theme-color" content="#ffffff" />
-    <meta name="msapplication-TileColor" content="#ffffff" />
+    <meta name="theme-color" content="#faf9f5" />
+    <meta name="msapplication-TileColor" content="#faf9f5" />
     
     <!-- Prevent zoom on iOS -->
     <meta name="format-detection" content="telephone=no" />

@@ -251,7 +251,7 @@ const WorkflowAgentTimeline = memo(({ sessionId, runId, agentId, isRunning, onFi
 
     return () => {
       cancelled = true;
-      clearTimeout(nextRead);
+      if (nextRead !== undefined) clearTimeout(nextRead);
     };
   }, [sessionId, runId, agentId, isRunning]);
 

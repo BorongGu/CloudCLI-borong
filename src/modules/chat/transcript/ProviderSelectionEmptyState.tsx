@@ -184,7 +184,7 @@ export default function ProviderSelectionEmptyState({
 
   if (!selectedSession && !currentSessionId) {
     return (
-      <div className="flex h-full items-center justify-center px-4">
+      <div className="chat-empty-state flex h-full items-center justify-center px-4">
         <div className="w-full max-w-[34.25rem]">
           <div className="mb-8 text-center">
             <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">

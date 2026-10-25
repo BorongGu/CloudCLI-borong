@@ -7,6 +7,15 @@ import type { NavigateFunction } from 'react-router-dom';
 /** Identifies which coding-agent CLI backs a session, project selection or model list. */
 export type LLMProvider = 'claude' | 'cursor' | 'codex' | 'opencode';
 
+/** Native Codex goal shown in chat and returned by the session goal API. */
+export type CodexGoal = {
+  objective: string;
+  status: string;
+  tokenBudget?: number | null;
+  tokensUsed: number;
+  timeUsedSeconds: number;
+};
+
 /** One selectable model in a provider's model menu, including its optional reasoning-effort choices. */
 export type ProviderModelOption = {
   value: string;

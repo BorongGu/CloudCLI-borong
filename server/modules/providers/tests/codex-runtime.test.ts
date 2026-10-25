@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 
-import { Codex } from '@openai/codex-sdk';
-import type { Thread, ThreadOptions } from '@openai/codex-sdk';
+import { SharedCodex as Codex } from '../list/codex/codex-shared-sdk.js';
+import type { SharedCodexThread as Thread } from '../list/codex/codex-shared-sdk.js';
+import type { ThreadOptions } from '@openai/codex-sdk';
 
 import { codexRuntime } from '@/modules/providers/list/codex/codex-runtime.provider.js';
 import type { ProviderRuntimeContext } from '@/shared/index.js';

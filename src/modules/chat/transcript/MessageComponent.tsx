@@ -111,7 +111,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
               <ChatMessageFiles files={message.files} />
             )}
             {userCopyContent.trim().length > 0 || (!message.images?.length && !message.files?.length) ? (
-              <div className="group max-w-full rounded-2xl rounded-br-md border border-border/60 bg-muted/60 px-3 py-2 text-foreground shadow-sm dark:bg-gray-800/60 sm:px-4">
+              <div className="chat-user-bubble group max-w-full rounded-2xl rounded-br-md border border-border/60 bg-muted/60 px-3 py-2 text-foreground shadow-sm dark:bg-gray-800/60 sm:px-4">
                 <div dir="auto" className="break-words font-serif text-sm">
                   <Markdown
                     breaks
@@ -156,11 +156,6 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
               </div>
             )}
           </div>
-          {!isGrouped && (
-            <div className="hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm text-white sm:flex">
-              U
-            </div>
-          )}
         </div>
       ) : message.compact ? (
         /* A compaction: one row, its numbers, and its summary folded into it */

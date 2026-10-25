@@ -28,6 +28,7 @@ import {
 } from '@/shared/context/SessionProtectionContext';
 import ChatMessagesPane from '@/modules/chat/transcript/ChatMessagesPane';
 import ChatComposer from '@/modules/chat/composer/ChatComposer';
+import { CodexGoalPanel } from '@/modules/chat/composer/CodexGoalPanel';
 import CommandResultModal from '@/modules/chat/modals/CommandResultModal';
 
 type ChatInterfaceProps = {
@@ -533,6 +534,7 @@ function ChatInterface({
             </div>
           )}
 
+          {provider === 'codex' && <CodexGoalPanel sessionId={selectedSession?.id || currentSessionId || null} />}
           <ChatComposer
           pendingPermissionRequests={pendingPermissionRequests}
           handlePermissionDecision={handlePermissionDecision}

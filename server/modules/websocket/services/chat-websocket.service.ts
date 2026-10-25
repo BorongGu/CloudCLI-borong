@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { WebSocket } from 'ws';
 
 import { sessionsDb } from '@/modules/database/index.js';
-import { providerModelsService, sessionsService } from '@/modules/providers/index.js';
+import { codexGoalsService, providerModelsService, sessionsService } from '@/modules/providers/index.js';
 import { chatRunRegistry } from '@/modules/websocket/services/chat-run-registry.service.js';
 import { connectedClients, WS_OPEN_STATE } from '@/modules/websocket/services/websocket-state.service.js';
 import {
@@ -494,11 +494,11 @@ async function handleChatStopTask(
  * This single message replaces the old `check-session-status`,
  * `get-pending-permissions`, and Claude-only writer reconnect flows.
  */
-function handleChatSubscribe(
+async function handleChatSubscribe(
   ws: WebSocket,
   data: AnyRecord,
   dependencies: ChatWebSocketDependencies
-): void {
+): Promise<void> {
   const targets = Array.isArray(data.sessions) ? data.sessions : [];
 
   for (const target of targets) {
@@ -518,6 +518,19 @@ function handleChatSubscribe(
       ? Math.max(0, Math.floor(lastSeqRaw))
       : 0;
 
+    // A service restart can leave a native goal running on the shared daemon.
+    // Reattach an observer without submitting a new prompt or changing its goal.
+    const session = sessionsDb.getSessionById(sessionId);
+    if ((target as AnyRecord).watchGoal === true && session?.provider === 'codex'
+      && !chatRunRegistry.isProcessing(sessionId)) {
+      try {
+        const { goal } = await codexGoalsService.execute(sessionId, { action: 'get' });
+        if (goal?.status === 'active' && !chatRunRegistry.isProcessing(sessionId)) {
+          void dispatchRun(ws, null, sessionId, session, { content: '' }, dependencies,
+            { codexGoalObserve: true });
+        }
+      } catch (error) { console.warn('[Chat] Goal reattachment failed:', String(error)); }
+    }
     const run = chatRunRegistry.getRun(sessionId);
     const isProcessing = chatRunRegistry.isProcessing(sessionId);
 
@@ -688,7 +701,7 @@ export function handleChatConnection(
           await handleChatStopTask(ws, data, dependencies);
           return;
         case 'chat.subscribe':
-          handleChatSubscribe(ws, data, dependencies);
+          await handleChatSubscribe(ws, data, dependencies);
           return;
         case 'chat.permission-response':
           handlePermissionResponse(data, dependencies);

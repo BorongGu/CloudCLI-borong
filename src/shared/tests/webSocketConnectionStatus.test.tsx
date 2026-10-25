@@ -39,12 +39,13 @@ class FakeWebSocket {
   onmessage: ((event: { data: string }) => void) | null = null;
   onclose: (() => void) | null = null;
   onerror: ((error: unknown) => void) | null = null;
+  sent: string[] = [];
 
   constructor(readonly url: string) {
     FakeWebSocket.instances.push(this);
   }
 
-  send() {}
+  send(message: string) { this.sent.push(message); }
 
   // A real socket closed by the page still fires `close`; firing it here means
   // a swap that forgot to detach its handler would be caught.
@@ -70,11 +71,13 @@ const { WebSocketProvider, useWebSocket } = await import('@/shared/context/WebSo
 /** Every status the provider rendered, in order, so a one-render flash is caught too. */
 let seen: string[] = [];
 let isConnected: boolean | null = null;
+let connection: ReturnType<typeof useWebSocket>;
 
 function RecordStatus() {
   const value = useWebSocket();
   seen.push(String(value.connectionStatus));
   useEffect(() => {
+    connection = value;
     isConnected = value.isConnected;
   });
   return null;
@@ -203,4 +206,61 @@ test('signing out while connected stops reporting a live connection', () => {
   assert.equal(socket(0).readyState, FakeWebSocket.CLOSED, 'the socket was closed on sign-out');
   assert.equal(lastStatus(), 'connecting');
   assert.equal(isConnected, false, 'isConnected no longer reports the closed socket as live');
+});
+
+test('a send during disconnection reports failure and immediately starts one reconnect', () => {
+  renderProvider();
+  act(() => socket(0).serverOpens());
+  act(() => socket(0).serverDrops());
+  let sent: boolean | undefined;
+  act(() => { sent = connection.sendMessage({ type: 'chat.send', content: 'keep my draft' }); });
+  assert.equal(sent, false);
+  assert.equal(FakeWebSocket.instances.length, 2);
+  act(() => { connection.sendMessage({ type: 'chat.subscribe' }); vi.advanceTimersByTime(3000); });
+  assert.equal(FakeWebSocket.instances.length, 2, 'one handshake is already in flight');
+  assert.deepEqual(socket(1).sent, [], 'failed sends stay with their caller');
+  act(() => socket(1).serverOpens());
+  act(() => { sent = connection.sendMessage({ type: 'chat.send', content: 'retry' }); });
+  assert.equal(sent, true);
+  assert.equal(socket(1).sent.length, 1);
+});
+
+test('returning to a visible mobile page replaces even a stale OPEN socket', () => {
+  renderProvider();
+  act(() => socket(0).serverOpens());
+  const visibility = vi.spyOn(document, 'visibilityState', 'get');
+  visibility.mockReturnValue('hidden');
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  assert.equal(FakeWebSocket.instances.length, 1);
+  visibility.mockReturnValue('visible');
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  assert.equal(socket(0).readyState, FakeWebSocket.CLOSED);
+  assert.equal(FakeWebSocket.instances.length, 2);
+  act(() => window.dispatchEvent(new Event('focus')));
+  assert.equal(FakeWebSocket.instances.length, 2);
+  act(() => socket(1).serverOpens());
+  assert.equal(isConnected, true);
+  visibility.mockRestore();
+});
+
+test('a stalled handshake expires and retries instead of blocking mobile recovery', () => {
+  renderProvider();
+  act(() => vi.advanceTimersByTime(10_000));
+  assert.equal(socket(0).readyState, FakeWebSocket.CLOSED);
+  assert.equal(lastStatus(), 'disconnected');
+  act(() => vi.advanceTimersByTime(3000));
+  assert.equal(FakeWebSocket.instances.length, 2);
+  act(() => socket(1).serverOpens());
+  assert.equal(isConnected, true);
+});
+
+test('an online event recovers before a suspended reconnect timer resumes', () => {
+  renderProvider();
+  act(() => socket(0).serverOpens());
+  act(() => socket(0).serverDrops());
+  act(() => window.dispatchEvent(new Event('online')));
+  assert.equal(FakeWebSocket.instances.length, 2);
+  act(() => socket(1).serverOpens());
+  act(() => vi.advanceTimersByTime(3000));
+  assert.equal(FakeWebSocket.instances.length, 2);
 });

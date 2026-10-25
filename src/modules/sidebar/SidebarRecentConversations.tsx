@@ -156,8 +156,9 @@ export default function SidebarRecentConversations({
                 href={`/session/${conversation.sessionId}`}
                 onClick={handleClick}
                 data-testid="recent-conversation-row"
+                data-selected={isSelected}
                 className={cn(
-                  'flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 pr-11 text-left transition-colors',
+                  'sidebar-session-row flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 pr-11 text-left transition-colors',
                   isSelected
                     ? 'bg-primary/10 text-foreground'
                     : 'text-foreground hover:bg-accent/60',

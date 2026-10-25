@@ -308,5 +308,20 @@
     "customModelsOnlyHint": "在所有模型选择器中隐藏 {{provider}} 的内置模型，并将您的第一个模型设为默认模型。在您添加模型之前，内置模型仍会显示。",
     "builtInModelsHidden": "开启“仅使用我的模型”时，这些模型不会出现在模型选择器中。",
     "customModelsOnlyFailed": "无法更改此设置。"
+  },
+  "goal": {
+    "pause": "暂停",
+    "resume": "恢复",
+    "clear": "清除",
+    "empty": "当前会话尚未设置目标。输入 /goal 加目标内容即可开始。",
+    "startFirst": "请先输入 /goal 和目标内容。",
+    "status": {
+      "active": "进行中",
+      "paused": "已暂停",
+      "complete": "已完成",
+      "blocked": "等待处理",
+      "budget_limited": "额度已达上限",
+      "budgetLimited": "额度已达上限"
+    }
   }
 }

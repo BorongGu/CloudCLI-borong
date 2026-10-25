@@ -9,6 +9,7 @@ import { providerTokenUsageService } from '@/modules/providers/services/provider
 import { providerSkillsService } from '@/modules/providers/services/skills.service.js';
 import { sessionConversationsSearchService } from '@/modules/providers/services/session-conversations-search.service.js';
 import { sessionsService } from '@/modules/providers/services/sessions.service.js';
+import { codexGoalsService } from '@/modules/providers/services/codex-goals.service.js';
 import type {
   CustomProviderModelEffort,
   CustomProviderModelInput,
@@ -918,6 +919,24 @@ router.get(
     res.json(createApiSuccessResponse(result));
   }),
 );
+
+router.get('/sessions/:sessionId/goal', asyncHandler(async (req: Request, res: Response) => {
+  const result = await codexGoalsService.execute(parseSessionId(req.params.sessionId), { action: 'get' });
+  res.json(createApiSuccessResponse(result));
+}));
+
+router.post('/sessions/:sessionId/goal', asyncHandler(async (req: Request, res: Response) => {
+  const action = req.body?.action;
+  const objective = req.body?.objective;
+  if (!['pause', 'resume', 'clear', 'set'].includes(action)
+    || (action === 'set' && (typeof objective !== 'string' || !objective.trim() || objective.length > 4000))) {
+    throw new AppError('Invalid goal operation or objective.', { statusCode: 400, code: 'INVALID_GOAL' });
+  }
+  const result = await codexGoalsService.execute(parseSessionId(req.params.sessionId), {
+    action, ...(action === 'set' ? { objective: objective.trim() } : {}),
+  });
+  res.json(createApiSuccessResponse(result));
+}));
 
 // Must stay registered after the static and session-specific routes so their
 // literals never match the generic `:sessionId` parameter.

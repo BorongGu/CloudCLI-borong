@@ -354,6 +354,8 @@ export function useChatRealtimeHandlers({
         }
 
         case 'status': {
+          // The native goal row consumes goal state separately from run status text.
+          if (msg.text === 'codex_goal') break;
           if (msg.text === 'token_budget' && msg.tokenBudget) {
             // The counter shows the viewed session's context; budgets from
             // other concurrently running sessions must not overwrite it.

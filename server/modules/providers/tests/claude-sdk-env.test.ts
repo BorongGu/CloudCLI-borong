@@ -14,5 +14,6 @@ test('a host CLAUDE_CODE_ARTIFACT value wins over the default', () => {
 });
 
 test('host env vars are still forwarded', () => {
-  assert.equal(buildClaudeSdkEnv({ ANTHROPIC_BASE_URL: 'http://proxy' }).ANTHROPIC_BASE_URL, 'http://proxy');
+  const env: NodeJS.ProcessEnv = buildClaudeSdkEnv({ ANTHROPIC_BASE_URL: 'http://proxy' });
+  assert.equal(env.ANTHROPIC_BASE_URL, 'http://proxy');
 });

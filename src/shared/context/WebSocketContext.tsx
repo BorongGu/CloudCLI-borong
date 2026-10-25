@@ -18,7 +18,8 @@ type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
 type WebSocketContextType = {
   ws: WebSocket | null;
-  sendMessage: (message: unknown) => void;
+  /** Returns whether the frame was handed to an open socket. */
+  sendMessage: (message: unknown) => boolean;
   /**
    * Subscribes to every websocket frame. Returns an unsubscribe function.
    *
@@ -92,6 +93,19 @@ const useWebSocketProviderState = (): WebSocketContextType => {
   const connect = useCallback(function connect() {
     if (unmountedRef.current) return; // Prevent connection if unmounted
     if (!IS_PLATFORM && (isAuthLoading || !user)) return;
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN
+      || wsRef.current.readyState === WebSocket.CONNECTING)) return;
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    const scheduleReconnect = () => {
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = setTimeout(() => {
+        reconnectTimeoutRef.current = null;
+        connect();
+      }, 3000);
+    };
     try {
       // Construct WebSocket URL
       const wsUrl = buildWebSocketUrl(token);
@@ -102,8 +116,18 @@ const useWebSocketProviderState = (): WebSocketContextType => {
       // Store connecting sockets too, so a token refresh can close them before
       // their handshake completes with stale credentials.
       wsRef.current = websocket;
+      // A stalled mobile handshake must eventually free the retry path.
+      const handshakeTimeout = setTimeout(() => {
+        if (wsRef.current !== websocket || websocket.readyState !== WebSocket.CONNECTING) return;
+        wsRef.current = null;
+        setConnectionStatus('disconnected');
+        websocket.close();
+        scheduleReconnect();
+      }, 10_000);
 
       websocket.onopen = () => {
+        clearTimeout(handshakeTimeout);
+        if (wsRef.current !== websocket) return;
         setConnectionStatus('connected');
         if (hasConnectedRef.current) {
           // This is a reconnect — signal so components can catch up on missed messages
@@ -122,6 +146,7 @@ const useWebSocketProviderState = (): WebSocketContextType => {
       };
 
       websocket.onclose = () => {
+        clearTimeout(handshakeTimeout);
         if (wsRef.current !== websocket) {
           return;
         }
@@ -132,10 +157,7 @@ const useWebSocketProviderState = (): WebSocketContextType => {
         wsRef.current = null;
 
         // Attempt to reconnect after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          if (unmountedRef.current) return; // Prevent reconnection if unmounted
-          connect();
-        }, 3000);
+        scheduleReconnect();
       };
 
       websocket.onerror = (error) => {
@@ -144,6 +166,8 @@ const useWebSocketProviderState = (): WebSocketContextType => {
 
     } catch (error) {
       console.error('Error creating WebSocket connection:', error);
+      setConnectionStatus('disconnected');
+      scheduleReconnect();
     }
   }, [dispatch, isAuthLoading, token, user]); // reconnect with current authentication state
 
@@ -185,14 +209,57 @@ const useWebSocketProviderState = (): WebSocketContextType => {
     };
   }, [connect, isAuthLoading, user]); // reconnect after authentication or token refresh
 
+  useEffect(() => {
+    // Safari can retain an OPEN socket after suspending the page. Replace
+    // that transport on return; session replay restores the running output.
+    let wasHidden = document.visibilityState === 'hidden';
+    const recover = (event: Event) => {
+      if (document.visibilityState === 'hidden') { wasHidden = true; return; }
+      const replace = wasHidden || event.type === 'online'
+        || (event.type === 'pageshow' && (event as PageTransitionEvent).persisted);
+      wasHidden = false;
+      if (replace && wsRef.current) {
+        const previous = wsRef.current;
+        wsRef.current = null;
+        setConnectionStatus('disconnected');
+        previous.close();
+      }
+      if (hasConnectedRef.current && (!wsRef.current
+        || wsRef.current.readyState === WebSocket.CLOSED
+        || wsRef.current.readyState === WebSocket.CLOSING)) {
+        setConnectionStatus('disconnected');
+      }
+      connect();
+    };
+    document.addEventListener('visibilitychange', recover);
+    window.addEventListener('pageshow', recover);
+    window.addEventListener('online', recover);
+    window.addEventListener('focus', recover);
+    return () => {
+      document.removeEventListener('visibilitychange', recover);
+      window.removeEventListener('pageshow', recover);
+      window.removeEventListener('online', recover);
+      window.removeEventListener('focus', recover);
+    };
+  }, [connect]);
+
   const sendMessage = useCallback((message: unknown) => {
     const socket = wsRef.current;
     if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket not connected');
+      try {
+        socket.send(JSON.stringify(message));
+        return true;
+      } catch (error) {
+        console.error('WebSocket send failed:', error);
+        wsRef.current = null;
+        setConnectionStatus('disconnected');
+        socket.close();
+      }
     }
-  }, []);
+    setConnectionStatus('disconnected');
+    connect();
+    return false;
+  }, [connect]);
 
   const subscribe = useCallback((listener: ServerEventListener) => {
     listenersRef.current.add(listener);
