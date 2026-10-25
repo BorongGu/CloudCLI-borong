@@ -28,7 +28,7 @@ export const ToolDiffViewer: React.FC<ToolDiffViewerProps> = ({
   badgeColor = 'gray'
 }) => {
   const badgeClasses = badgeColor === 'green'
-    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+    ? 'bg-muted text-muted-foreground'
     : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400';
 
   const diffLines = useMemo(
@@ -48,7 +48,7 @@ export const ToolDiffViewer: React.FC<ToolDiffViewerProps> = ({
         {onFileClick ? (
           <button
             onClick={onFileClick}
-            className="cursor-pointer truncate font-mono text-[11px] text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            className="cursor-pointer truncate font-mono text-[11px] text-primary transition-colors hover:text-primary/80"
           >
             {filePath}
           </button>

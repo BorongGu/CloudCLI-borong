@@ -100,7 +100,7 @@ function formatResultText(text: string): string {
 }
 
 const STATUS_STYLES: Record<BackgroundTaskStatus, string> = {
-  running: 'text-purple-600 dark:text-purple-300',
+  running: 'text-primary',
   completed: 'text-muted-foreground',
   failed: 'text-red-600 dark:text-red-400',
   stopped: 'text-muted-foreground/70',
@@ -108,8 +108,8 @@ const STATUS_STYLES: Record<BackgroundTaskStatus, string> = {
 
 const AGENT_STATUS_STYLES: Record<WorkflowAgentRow['status'], string> = {
   queued: 'border border-muted-foreground/50',
-  running: 'bg-purple-500 dark:bg-purple-400 animate-pulse',
-  completed: 'bg-green-500 dark:bg-green-400',
+  running: 'bg-primary animate-pulse',
+  completed: 'bg-muted-foreground',
   failed: 'bg-red-500 dark:bg-red-400',
   stopped: 'bg-muted-foreground/40',
 };
@@ -437,7 +437,7 @@ export const WorkflowPanel = memo(({ toolInput, toolResult, workflow, taskStatus
   );
 
   return (
-    <div className="my-1 border-l-2 border-l-purple-500 py-0.5 pl-3 dark:border-l-purple-400">
+    <div className="my-1 border-l-2 border-l-primary py-0.5 pl-3">
       <button
         type="button"
         aria-expanded={isOpen}
@@ -445,7 +445,7 @@ export const WorkflowPanel = memo(({ toolInput, toolResult, workflow, taskStatus
         className="flex w-full select-none items-center gap-1.5 py-0.5 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
       >
         <ChevronRight className={cn('h-3 w-3 flex-shrink-0 transition-transform duration-150', isOpen && 'rotate-90')} />
-        <Workflow className="h-3.5 w-3.5 flex-shrink-0 text-purple-500 dark:text-purple-400" />
+        <Workflow className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
         <span className="flex-shrink-0 font-medium text-foreground">{t('workflow.title', 'Workflow')}</span>
         {name && (
           <>
@@ -457,7 +457,7 @@ export const WorkflowPanel = memo(({ toolInput, toolResult, workflow, taskStatus
         <span className={cn('ml-auto flex flex-shrink-0 items-center gap-1 text-[11px]', STATUS_STYLES[status])}>
           {status === 'running' ? (
             <>
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-purple-500 dark:bg-purple-400" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
               {liveSummary || t('workflow.status.running', 'running')}
             </>
           ) : status === 'failed' ? (

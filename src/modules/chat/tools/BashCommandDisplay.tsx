@@ -106,7 +106,7 @@ export const BashCommandDisplay: React.FC<BashCommandDisplayProps> = ({
             !hasOutput && 'opacity-0',
           )}
         />
-        <span className="flex-shrink-0 select-none font-mono text-xs font-semibold text-emerald-500 dark:text-emerald-400">
+        <span className="flex-shrink-0 select-none font-mono text-xs font-semibold text-muted-foreground">
           $
         </span>
         {/* Not a <code> tag: the global `.chat-message code` rule forces
@@ -122,7 +122,7 @@ export const BashCommandDisplay: React.FC<BashCommandDisplayProps> = ({
         </span>
 
         {isRunning && (
-          <span className="h-2.5 w-2.5 flex-shrink-0 animate-spin rounded-full border-[1.5px] border-muted-foreground/30 border-t-emerald-400" />
+          <span className="h-2.5 w-2.5 flex-shrink-0 animate-spin rounded-full border-[1.5px] border-muted-foreground/30 border-t-primary" />
         )}
         {status && status !== 'running' && <ToolStatusBadge status={status} className="flex-shrink-0" />}
         {!open && hasOutput && !isRunning && (
@@ -138,7 +138,7 @@ export const BashCommandDisplay: React.FC<BashCommandDisplayProps> = ({
           title={t('chat:misc.copyCommand')}
           aria-label={t('chat:misc.copyCommand')}
         >
-          {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
         </button>
       </div>
 

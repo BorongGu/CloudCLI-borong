@@ -43,15 +43,15 @@ const MODE_APPEARANCE: Record<PermissionMode, ModeAppearance> = {
     icon: Bot,
     label: 'Auto Mode',
     trigger:
-      'border-blue-300/60 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-600/40 dark:bg-blue-900/15 dark:text-blue-300 dark:hover:bg-blue-900/25',
-    item: 'text-blue-700 dark:text-blue-300',
+      'border-primary/60 bg-primary/10 text-primary hover:bg-primary/10 dark:border-primary/40 dark:bg-primary/15 dark:hover:bg-primary/25',
+    item: 'text-primary',
   },
   acceptEdits: {
     icon: Smile,
     label: 'Accept Edits',
     trigger:
-      'border-green-300/60 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-600/40 dark:bg-green-900/15 dark:text-green-300 dark:hover:bg-green-900/25',
-    item: 'text-green-700 dark:text-green-300',
+      'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15',
+    item: 'text-primary',
   },
   bypassPermissions: {
     icon: AlertTriangle,

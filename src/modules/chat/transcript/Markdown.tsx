@@ -129,7 +129,7 @@ const CodeBlock = ({ node: _node, className, children, forceBlock, ...props }: C
             })
           }
           className={`rounded-md p-1 transition-opacity focus-visible:opacity-100 ${copied
-            ? 'text-green-600 opacity-100 dark:text-green-500'
+            ? 'text-primary opacity-100'
             : 'text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100'
             }`}
           title={copied ? t('codeBlock.copied') : t('codeBlock.copyCode')}
@@ -298,7 +298,7 @@ function MarkdownBodyRenderer({ children, breaks = false }: Omit<MarkdownProps, 
           return (
             <a
               href={href || fileRef}
-              className="cursor-pointer text-blue-600 hover:underline dark:text-blue-400"
+              className="cursor-pointer text-primary hover:underline"
               onClick={(event) => {
                 event.preventDefault();
                 // Normalized once for every branch below: the href arrives
@@ -321,7 +321,7 @@ function MarkdownBodyRenderer({ children, breaks = false }: Omit<MarkdownProps, 
         return (
           <a
             href={href}
-            className="text-blue-600 hover:underline dark:text-blue-400"
+            className="text-primary hover:underline"
             target="_blank"
             rel="noopener noreferrer"
           >

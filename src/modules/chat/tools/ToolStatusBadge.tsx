@@ -5,11 +5,11 @@ import type { ToolStatus } from '@/shared/types';
 const STATUS_CONFIG: Record<ToolStatus, { label: string; className: string }> = {
   running: {
     label: 'Running',
-    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+    className: 'bg-primary/10 text-primary',
   },
   completed: {
     label: 'Completed',
-    className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+    className: 'bg-muted text-muted-foreground',
   },
   error: {
     label: 'Error',
