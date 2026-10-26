@@ -5,6 +5,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkCjkFriendly from 'remark-cjk-friendly/parseOnly';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
@@ -18,7 +19,7 @@ import { splitStreamingMarkdown } from '@/modules/chat/utils/streamingMarkdown';
  */
 
 // Same plugin set as Markdown.tsx.
-const remarkPlugins = [remarkGfm, [remarkMath, { singleDollarTextMath: false }]] as never;
+const remarkPlugins = [remarkGfm, remarkCjkFriendly, [remarkMath, { singleDollarTextMath: false }]] as never;
 const rehypePlugins = [rehypeKatex] as never;
 
 /**
@@ -69,6 +70,7 @@ const assertEveryPrefixRendersIdentically = (content: string, label: string) => 
 };
 
 const FIXTURES: Array<[string, string]> = [
+  ['CJK punctuation emphasis', '正文。\n\n这里是**“重要结论”**和**变量（均值）**的解释。\n\n继续。'],
   ['plain paragraphs', 'First paragraph here.\n\nSecond paragraph here.\n\nThird one still writing'],
   ['headings', '# A title\n\nSome body text.\n\n## A subtitle\n\nMore body text'],
   ['fenced code', 'Intro line.\n\n```ts\nconst a = 1;\n\nconst b = 2;\n```\n\nAfter the block'],

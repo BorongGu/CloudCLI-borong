@@ -18,6 +18,7 @@
 
 body {
   font-family: var(--font-text);
+  font-weight: 500;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -123,7 +124,7 @@ code, pre, kbd, samp, .font-mono {
 .chat-message .prose {
   font-family: var(--font-text);
   font-size: 16px;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.85;
   color: hsl(var(--foreground));
   --tw-prose-body: hsl(var(--foreground));
@@ -136,6 +137,15 @@ code, pre, kbd, samp, .font-mono {
   --tw-prose-hr: hsl(var(--border));
   --tw-prose-th-borders: hsl(var(--border));
   --tw-prose-td-borders: hsl(var(--border));
+}
+
+/* Keep emphasis distinct in the variable text face and balance math with prose. */
+.prose :where(strong, b) {
+  font-weight: 750;
+}
+
+.prose .katex {
+  font-size: 1.08em;
 }
 
 .chat-message .prose :where(h1, h2, h3, h4) {
