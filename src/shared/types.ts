@@ -1871,3 +1871,22 @@ type TaskStatus =
 
 /** A TaskMaster task's priority; high, medium and low are the known values and the string fallback tolerates anything else TaskMaster emits. */
 type TaskPriority = 'high' | 'medium' | 'low' | string;
+
+// ---------------------------
+//----------------- CONTEXT AND SUBSCRIPTION USAGE ------------
+
+/** Latest request context occupancy; null denotes a value the provider has yet to report. */
+export type SessionContextUsage = { used: number | null; limit: number | null; model: string | null; updatedAt: string | null };
+
+/** One provider-reported quota window, retaining its actual duration and reset time. */
+export type ProviderUsageWindow = { id: string; label?: string; usedPercent: number; windowMinutes: number | null; resetsAt: string | null };
+
+/** Sanitized subscription account summary; credentials stay on the server. */
+export type ProviderUsageAccount = {
+  id: string; provider: 'codex' | 'opencode'; label: string; plan: string | null;
+  enabled: boolean; active: boolean; status: 'ok' | 'stale' | 'unavailable';
+  windows: ProviderUsageWindow[]; checkedAt: string | null; error: string | null;
+};
+
+/** Context and subscription response consumed by the composer usage panel. */
+export type ProviderUsageSnapshot = { context: SessionContextUsage; accounts: ProviderUsageAccount[]; fetchedAt: string };

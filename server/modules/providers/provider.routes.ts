@@ -5,6 +5,7 @@ import { claudeSettingsPermissionsService } from '@/modules/providers/services/c
 import { providerCapabilitiesService } from '@/modules/providers/services/provider-capabilities.service.js';
 import { providerMcpService } from '@/modules/providers/services/mcp.service.js';
 import { providerModelsService } from '@/modules/providers/services/provider-models.service.js';
+import { providerUsageService } from '@/modules/providers/services/provider-usage.service.js';
 import { providerTokenUsageService } from '@/modules/providers/services/provider-token-usage.service.js';
 import { providerSkillsService } from '@/modules/providers/services/skills.service.js';
 import { sessionConversationsSearchService } from '@/modules/providers/services/session-conversations-search.service.js';
@@ -876,6 +877,18 @@ router.post(
     res.status(201).json(createApiSuccessResponse(result));
   }),
 );
+
+router.get('/usage', asyncHandler(async (req: Request, res: Response) => {
+  const sessionId = req.query.sessionId === undefined ? undefined : parseSessionId(req.query.sessionId);
+  const provider = req.query.provider;
+  const model = req.query.model;
+  if ((provider !== undefined && (typeof provider !== 'string' || !['codex', 'opencode', 'claude', 'cursor'].includes(provider)))
+    || (model !== undefined && (typeof model !== 'string' || model.length > 200))) {
+    throw new AppError('Invalid usage query.', { code: 'INVALID_USAGE_QUERY', statusCode: 400 });
+  }
+  const result = await providerUsageService.getUsage({ sessionId, provider: provider as string | undefined, model: model as string | undefined, refresh: req.query.refresh === '1' });
+  res.json(createApiSuccessResponse(result));
+}));
 
 router.get(
   '/sessions/running',

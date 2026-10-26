@@ -331,5 +331,29 @@
   "misc": {
     "codexNeedsInput": "Codex 有个问题",
     "workContinues": "任务继续执行"
+  },
+  "usage": {
+    "contextTrigger": "查看 context 窗口",
+    "trigger": "查看账号额度",
+    "heading": "Context 与账号额度",
+    "context": "Context 窗口",
+    "quota": "额度",
+    "weekly": "1周",
+    "monthly": "月额度",
+    "hours": "{{count}}小时",
+    "minutes": "{{count}}分钟",
+    "pendingContext": "等待 context 用量更新",
+    "refresh": "刷新",
+    "sessionTokens": "会话累计 token 明细",
+    "current": "当前",
+    "disabled": "已停用",
+    "used": "已用 {{percent}}",
+    "resets": "{{date}} 重置",
+    "updated": "更新于 {{date}}",
+    "stale": "当前显示上次成功读取的额度",
+    "notConfigured": "待配置 Go 账号",
+    "apiKey": "API Key 账号 · 订阅额度暂不可用",
+    "unavailable": "用量暂时读取失败，可刷新重试",
+    "loading": "正在读取用量…"
   }
 }

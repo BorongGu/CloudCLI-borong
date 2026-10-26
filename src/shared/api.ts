@@ -441,6 +441,8 @@ export const api = {
       pagination: { limit?: number | null; offset?: number } = {},
       options: ApiRequestOptions = {},
     ) => get(sessionMessagesUrl(sessionId, pagination), options),
+    usage: (params: { sessionId?: string; provider: string; model?: string; refresh?: number }, options: ApiRequestOptions = {}) =>
+      get(`/api/providers/usage${query(params)}`, options),
     sessionTokenUsage: (sessionId: string) =>
       get(`/api/providers/sessions/${encodeURIComponent(sessionId)}/token-usage`),
     steerSession: (sessionId: string, content: string, attachments: unknown[]) =>

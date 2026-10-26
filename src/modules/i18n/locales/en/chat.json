@@ -427,5 +427,29 @@
       "budget_limited": "Budget reached",
       "budgetLimited": "Budget reached"
     }
+  },
+  "usage": {
+    "contextTrigger": "Show context window",
+    "trigger": "Show subscription usage",
+    "heading": "Context & subscription usage",
+    "context": "Context window",
+    "quota": "Usage",
+    "weekly": "1 week",
+    "monthly": "Monthly",
+    "hours": "{{count}}h",
+    "minutes": "{{count}}m",
+    "pendingContext": "Waiting for context usage",
+    "refresh": "Refresh",
+    "sessionTokens": "Session token details",
+    "current": "Current",
+    "disabled": "Disabled",
+    "used": "{{percent}} used",
+    "resets": "Resets {{date}}",
+    "updated": "Updated {{date}}",
+    "stale": "Showing the last available quota snapshot",
+    "notConfigured": "Go account setup required",
+    "apiKey": "API key account · subscription quota unavailable",
+    "unavailable": "Usage temporarily unavailable; refresh to retry",
+    "loading": "Loading usage…"
   }
 }

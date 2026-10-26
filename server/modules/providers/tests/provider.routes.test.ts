@@ -573,3 +573,14 @@ test('the workflow agent route reads an agent\'s timeline and status from its ru
     assert.equal(missing.error.code, 'WORKFLOW_AGENT_NOT_FOUND');
   });
 });
+
+
+test('usage route validates provider and session queries before reading account quotas', async () => {
+  await withProviderServer(async baseUrl => {
+    for (const query of ['provider=unknown', 'provider=codex&provider=opencode', 'sessionId=bad%2Fid']) {
+      const response = await fetch(`${baseUrl}/api/providers/usage?${query}`);
+      assert.equal(response.status, 400);
+    }
+    assert.equal((await fetch(`${baseUrl}/api/providers/usage?sessionId=missing`)).status, 404);
+  });
+});

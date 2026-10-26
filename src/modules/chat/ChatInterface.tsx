@@ -556,6 +556,8 @@ function ChatInterface({
           availableModelOptions={currentProviderModelOptions}
           onSelectModel={handleSelectComposerModel}
           modelsLoading={providerModelsLoading}
+          provider={provider}
+          sessionId={selectedSession?.id || currentSessionId}
           tokenBudget={tokenBudget}
           onShowTokenUsage={showCostModal}
           isEditingSentMessage={Boolean(editingAnchorId)}
