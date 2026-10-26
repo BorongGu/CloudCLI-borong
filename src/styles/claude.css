@@ -115,6 +115,11 @@ code, pre, kbd, samp, .font-mono {
   margin-top: 6px;
 }
 
+.chat-message.error {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
 .chat-message .prose {
   font-family: var(--font-text);
   font-size: 16px;

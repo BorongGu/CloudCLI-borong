@@ -82,3 +82,15 @@ test('a live goal update supersedes an older HTTP snapshot', async () => {
   });
   assert.match(view.getByTestId('codex-goal-panel').textContent!, /999/);
 });
+
+test('the compact objective expands on demand while goal updates keep that choice', async () => {
+  const view = render(<CodexGoalPanel sessionId="session" />);
+  const objective = await view.findByRole('button', { name: 'A native goal' });
+  assert.equal(objective.getAttribute('aria-expanded'), 'false');
+  fireEvent.click(objective);
+  assert.equal(objective.getAttribute('aria-expanded'), 'true');
+  await act(async () => { for (const listener of state.listeners) listener({ kind: 'status', text: 'codex_goal', sessionId: 'session', goal: { ...goal, tokensUsed: 321 } }); });
+  assert.equal(objective.getAttribute('aria-expanded'), 'true');
+  fireEvent.click(objective);
+  assert.equal(objective.getAttribute('aria-expanded'), 'false');
+});

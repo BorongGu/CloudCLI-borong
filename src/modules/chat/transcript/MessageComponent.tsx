@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GitBranchIcon, PencilIcon } from 'lucide-react';
+import { CircleAlert, GitBranchIcon, PencilIcon } from 'lucide-react';
 
 import type { ChatMessage, ClaudePermissionSuggestion, PermissionGrantResult, LLMProvider,DiffLine,Project } from '@/shared/types';
 import { formatUsageLimitText, stripProposedPlanEnvelope } from '@/modules/chat/utils/chatFormatting';
@@ -199,11 +199,9 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
         /* Claude/Error/Tool messages on the left */
         <div className="w-full">
           {!isGrouped && (
-            <div className="mb-2 flex items-center space-x-3">
+            <div className={message.type === 'error' ? 'mb-1 flex items-center gap-1.5' : 'mb-2 flex items-center space-x-3'}>
               {message.type === 'error' ? (
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-600 text-sm text-white">
-                  !
-                </div>
+                <CircleAlert aria-hidden className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/75" strokeWidth={1.5} />
               ) : message.type === 'tool' ? (
                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-600 text-sm text-white dark:bg-gray-700">
                   🔧
@@ -213,7 +211,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
                   <LLMProviderLogo provider={provider} className="h-full w-full" />
                 </div>
               )}
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
+              <div className={message.type === 'error' ? 'text-[11px] font-medium text-muted-foreground' : 'text-sm font-medium text-gray-900 dark:text-white'}>
                 {message.type === 'error'
                   ? t('messageTypes.error')
                   : message.type === 'tool'
@@ -294,7 +292,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
                 {/* Tool Result Section — Bash renders its output inside the command row above. */}
                 {message.toolResult && message.toolName !== 'Bash' && !shouldHideToolResult(message.toolName || 'UnknownTool', message.toolResult) && (
                   message.toolResult.isError ? (
-                    // Error results — collapsed red row that expands to the content
+                    // Failed tool results use a compact row with expandable details.
                     <div id={`tool-result-${message.toolId}`} className="scroll-mt-4">
                       <ToolErrorDisplay
                         label={t('messageTypes.error')}
@@ -318,6 +316,10 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
                   )
                 )}
               </>
+            ) : message.type === 'error' ? (
+              <div role="alert" className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-muted-foreground">
+                {formattedMessageContent}
+              </div>
             ) : message.isThinking ? (
               /* Thinking messages — Reasoning component (ai-elements pattern) */
               <Reasoning defaultOpen={isExporting}>

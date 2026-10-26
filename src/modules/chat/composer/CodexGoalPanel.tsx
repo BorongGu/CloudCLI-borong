@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronDown } from 'lucide-react';
 
 import { api } from '@/shared/api';
 import { useWebSocket } from '@/shared/context/WebSocketContext';
@@ -15,9 +16,12 @@ export function CodexGoalPanel({ sessionId }: { sessionId: string | null }) {
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   // Keep the last native API failure visible until a successful refresh or action.
   const [error, setError] = useState('');
+  // Retain the user's choice to read the full objective for this session.
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const control = useRef<(action: 'pause' | 'resume' | 'clear') => Promise<void>>(async () => {});
   const goal = snapshot?.sessionId === sessionId ? snapshot.goal : null;
   const pending = sessionId !== null && pendingSessionId === sessionId;
+  const expanded = sessionId !== null && expandedSessionId === sessionId;
 
   useEffect(() => {
     if (!sessionId) return;
@@ -85,10 +89,10 @@ export function CodexGoalPanel({ sessionId }: { sessionId: string | null }) {
   }, [sessionId, sendMessage, subscribe]);
 
   if (!goal && !error) return null;
-  return <div data-testid="codex-goal-panel" className="mx-3 mb-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs sm:mx-4">
+  return <div data-testid="codex-goal-panel" className="mx-3 mb-2 w-fit max-w-[calc(100%-1.5rem)] rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs sm:mx-4 sm:max-w-lg">
     {goal && <>
       <div className="flex flex-wrap items-center gap-2">
-        <strong>Goal · {t(`goal.status.${goal.status}`, { defaultValue: goal.status })}</strong>
+        <span className="font-medium">Goal · {t(`goal.status.${goal.status}`, { defaultValue: goal.status })}</span>
         <span className="whitespace-nowrap tabular-nums text-muted-foreground">{goal.tokensUsed.toLocaleString()}{goal.tokenBudget ? ` / ${goal.tokenBudget.toLocaleString()}` : ''} tokens · {Math.floor(goal.timeUsedSeconds / 60)}m</span>
         <div className="ml-auto flex gap-3">
           {goal.status !== 'complete' && <button type="button" disabled={pending} onClick={() => void control.current(goal.status === 'active' ? 'pause' : 'resume')}>
@@ -97,8 +101,13 @@ export function CodexGoalPanel({ sessionId }: { sessionId: string | null }) {
           <button type="button" disabled={pending} onClick={() => void control.current('clear')}>{t('goal.clear', { defaultValue: '清除' })}</button>
         </div>
       </div>
-      <p className="mt-1 whitespace-pre-wrap break-words">{goal.objective}</p>
+      <button type="button" aria-expanded={expanded} title={goal.objective}
+        onClick={() => setExpandedSessionId(expanded ? null : sessionId)}
+        className="mt-1 flex w-full min-w-0 items-start gap-1 text-left text-muted-foreground hover:text-foreground">
+        <span className={expanded ? 'min-w-0 whitespace-pre-wrap break-words' : 'min-w-0 truncate'}>{goal.objective}</span>
+        <ChevronDown aria-hidden className={`mt-0.5 h-3 w-3 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
     </>}
-    {error && <p role="alert" className="mt-1 text-destructive">{error}</p>}
+    {error && <p role="alert" className="mt-1 text-muted-foreground">{error}</p>}
   </div>;
 }
