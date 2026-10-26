@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDownIcon } from 'lucide-react';
 
@@ -11,6 +11,7 @@ import { TranscriptSessionContext } from '@/modules/chat/context/TranscriptSessi
 import { api } from '@/shared/api';
 import type {
   ChatMessage,
+  BtwRequest,
   Project,
   ProjectSession,
   SessionEstablishedContext,
@@ -30,6 +31,7 @@ import ChatMessagesPane from '@/modules/chat/transcript/ChatMessagesPane';
 import ChatComposer from '@/modules/chat/composer/ChatComposer';
 import { CodexGoalPanel } from '@/modules/chat/composer/CodexGoalPanel';
 import CommandResultModal from '@/modules/chat/modals/CommandResultModal';
+import { BtwPanel } from '@/modules/chat/modals/BtwPanel';
 
 type ChatInterfaceProps = {
   isActive: boolean;
@@ -187,6 +189,22 @@ function ChatInterface({
     onNavigateToSession?.(sessionId);
   }, [setCurrentSessionId, onSessionEstablished, onNavigateToSession]);
 
+  // Capture the main context once per side window; its transcript stays local.
+  const [btwRequest, setBtwRequest] = useState<BtwRequest | null>(null);
+  const closeBtw = useCallback(() => setBtwRequest(null), []);
+  const openBtw = useCallback((question: string) => {
+    const sessionId = selectedSession?.id || currentSessionId;
+    if (!sessionId) {
+      addMessage({ type: 'error', content: t('btw.startFirst'), timestamp: new Date() });
+      return;
+    }
+    setBtwRequest({ key: `${Date.now()}-${Math.random()}`, sessionId, question,
+      model: currentProviderModel, effort: currentProviderEffort });
+  }, [selectedSession?.id, currentSessionId, currentProviderModel, currentProviderEffort, addMessage, t]);
+  useEffect(() => {
+    if (btwRequest && (btwRequest.sessionId !== (selectedSession?.id || currentSessionId) || provider !== 'codex')) closeBtw();
+  }, [btwRequest, selectedSession?.id, currentSessionId, provider, closeBtw]);
+
   const {
     input,
     setInput,
@@ -259,6 +277,7 @@ function ChatInterface({
     onSessionEstablished: handleSessionEstablished,
     onFileOpen,
     onShowSettings,
+    onOpenBtw: openBtw,
     scrollToBottom,
     addMessage,
     setIsUserScrolledUp,
@@ -337,7 +356,7 @@ function ChatInterface({
         return;
       }
 
-      if (event.target instanceof Element && event.target.closest('[data-question-panel]')) return;
+      if (event.target instanceof Element && event.target.closest('[data-question-panel], [data-btw-panel]')) return;
       event.preventDefault();
       handleAbortSession();
     };
@@ -618,6 +637,9 @@ function ChatInterface({
         </div>
       </div>
 
+      {btwRequest && <MarkdownWorkspaceContext.Provider value={markdownWorkspaceValue}>
+        <BtwPanel key={btwRequest.key} request={btwRequest} onClose={closeBtw} />
+      </MarkdownWorkspaceContext.Provider>}
       <CommandResultModal
         payload={commandModalPayload}
         onClose={closeCommandModal}

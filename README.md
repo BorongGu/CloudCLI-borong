@@ -61,9 +61,12 @@
 - **Git Explorer** - View, stage and commit your changes. You can also switch branches 
 - **Browser Use** - Open browser sessions for web research, testing, and agent-driven browser tasks
 - **Session Management** - Resume conversations, manage multiple sessions, and track history
+- **Codex side questions** - Use `/btw <question>` to open a smaller temporary chat with the main conversation's context, including while the main task runs. Continue asking questions in that window, then use **Finish**, **×**, or **Esc** to clear its temporary context.
 - **Plugin System** - Extend CloudCLI with custom plugins — add new tabs, backend services, and integrations. [Build your own →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)
 - **TaskMaster AI Integration** *(Optional)* - Advanced project management with AI-powered task planning, PRD parsing, and workflow automation
 - **Model Compatibility** - Works with Claude and GPT model families (the full list of supported models is available at runtime via `GET /api/providers/:provider/models`)
+
+The Codex `/btw` window uses native `thread/fork` with `ephemeral: true` in its own `codex app-server` process. Closing the window or losing its connection reaps that process and clears the in-memory fork. It stays outside the saved-session list. The `codex` executable on the server's PATH must support ephemeral forks (verified with Codex CLI 0.164.0); set `CODEX_BTW_BIN` to use a specific executable.
 
 
 ## Quick Start

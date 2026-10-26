@@ -16,6 +16,23 @@ export type CodexGoal = {
   timeUsedSeconds: number;
 };
 
+//----------------- TEMPORARY CODEX SIDE CONVERSATIONS ------------
+
+/** Identifies one BTW window and the source context/model captured when it opens. */
+export type BtwRequest = {
+  key: string;
+  sessionId: string;
+  question: string;
+  model: string;
+  effort: string;
+};
+
+/** A user question or assistant item displayed only inside a temporary BTW window. */
+export type BtwMessage = { id: string; role: 'user' | 'assistant'; content: string };
+
+// ---------------------------
+//----------------- LLM PROVIDER MODEL OPTIONS ------------
+
 /** One selectable model in a provider's model menu, including its optional reasoning-effort choices. */
 export type ProviderModelOption = {
   value: string;

@@ -63,6 +63,8 @@ type UseChatComposerStateArgs = {
   onSessionEstablished?: (sessionId: string, context: SessionEstablishedContext) => void;
   onFileOpen?: (filePath: string, diffInfo?: unknown) => void;
   onShowSettings?: () => void;
+  /** Opens a separate temporary conversation before working-turn queue/steer handling. */
+  onOpenBtw?: (question: string) => void;
   scrollToBottom: () => void;
   addMessage: (msg: ChatMessage) => void;
   setIsUserScrolledUp: (isScrolledUp: boolean) => void;
@@ -221,6 +223,7 @@ export function useChatComposerState({
   onSessionEstablished,
   onFileOpen,
   onShowSettings,
+  onOpenBtw,
   scrollToBottom,
   addMessage,
   setIsUserScrolledUp,
@@ -467,6 +470,15 @@ export function useChatComposerState({
         const rawArgs = commandMatch ? commandMatch[1].trim() : '';
         const args = rawArgs ? rawArgs.split(/\s+/) : [];
 
+        // Enter or a click on /btw opens its window immediately; Tab still
+        // completes the command so a question can be typed in the composer.
+        if (provider === 'codex' && command.metadata?.type === 'codex-btw') {
+          onOpenBtw?.(rawArgs);
+          setInput(''); inputValueRef.current = '';
+          if (draftScopeRef.current) writeDraftText(draftScopeRef.current, '');
+          return;
+        }
+
         // The `/api/commands/execute` context sends `projectId` now instead of
         // a folder-derived project name; the path is still included verbatim.
         const context = {
@@ -519,6 +531,8 @@ export function useChatComposerState({
     },
     [
       currentProviderModel,
+      onOpenBtw,
+      setInput,
       currentSessionId,
       handleBuiltInCommand,
       handleCustomCommand,
@@ -873,6 +887,13 @@ export function useChatComposerState({
         return;
       }
 
+      if (!submitOptions?.skipCommandInterception && provider === 'codex' && /^\/btw(?:\s|$)/.test(currentInput)) {
+        onOpenBtw?.(currentInput.slice(4).trim());
+        setInput(''); inputValueRef.current = ''; resetCommandMenuState();
+        if (draftScopeRef.current) writeDraftText(draftScopeRef.current, '');
+        return;
+      }
+
       // A turn is already in flight: stash this message instead of sending it.
       // Upload attached files now so the queued record contains durable image
       // descriptors that can be sent even if another session is open later.
@@ -1192,6 +1213,8 @@ export function useChatComposerState({
       isLoading,
       onSessionProcessing,
       onSessionEstablished,
+      onOpenBtw,
+      setInput,
       provider,
       queueMessage,
       recordSentMessage,
@@ -1413,6 +1436,14 @@ export function useChatComposerState({
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      // /btw is a local window command. Handle an exact Enter before the
+      // debounced menu can select an older result under the mouse pointer.
+      if (provider === 'codex' && inputValueRef.current.trim() === '/btw'
+        && event.key === 'Enter' && !event.shiftKey && (!sendByCtrlEnter || event.ctrlKey || event.metaKey)
+        && !event.nativeEvent.isComposing && !isComposingRef.current
+        && performance.now() - lastCompositionEndAtRef.current >= SAFARI_IME_RACE_WINDOW_MS) {
+        event.preventDefault(); resetCommandMenuState(); void handleSubmit(event); return;
+      }
       if (handleCommandMenuKeyDown(event)) {
         return;
       }

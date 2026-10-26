@@ -451,5 +451,20 @@
     "apiKey": "API key account · subscription quota unavailable",
     "unavailable": "Usage temporarily unavailable; refresh to retry",
     "loading": "Loading usage…"
+  },
+  "btw": {
+    "title": "BTW",
+    "temporary": "Temporary side conversation",
+    "finish": "Finish",
+    "close": "Close side conversation",
+    "input": "Side question",
+    "placeholder": "Ask a side question…",
+    "send": "Send side question",
+    "stop": "Stop",
+    "empty": "Ask a question using the context of your main conversation.",
+    "connecting": "Preparing conversation context…",
+    "working": "Thinking…",
+    "ended": "Conversation ended. Temporary context has been cleared.",
+    "startFirst": "Open an existing Codex conversation to use /btw."
   }
 }

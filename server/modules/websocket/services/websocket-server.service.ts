@@ -3,6 +3,7 @@ import type { Server as HttpServer } from 'node:http';
 import { WebSocket, WebSocketServer, type VerifyClientCallbackSync } from 'ws';
 
 import { handleChatConnection } from '@/modules/websocket/services/chat-websocket.service.js';
+import { handleBtwConnection } from '@/modules/websocket/services/btw-websocket.service.js';
 import { verifyWebSocketClient } from '@/modules/websocket/services/websocket-auth.service.js';
 import { handlePluginWsProxy } from '@/modules/websocket/services/plugin-websocket-proxy.service.js';
 import { handleShellConnection } from '@/modules/websocket/services/shell-websocket.service.js';
@@ -105,6 +106,11 @@ export function createWebSocketServer(
 
     if (pathname === '/ws') {
       handleChatConnection(ws, incomingRequest, dependencies.chat);
+      return;
+    }
+
+    if (pathname === '/btw') {
+      handleBtwConnection(ws);
       return;
     }
 

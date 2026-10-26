@@ -123,7 +123,9 @@ export function useProjectSlashCommands(
           .map(mapSkillToSlashCommand);
         const allCommands: SlashCommand[] = [
           ...(provider === 'codex' ? [{ name: '/goal', description: 'Manage a persistent Codex goal: /goal <objective>, pause, resume, clear',
-            namespace: 'codex', type: 'built-in', metadata: { type: 'codex-goal' } } as SlashCommand] : []),
+            namespace: 'codex', type: 'built-in', metadata: { type: 'codex-goal' } },
+          { name: '/btw', description: 'Ask a side question in a temporary window · 临时小窗提问',
+            namespace: 'codex', type: 'built-in', metadata: { type: 'codex-btw' } }] as SlashCommand[] : []),
           ...((data.builtIn || []) as SlashCommand[]).map((command) => ({
             ...command,
             type: 'built-in',

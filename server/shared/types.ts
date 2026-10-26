@@ -50,6 +50,14 @@ export type CodexRpcConnection = {
   off(event: string, listener: (...args: any[]) => void): unknown;
 };
 
+/** Events sent only to a temporary BTW window, outside the main session stream and database. */
+export type CodexBtwEvent =
+  | { kind: 'btw_ready'; threadId: string; model: string }
+  | { kind: 'btw_message'; id: string; role: 'user' | 'assistant'; content: string }
+  | { kind: 'btw_status'; busy: boolean; label?: string }
+  | { kind: 'btw_error'; message: string }
+  | { kind: 'btw_closed' };
+
 // ---------------------------
 //----------------- WEBSOCKET TRANSPORT TYPES ------------
 /**

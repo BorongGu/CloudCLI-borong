@@ -355,5 +355,20 @@
     "apiKey": "API Key 账号 · 订阅额度暂不可用",
     "unavailable": "用量暂时读取失败，可刷新重试",
     "loading": "正在读取用量…"
+  },
+  "btw": {
+    "title": "BTW",
+    "temporary": "临时对话 · 结束即清理",
+    "finish": "结束",
+    "close": "关闭临时对话",
+    "input": "旁支问题",
+    "placeholder": "问一个旁支问题…",
+    "send": "发送旁支问题",
+    "stop": "停止",
+    "empty": "可以结合主会话的上下文，在这里继续提问。",
+    "connecting": "正在准备会话上下文…",
+    "working": "正在思考…",
+    "ended": "对话已结束，临时上下文已清理。",
+    "startFirst": "请先打开一个已有的 Codex 会话，再使用 /btw。"
   }
 }
