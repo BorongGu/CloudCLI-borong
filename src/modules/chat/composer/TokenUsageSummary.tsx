@@ -77,6 +77,7 @@ function TokenUsageSummary({ usage, onClick, provider, sessionId, model }: Token
     return t('usage.quota');
   };
   const number = (value: number) => `${Math.round(value * 10) / 10}%`;
+  const remaining = (window: ProviderUsageWindow) => Math.max(0, Math.min(100, 100 - window.usedPercent));
   const date = (value: string) => new Date(value).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const toggle = () => { updateAnchor(); setIsOpen(current => !current); };
   const planLabel = (plan: string) => ({ prolite: 'Pro Lite', pro: 'Pro', plus: 'Plus', team: 'Team', business: 'Business', enterprise: 'Enterprise', free: 'Free' }[plan] || plan);
@@ -98,7 +99,7 @@ function TokenUsageSummary({ usage, onClick, provider, sessionId, model }: Token
       <button ref={triggerRef} type="button" onClick={toggle} className={buttonClass} aria-label={t('usage.trigger')} aria-haspopup="dialog" aria-expanded={isOpen}>
         <Gauge className="h-3.5 w-3.5 text-primary" />
         <span>{t('usage.quota')}</span>
-        {primary && <span className="whitespace-nowrap text-foreground">{windowLabel(primary)} {number(primary.usedPercent)}</span>}
+        {primary && <span className="whitespace-nowrap text-foreground">{windowLabel(primary)} {t('usage.remaining', { percent: number(remaining(primary)) })}</span>}
       </button>
       {isOpen && anchor && createPortal(
         <div ref={menuRef} role="dialog" aria-label={t('usage.heading')} className="fixed z-[100] overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-4 text-sm text-popover-foreground shadow-xl" style={{ ...anchor, right: Math.min(anchor.right, Math.max(8, window.innerWidth - 368)), maxWidth: 'calc(100vw - 16px)', width: 360 }}>
@@ -117,8 +118,8 @@ function TokenUsageSummary({ usage, onClick, provider, sessionId, model }: Token
             <section key={account.id} className="mt-4" aria-label={`${account.provider === 'codex' ? 'Codex' : 'OpenCode Go'} ${account.label}`}>
               <div className="flex items-center gap-2 text-xs font-medium"><span>{account.provider === 'codex' ? 'Codex' : `OpenCode Go · ${account.label}`}</span>{account.plan && <span className="font-normal text-muted-foreground">{planLabel(account.plan)}</span>}{account.active && <span className="ml-auto rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{t('usage.current')}</span>}{!account.enabled && <span className="text-muted-foreground">{t('usage.disabled')}</span>}</div>
               {account.windows.map(window => <div key={window.id} className="mt-2.5">
-                <div className="flex justify-between gap-2 text-[11px]"><span className="text-muted-foreground">{window.label ? `${window.label} · ` : ''}{windowLabel(window)}</span><span>{t('usage.used', { percent: number(window.usedPercent) })}</span></div>
-                <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${account.label} ${windowLabel(window)}`} aria-valuenow={Math.min(100, window.usedPercent)} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-primary/70" style={{ width: `${Math.min(100, window.usedPercent)}%` }} /></div>
+                <div className="flex justify-between gap-2 text-[11px]"><span className="text-muted-foreground">{window.label ? `${window.label} · ` : ''}{windowLabel(window)}</span><span>{t('usage.remaining', { percent: number(remaining(window)) })}</span></div>
+                <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${account.label} ${windowLabel(window)}`} aria-valuenow={remaining(window)} aria-valuetext={t('usage.remaining', { percent: number(remaining(window)) })} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-primary/70" style={{ width: `${remaining(window)}%` }} /></div>
                 {window.resetsAt && <p className="mt-1 text-[10px] text-muted-foreground/70">{t('usage.resets', { date: date(window.resetsAt) })}</p>}
               </div>)}
               {account.status !== 'ok' && <p className="mt-2 text-[11px] text-muted-foreground">{t(`usage.${account.status === 'stale' ? 'stale' : account.error === 'not_configured' ? 'notConfigured' : account.error === 'api_key' ? 'apiKey' : 'unavailable'}`)}</p>}

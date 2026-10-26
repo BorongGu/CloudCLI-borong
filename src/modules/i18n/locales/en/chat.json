@@ -443,7 +443,7 @@
     "sessionTokens": "Session token details",
     "current": "Current",
     "disabled": "Disabled",
-    "used": "{{percent}} used",
+    "remaining": "{{percent}} remaining",
     "resets": "Resets {{date}}",
     "updated": "Updated {{date}}",
     "stale": "Showing the last available quota snapshot",

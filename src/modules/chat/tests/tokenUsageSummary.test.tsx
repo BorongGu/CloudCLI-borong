@@ -34,10 +34,13 @@ describe('context and subscription usage', () => {
     const dialog = screen.getByRole('dialog', { name: 'usage.heading' });
     assert.match(dialog.textContent || '', /Pro Lite/);
     assert.match(dialog.textContent || '', /OpenCode Go · 我的账号/);
-    assert.match(dialog.textContent || '', /11%/);
-    assert.match(dialog.textContent || '', /55%/);
+    assert.match(dialog.textContent || '', /89%/);
+    assert.match(dialog.textContent || '', /45%/);
     assert.match(dialog.textContent || '', /286M/);
     assert.ok(screen.getByRole('progressbar', { name: 'usage.context' }));
+    assert.match(screen.getByRole('button', { name: 'usage.trigger' }).textContent || '', /usage.remaining 89%/);
+    assert.equal(screen.getByRole('progressbar', { name: 'Codex usage.weekly' }).getAttribute('aria-valuenow'), '89');
+    assert.equal(screen.getByRole('progressbar', { name: '我的账号 usage.monthly' }).getAttribute('aria-valuenow'), '45');
   });
 
   it('clears the prior context immediately on a session switch and ignores its late response', async () => {
@@ -59,7 +62,7 @@ describe('context and subscription usage', () => {
     vi.mocked(api.providers.usage).mockRejectedValueOnce(new Error('offline'));
     fireEvent.click(screen.getByRole('button', { name: 'usage.refresh' }));
     await screen.findByText('usage.unavailable');
-    assert.match(screen.getByRole('dialog').textContent || '', /55%/);
+    assert.match(screen.getByRole('dialog').textContent || '', /45%/);
     assert.equal(vi.mocked(api.providers.usage).mock.lastCall?.[0].refresh, 1);
   });
 
