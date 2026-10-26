@@ -28,6 +28,7 @@ test('native goal status and controls persist across a remount', async () => {
   const view = render(<CodexGoalPanel sessionId="session" />);
   await view.findByText('A native goal');
   assert.equal(state.sent[0].sessions[0].watchGoal, true);
+  assert.equal(state.sent[0].sessions[0].replay, false);
   fireEvent.click(view.getByRole('button', { name: /Pause|暂停/ }));
   await waitFor(() => assert.equal(goal.status, 'paused'));
   await view.findByRole('button', { name: /Resume|恢复/ });
@@ -52,4 +53,32 @@ test('navigation clears the displayed goal while the next session loads', async 
   vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
   view.rerender(<CodexGoalPanel sessionId="second" />);
   assert.equal(view.queryByText('A native goal'), null);
+});
+
+test('pause applies its response immediately and ignores an older in-flight refresh', async () => {
+  const view = render(<CodexGoalPanel sessionId="session" />);
+  await view.findByText('A native goal');
+  let completeRead!: (response: Response) => void;
+  vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: RequestInit) => {
+    if (!init?.body) return new Promise<Response>(resolve => { completeRead = resolve; });
+    return new Response(JSON.stringify({ data: { goal: { ...goal, status: 'paused', tokensUsed: 420 } } }));
+  }));
+  await act(async () => { for (const listener of state.listeners) listener({ kind: 'websocket_reconnected' }); });
+  fireEvent.click(view.getByRole('button', { name: /Pause|暂停/ }));
+  await view.findByRole('button', { name: /Resume|恢复/ });
+  await act(async () => { completeRead(new Response(JSON.stringify({ data: { goal: { ...goal, tokensUsed: 0 } } }))); });
+  assert.ok(view.getByRole('button', { name: /Resume|恢复/ }));
+  assert.match(view.getByTestId('codex-goal-panel').textContent!, /420/);
+  assert.equal(state.sent.length, 1);
+});
+
+test('a live goal update supersedes an older HTTP snapshot', async () => {
+  let completeRead!: (response: Response) => void;
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { completeRead = resolve; })));
+  const view = render(<CodexGoalPanel sessionId="session" />);
+  await act(async () => {
+    for (const listener of state.listeners) listener({ kind: 'status', text: 'codex_goal', sessionId: 'session', goal: { ...goal, tokensUsed: 999 } });
+    completeRead(new Response(JSON.stringify({ data: { goal } })));
+  });
+  assert.match(view.getByTestId('codex-goal-panel').textContent!, /999/);
 });

@@ -19,6 +19,22 @@ export function createCodexGoalsService(
         throw new AppError('Start the goal from the chat composer.', { statusCode: 409, code: 'GOAL_THREAD_REQUIRED' });
       }
       const goal = await executeCodexGoal(client, session.provider_session_id, command);
+      if (command.action === 'pause') {
+        // Pause scheduling first, then stop the current turn so the button
+        // also pauses work already in flight. Usage stays on the native goal.
+        const turns = await client.call('thread/turns/list', {
+          threadId: session.provider_session_id, limit: 1, sortDirection: 'desc', itemsView: 'notLoaded',
+        });
+        const running = turns.data?.find((turn: { status: string }) => turn.status === 'inProgress');
+        if (running) {
+          try {
+            await client.call('turn/interrupt', { threadId: session.provider_session_id, turnId: running.id });
+          } catch (error) {
+            // The turn may finish between the list and interrupt requests.
+            if (!/no active turn|not.*in.progress|already.*(?:completed|finished)/i.test(String(error))) throw error;
+          }
+        }
+      }
       return { goal };
     },
   };

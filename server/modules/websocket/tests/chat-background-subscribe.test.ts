@@ -123,6 +123,30 @@ test('a tab that subscribes during background work receives the run\'s later eve
   });
 });
 
+test('goal observation attaches live output without replaying the transcript', async () => {
+  await withIsolatedDatabase(async () => {
+    const run = chatRunRegistry.startRun({ appSessionId: SESSION_ID, provider: 'claude', providerSessionId: 'native-1',
+      connection: createFakeSocket() as never, userId: 1 });
+    assert.ok(run);
+    run.writer.send({ kind: 'text', text: 'Older assistant snapshot' } as never);
+    run.writer.send({ kind: 'status', text: 'codex_goal', goal: { status: 'active', tokensUsed: 0 } } as never);
+    const socket = createFakeSocket();
+    handleChatConnection(socket as never, { user: { id: 1 } } as never, {
+      runtime: { hasBackgroundWork: () => false, getPendingApprovalsForSession: () => [] } as never,
+    });
+    socket.emit('message', JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: SESSION_ID, replay: false }] }));
+    await settle();
+    assert.deepEqual(socket.frames.map(f => f.kind), ['chat_subscribed']);
+    run.writer.send({ kind: 'status', text: 'codex_goal', goal: { status: 'paused', tokensUsed: 123 } } as never);
+    assert.equal(socket.frames.at(-1)?.text, 'codex_goal');
+    socket.frames.length = 0;
+    socket.emit('message', JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: SESSION_ID, lastSeq: 0 }] }));
+    await settle();
+    assert.ok(socket.frames.some(f => f.text === 'Older assistant snapshot'));
+    assert.ok(socket.frames.every(f => f.text !== 'codex_goal'));
+  });
+});
+
 test('a tab that subscribes to an idle session is not attached to its old run', async () => {
   await withIsolatedDatabase(async () => {
     const run = startAndCompleteRun(createFakeSocket());
