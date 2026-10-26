@@ -82,8 +82,51 @@ test('dollar amounts and $$ math keep the behaviour singleDollarTextMath was tur
   assert.equal(prices.querySelectorAll('.katex').length, 0);
   assert.ok(prices.textContent?.includes('$5 and $7'));
 
+  const list = renderChatMarkdown('Prices: $5, $10 and $15.');
+  assert.equal(list.querySelectorAll('.katex').length, 0);
+  assert.ok(list.textContent?.includes('$5, $10 and $15'));
+
   const displayDollars = renderChatMarkdown('Energy:\n\n$$\nE = mc^2\n$$\n');
   assert.equal(displayDollars.querySelectorAll('.katex-display').length, 1);
+});
+
+test('single $…$ math renders inline without becoming a display block', () => {
+  const container = renderChatMarkdown(
+    String.raw`用连续存活概率 $c_{t+1} = c_t(1 - d_{t+1})$ 替代硬终止，观测 $\hat{\bar{o}}_t$ 与策略 $\pi_\theta(\hat{\bar{o}}_t + \eta_t, g_t)$。`,
+  );
+
+  assert.equal(container.querySelectorAll('.katex').length, 3);
+  assert.equal(container.querySelectorAll('.katex-display').length, 0);
+  assert.ok(!container.textContent?.includes('$'), 'a raw $ delimiter reached the DOM');
+  const annotations = [...container.querySelectorAll('annotation')].map((node) => node.textContent);
+  assert.ok(annotations[0]?.includes('c_{t+1}'));
+  assert.ok(annotations[2]?.includes('\\pi_\\theta'));
+});
+
+test('single $…$ stays literal in code, next to spaces and when escaped', () => {
+  const spaced = renderChatMarkdown('Not math: $ x$ nor $x $ nor a lone $x');
+  assert.equal(spaced.querySelectorAll('.katex').length, 0);
+
+  const escaped = renderChatMarkdown(String.raw`Escaped \$x$ stays text.`);
+  assert.equal(escaped.querySelectorAll('.katex').length, 0);
+  assert.ok(escaped.textContent?.includes('$x$'));
+
+  const code = renderChatMarkdown('Inline `$x$` and fenced:\n\n```text\n$y$\n```');
+  assert.equal(code.querySelectorAll('.katex').length, 0);
+  assert.ok(code.textContent?.includes('$x$'));
+  assert.ok(code.textContent?.includes('$y$'));
+});
+
+test('single $…$ never crosses a paragraph break', () => {
+  const container = renderChatMarkdown('Opens $a\n\nand closes b$ later.');
+  assert.equal(container.querySelectorAll('.katex').length, 0);
+  assert.ok(container.textContent?.includes('$a'));
+});
+
+test('$$ display math and $…$ inline math render side by side', () => {
+  const container = renderChatMarkdown('Inline $a$ first.\n\n$$\nb = c\n$$\n\nAfter $d$.');
+  assert.equal(container.querySelectorAll('.katex').length, 3);
+  assert.equal(container.querySelectorAll('.katex-display').length, 1);
 });
 
 test('an escaped backslash does not open math and an unmatched opener stays text', () => {
@@ -127,6 +170,8 @@ const STREAMING_FIXTURES: Array<[string, string]> = [
   ['display latex', 'Before.\n\n' + String.raw`\[` + '\na = b\n' + String.raw`\]` + '\n\nAfter'],
   ['display latex with a blank line inside', 'Before.\n\n' + String.raw`\[` + '\n\na = b\n\n' + String.raw`\]` + '\n\nAfter'],
   ['inline latex after a paragraph', 'Intro.\n\n' + String.raw`Then \(x^2\) inline` + '\n\nEnd'],
+  ['inline dollar math', 'Intro.\n\nThen $x^2 + y^2 = z^2$ inline.\n\nEnd'],
+  ['display dollars and inline dollars', 'Before $a$.\n\n$$\nb = c\n$$\n\nAfter $d$'],
 ];
 
 for (const [label, content] of STREAMING_FIXTURES) {

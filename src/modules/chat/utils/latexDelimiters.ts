@@ -1,18 +1,23 @@
 /**
- * Rewrites the LaTeX math delimiters `\(…\)` and `\[…\]` into the `$$…$$` form
- * that remark-math actually understands.
+ * Rewrites the LaTeX math delimiters `\(…\)`, `\[…\]` and single `$…$` into
+ * the `$$…$$` form that remark-math actually understands.
  *
  * Models — Codex in particular — emit math with the LaTeX delimiters, but
  * `micromark-extension-math`, which backs remark-math, registers exactly one
  * construct and it sits on `$`. Nothing recognizes `\(`, and because CommonMark
  * reads `\(` and `\[` as backslash escapes the parser eats the backslash, so the
- * reader is left with `(x = …)` instead of a formula.
+ * reader is left with `(x = …)` instead of a formula. Single `$…$` math, which
+ * models emit constantly, is also left literal because `singleDollarTextMath`
+ * is off in <Markdown> — deliberately, since remark-math cannot tell a formula
+ * apart from a sentence like "costs $5 and $7".
  *
- * `$$` is the target for both notations because `singleDollarTextMath` is off in
- * <Markdown>, deliberately: a lone `$` must never open math or a sentence like
- * "costs $5 and $7" becomes a formula. A `$$…$$` run inside a paragraph is
- * inline math and a `$$` alone on its line opens a display block, so both
- * notations survive the translation.
+ * `$$` is the target for every notation: a `$$…$$` run inside a paragraph is
+ * inline math and a `$$` alone on its line opens a display block, so all
+ * notations survive the translation. The single-`$` pass re-applies the
+ * heuristics the remark option could not (an opener is never followed by a
+ * space or a digit, a closer is never preceded by a space or followed by a
+ * digit, the pair never crosses a paragraph break), which keeps prices and
+ * other currency literal while formulas render.
  *
  * Code is never rewritten: fenced blocks, indented blocks and inline code spans
  * are masked out before any delimiter is matched, so LaTeX quoted as an example
@@ -62,7 +67,9 @@ type DelimiterEdit = { start: number; end: number; value: string };
  * normalizeInlineCodeFences has settled the code spans this reads.
  */
 export function normalizeLatexDelimiters(text: string): string {
-  if (!text || typeof text !== 'string' || !LATEX_OPENER_PATTERN.test(text)) {
+  // Cheap bail-out: with no LaTeX opener and no `$` there is nothing to do.
+  // Runs on every rendered message.
+  if (!text || typeof text !== 'string' || (!LATEX_OPENER_PATTERN.test(text) && !text.includes('$'))) {
     return text;
   }
   try {
@@ -188,8 +195,22 @@ function findBacktickRun(text: string, from: number, length: number, mask: Uint8
   return -1;
 }
 
-/** Pairs the delimiters left outside code and turns each pair into `$$` edits. */
+/**
+ * Pairs every math delimiter left outside code and turns each pair into `$$`
+ * edits. The three passes run over the original text and share a `claimed`
+ * map — ranges spoken for by an existing `$$…$$` run or a `\(…\)`/`\[…\]`
+ * pair — so the single-`$` pass never reaches inside another notation.
+ */
 function planDelimiterEdits(text: string, mask: Uint8Array): DelimiterEdit[] {
+  const claimed = new Uint8Array(text.length);
+  const edits = planBracketEdits(text, mask, claimed);
+  claimDisplayDollarSpans(text, mask, claimed);
+  const dollarEdits = planInlineDollarEdits(text, mask, claimed);
+  return [...edits, ...dollarEdits].sort((a, b) => a.start - b.start);
+}
+
+/** Pairs the `\(…\)` and `\[…\]` delimiters and turns each pair into `$$` edits. */
+function planBracketEdits(text: string, mask: Uint8Array, claimed: Uint8Array): DelimiterEdit[] {
   const delimiters: LatexDelimiter[] = [];
   LATEX_DELIMITER_PATTERN.lastIndex = 0;
   for (let match = LATEX_DELIMITER_PATTERN.exec(text); match; match = LATEX_DELIMITER_PATTERN.exec(text)) {
@@ -222,6 +243,7 @@ function planDelimiterEdits(text: string, mask: Uint8Array): DelimiterEdit[] {
     }
 
     const close = delimiters[closePosition];
+    claimed.fill(1, open.index, close.index + 2);
     const content = text.slice(open.index + 2, close.index);
     // A `$$` inside would close the run being opened, and a code region between
     // the two delimiters means they are not really a pair.
@@ -260,6 +282,132 @@ function planDelimiterEdits(text: string, mask: Uint8Array): DelimiterEdit[] {
   }
 
   return edits;
+}
+
+/**
+ * Marks every `$$…$$` run outside code as claimed so the single-`$` pass never
+ * re-pairs the dollars of math that is already in remark-math's notation. An
+ * unclosed `$$` claims the rest of the text: it is a display block still
+ * streaming in, and nothing after it should pair either.
+ */
+function claimDisplayDollarSpans(text: string, mask: Uint8Array, claimed: Uint8Array): void {
+  let index = 0;
+  while (index < text.length - 1) {
+    if (text[index] === '\\') {
+      index += 2;
+      continue;
+    }
+    if (mask[index] || claimed[index] || text[index] !== '$' || text[index + 1] !== '$') {
+      index += 1;
+      continue;
+    }
+    let cursor = index + 2;
+    let close = -1;
+    while (cursor < text.length - 1) {
+      if (text[cursor] === '\\') {
+        cursor += 2;
+        continue;
+      }
+      if (text[cursor] === '$' && text[cursor + 1] === '$' && !mask[cursor]) {
+        close = cursor;
+        break;
+      }
+      cursor += 1;
+    }
+    if (close < 0) {
+      claimed.fill(1, index);
+      return;
+    }
+    claimed.fill(1, index, close + 2);
+    index = close + 2;
+  }
+}
+
+/**
+ * Pairs single `$…$` delimiters into inline `$$ … $$` math. The guards are the
+ * currency heuristics `singleDollarTextMath` cannot express: a `$` followed by
+ * a digit never opens ("$5"), an opener is never followed by a space, a closer
+ * is never preceded by a space or followed by a digit ("$x$5" stays text), and
+ * a pair never crosses a paragraph break or a code span.
+ */
+function planInlineDollarEdits(text: string, mask: Uint8Array, claimed: Uint8Array): DelimiterEdit[] {
+  const edits: DelimiterEdit[] = [];
+  let index = 0;
+  while (index < text.length - 1) {
+    if (text[index] === '\\') {
+      // An escaped `\$` is a literal dollar sign, never a delimiter.
+      index += 2;
+      continue;
+    }
+    if (text[index] !== '$' || mask[index] || claimed[index] || !isDollarOpener(text, index)) {
+      index += 1;
+      continue;
+    }
+    const close = findDollarCloser(text, index + 1, mask, claimed);
+    if (close < 0) {
+      index += 1;
+      continue;
+    }
+    const content = text.slice(index + 1, close);
+    if (!content || BLANK_LINE_PATTERN.test(content)) {
+      // Empty math renders nothing and inline math cannot cross a paragraph
+      // break; leave both literal.
+      index += 1;
+      continue;
+    }
+    // The spaces are stripped again by micromark, and they keep a `$` at the
+    // edge of the formula from lengthening the delimiter run.
+    edits.push({ start: index, end: index + 1, value: '$$ ' });
+    edits.push({ start: close, end: close + 1, value: ' $$' });
+    index = close + 1;
+  }
+  return edits;
+}
+
+/** A `$` opens inline math only when a non-space, non-digit character follows. */
+function isDollarOpener(text: string, index: number): boolean {
+  const next = text[index + 1];
+  if (next === undefined || next === '$' || isBlank(next) || isDigit(next)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * The next `$` that can close the run opened before `from`, or -1. Code and
+ * claimed ranges end the search: a pair may not span either.
+ */
+function findDollarCloser(text: string, from: number, mask: Uint8Array, claimed: Uint8Array): number {
+  let index = from;
+  while (index < text.length) {
+    if (text[index] === '\\') {
+      index += 2;
+      continue;
+    }
+    if (mask[index] || claimed[index]) {
+      return -1;
+    }
+    if (text[index] === '$') {
+      if (text[index + 1] === '$') {
+        return -1;
+      }
+      const previous = text[index - 1];
+      const next = text[index + 1];
+      if (!isBlank(previous) && (next === undefined || !isDigit(next))) {
+        return index;
+      }
+    }
+    index += 1;
+  }
+  return -1;
+}
+
+function isBlank(character: string): boolean {
+  return character === ' ' || character === '\t' || character === '\n' || character === '\r';
+}
+
+function isDigit(character: string): boolean {
+  return character >= '0' && character <= '9';
 }
 
 function spansCode(mask: Uint8Array, from: number, to: number): boolean {

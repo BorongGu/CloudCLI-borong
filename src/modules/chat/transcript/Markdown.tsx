@@ -68,8 +68,8 @@ const childrenToText = (children: React.ReactNode): string => {
 };
 
 // The only delimiter `remark-math` recognizes with `singleDollarTextMath` off.
-// `\(…\)` and `\[…\]` are already rewritten to `$$` by normalizeLatexDelimiters,
-// so this one probe covers both notations.
+// `\(…\)`, `\[…\]` and single `$…$` are already rewritten to `$$` by
+// normalizeLatexDelimiters, so this one probe covers every notation.
 const MATH_DELIMITER = /\$\$/;
 
 const EMPTY_PLUGINS: never[] = [];
