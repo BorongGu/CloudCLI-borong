@@ -7,7 +7,7 @@ import { useWebSocket } from '@/shared/context/WebSocketContext';
 import type { CodexGoal } from '@/shared/types';
 
 /** ChatInterface uses this persistent native-goal status row above the composer. */
-export function CodexGoalPanel({ sessionId }: { sessionId: string | null }) {
+export function CodexGoalPanel({ sessionId, hasActivityIndicator = false }: { sessionId: string | null; hasActivityIndicator?: boolean }) {
   const { t } = useTranslation('chat');
   const { subscribe, sendMessage } = useWebSocket();
   // Tag async results with their session so navigation never displays another goal.
@@ -89,7 +89,9 @@ export function CodexGoalPanel({ sessionId }: { sessionId: string | null }) {
   }, [sessionId, sendMessage, subscribe]);
 
   if (!goal && !error) return null;
-  return <div data-testid="codex-goal-panel" className="mx-3 mb-2 w-fit max-w-[calc(100%-1.5rem)] rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs sm:mx-4 sm:max-w-lg">
+  return <div className={`px-2 sm:px-4 ${hasActivityIndicator ? 'pb-10' : 'pb-2'}`}>
+    <div className="mx-auto max-w-[50rem]">
+      <div data-testid="codex-goal-panel" className="w-fit max-w-full rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs sm:max-w-lg">
     {goal && <>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">Goal · {t(`goal.status.${goal.status}`, { defaultValue: goal.status })}</span>
@@ -109,5 +111,7 @@ export function CodexGoalPanel({ sessionId }: { sessionId: string | null }) {
       </button>
     </>}
     {error && <p role="alert" className="mt-1 text-muted-foreground">{error}</p>}
+      </div>
+    </div>
   </div>;
 }

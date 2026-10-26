@@ -537,7 +537,7 @@ function ChatInterface({
             </div>
           )}
 
-          {provider === 'codex' && <CodexGoalPanel sessionId={selectedSession?.id || currentSessionId || null} />}
+          {provider === 'codex' && <CodexGoalPanel sessionId={selectedSession?.id || currentSessionId || null} hasActivityIndicator={hasActivityIndicator} />}
           <ChatComposer
           pendingPermissionRequests={pendingPermissionRequests}
           handlePermissionDecision={handlePermissionDecision}
