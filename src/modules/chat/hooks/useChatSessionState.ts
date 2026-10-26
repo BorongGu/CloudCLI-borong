@@ -214,11 +214,8 @@ export function useChatSessionState({
   const [visibleMessageCount, setVisibleMessageCount] = useState(INITIAL_VISIBLE_MESSAGES);
   const [allMessagesLoaded, setAllMessagesLoaded] = useState(false);
   const [isLoadingAllMessages, setIsLoadingAllMessages] = useState(false);
-  const [loadAllJustFinished, setLoadAllJustFinished] = useState(false);
-  const [showLoadAllOverlay, setShowLoadAllOverlay] = useState(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const wasNearTopRef = useRef(false);
   // The sidebar-search hit this transcript still owes the user a scroll to.
   // State rather than a ref because resolving it widens the render window,
   // and it is cleared once the row is on screen or the retries run out.
@@ -243,8 +240,6 @@ export function useChatSessionState({
   const pendingInitialScrollRef = useRef(true);
   const messagesOffsetRef = useRef(0);
   const scrollPositionRef = useRef({ height: 0, top: 0 });
-  const loadAllFinishedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loadAllOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoadedSessionKeyRef = useRef<string | null>(null);
   /**
    * Tracks the last processed value from `useProjectsState.newSessionTrigger`.
@@ -293,24 +288,12 @@ export function useChatSessionState({
     setAllMessagesLoaded(false);
     allMessagesLoadedRef.current = false;
     setIsLoadingAllMessages(false);
-    setLoadAllJustFinished(false);
-    setShowLoadAllOverlay(false);
     setSearchTarget(null);
-    wasNearTopRef.current = false;
     searchScrollActiveRef.current = false;
     topLoadLockRef.current = false;
     pendingScrollRestoreRef.current = null;
     pendingInitialScrollRef.current = true;
     lastLoadedSessionKeyRef.current = null;
-
-    if (loadAllOverlayTimerRef.current) {
-      clearTimeout(loadAllOverlayTimerRef.current);
-      loadAllOverlayTimerRef.current = null;
-    }
-    if (loadAllFinishedTimerRef.current) {
-      clearTimeout(loadAllFinishedTimerRef.current);
-      loadAllFinishedTimerRef.current = null;
-    }
   }, [newSessionTrigger, onSessionIdle, resetStreamingState]);
 
   /* ---------------------------------------------------------------- */
@@ -501,11 +484,6 @@ export function useChatSessionState({
           if (!slot.hasMore) {
             allMessagesLoadedRef.current = true;
             setAllMessagesLoaded(true);
-            if (loadAllOverlayTimerRef.current) {
-              clearTimeout(loadAllOverlayTimerRef.current);
-              loadAllOverlayTimerRef.current = null;
-            }
-            setShowLoadAllOverlay(false);
           }
           return false;
         }
@@ -515,11 +493,6 @@ export function useChatSessionState({
         if (!slot.hasMore) {
           allMessagesLoadedRef.current = true;
           setAllMessagesLoaded(true);
-          if (loadAllOverlayTimerRef.current) {
-            clearTimeout(loadAllOverlayTimerRef.current);
-            loadAllOverlayTimerRef.current = null;
-          }
-          setShowLoadAllOverlay(false);
         }
         return true;
       } finally {
@@ -544,22 +517,6 @@ export function useChatSessionState({
 
     const scrolledNearTop = container.scrollTop < 100;
 
-    // "Load all" prompt: appear (with fade-in) when the user reaches the top
-    if (scrolledNearTop && hasMoreMessages && !allMessagesLoadedRef.current) {
-      if (!wasNearTopRef.current) {
-        wasNearTopRef.current = true;
-        if (loadAllOverlayTimerRef.current) clearTimeout(loadAllOverlayTimerRef.current);
-
-        setShowLoadAllOverlay(true);
-        loadAllOverlayTimerRef.current = setTimeout(() => {
-          setShowLoadAllOverlay(false);
-          loadAllOverlayTimerRef.current = null;
-        }, 2500);
-      }
-    } else if (!scrolledNearTop) {
-      wasNearTopRef.current = false;
-    }
-
     if (!allMessagesLoadedRef.current) {
       if (!scrolledNearTop) { topLoadLockRef.current = false; return; }
       if (topLoadLockRef.current) {
@@ -569,7 +526,7 @@ export function useChatSessionState({
       const didLoad = await loadOlderMessages(container);
       if (didLoad) topLoadLockRef.current = true;
     }
-  }, [hasMoreMessages, isActive, isNearBottom, loadOlderMessages]);
+  }, [isActive, isNearBottom, loadOlderMessages]);
 
   const wasChatActiveRef = useRef(isActive);
   useLayoutEffect(() => {
@@ -623,7 +580,6 @@ export function useChatSessionState({
     setVisibleMessageCount(INITIAL_VISIBLE_MESSAGES);
     topLoadLockRef.current = false;
     pendingScrollRestoreRef.current = null;
-    wasNearTopRef.current = false;
     setIsUserScrolledUp(false);
   }, [selectedProject?.projectId, selectedSession?.id]);
 
@@ -753,11 +709,6 @@ export function useChatSessionState({
     setAllMessagesLoaded(false);
     allMessagesLoadedRef.current = false;
     setIsLoadingAllMessages(false);
-    setLoadAllJustFinished(false);
-    setShowLoadAllOverlay(false);
-    wasNearTopRef.current = false;
-    if (loadAllOverlayTimerRef.current) clearTimeout(loadAllOverlayTimerRef.current);
-    if (loadAllFinishedTimerRef.current) clearTimeout(loadAllFinishedTimerRef.current);
 
     if (sessionChanged) {
       setTokenBudget(null);
@@ -1023,9 +974,6 @@ export function useChatSessionState({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
-  // "Load all" overlay visibility is driven by scroll-to-top in handleScroll;
-  // timers are cleared on session change via the reset effect above.
-
   const loadAllMessages = useCallback(async () => {
     if (!isActive) return;
     if (!selectedSession || !selectedProject) return;
@@ -1034,11 +982,6 @@ export function useChatSessionState({
     allMessagesLoadedRef.current = true;
     isLoadingMoreRef.current = true;
     setIsLoadingAllMessages(true);
-    setShowLoadAllOverlay(true);
-    if (loadAllOverlayTimerRef.current) {
-      clearTimeout(loadAllOverlayTimerRef.current);
-      loadAllOverlayTimerRef.current = null;
-    }
 
     const container = scrollContainerRef.current;
     const scrollRestoreState = container ? captureScrollRestoreState(container) : null;
@@ -1065,22 +1008,12 @@ export function useChatSessionState({
         messagesOffsetRef.current = slot.offset;
         setVisibleMessageCount(Infinity);
         setAllMessagesLoaded(true);
-
-        setLoadAllJustFinished(true);
-        if (loadAllFinishedTimerRef.current) clearTimeout(loadAllFinishedTimerRef.current);
-        loadAllFinishedTimerRef.current = setTimeout(() => {
-          setLoadAllJustFinished(false);
-          setShowLoadAllOverlay(false);
-          loadAllFinishedTimerRef.current = null;
-        }, 2500);
       } else {
         allMessagesLoadedRef.current = false;
-        setShowLoadAllOverlay(false);
       }
     } catch (error) {
       console.error('Error loading all messages:', error);
       allMessagesLoadedRef.current = false;
-      setShowLoadAllOverlay(false);
     } finally {
       isLoadingMoreRef.current = false;
       setIsLoadingAllMessages(false);
@@ -1167,8 +1100,6 @@ export function useChatSessionState({
     loadFullTranscript,
     allMessagesLoaded,
     isLoadingAllMessages,
-    loadAllJustFinished,
-    showLoadAllOverlay,
     createDiff,
     scrollContainerRef,
     scrollToBottom,

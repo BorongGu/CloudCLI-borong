@@ -297,6 +297,8 @@ export type ServerEvent = {
   type?: string;
   sessionId?: string;
   seq?: number;
+  /** Native compaction progress carried by a context_compaction status frame. */
+  compact?: CompactionInfo;
   [key: string]: unknown;
 };
 
@@ -593,7 +595,7 @@ export type NormalizedMessage = {
   isLocalCommand?: boolean;
   isLocalCommandStdout?: boolean;
   isCompactSummary?: boolean;
-  /** Set by the provider on the row that stands in for a compaction. */
+  /** Compaction metadata on a transcript row or live context_compaction status frame. */
   compact?: CompactionInfo;
   images?: Array<{ path?: string; data?: string; name?: string }>;
   files?: Array<{ path?: string; name?: string; mimeType?: string; size?: number }>;

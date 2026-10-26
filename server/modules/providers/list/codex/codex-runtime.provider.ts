@@ -11,12 +11,12 @@
  * - codexRuntime.abort(sessionId) - Cancel an active session
  */
 
-import { SharedCodex as Codex } from './codex-shared-sdk.js';
-import { codexQuestions } from './codex-questions.provider.js';
-import { parseCodexGoalCommand } from './codex-goals.provider.js';
-import type { SharedCodexThread as Thread } from './codex-shared-sdk.js';
 import type { ModelReasoningEffort, ThreadOptions } from '@openai/codex-sdk';
 
+import { SharedCodex as Codex } from '@/modules/providers/list/codex/codex-shared-sdk.js';
+import { codexQuestions } from '@/modules/providers/list/codex/codex-questions.provider.js';
+import { parseCodexGoalCommand } from '@/modules/providers/list/codex/codex-goals.provider.js';
+import type { SharedCodexThread as Thread } from '@/modules/providers/list/codex/codex-shared-sdk.js';
 import {
   appendFilesInputTag,
   buildCodexInputItems,
@@ -363,6 +363,11 @@ async function queryCodex(
     });
 
     for await (const event of streamedTurn.events) {
+      if (event.type === 'compaction.updated') {
+        sendMessage(ws, createNormalizedMessage({ kind: 'status', text: 'context_compaction', compact: event.compact,
+          sessionId: capturedSessionId || sessionId || null, provider: 'codex', canInterrupt: true }));
+        continue;
+      }
       if (event.type === 'goal.updated') {
         sendMessage(ws, createNormalizedMessage({ kind: 'status', text: 'codex_goal', goal: event.goal,
           sessionId: capturedSessionId || sessionId || null, provider: 'codex' }));

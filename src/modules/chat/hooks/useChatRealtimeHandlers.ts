@@ -356,6 +356,13 @@ export function useChatRealtimeHandlers({
         }
 
         case 'status': {
+          if (msg.text === 'context_compaction' && sid && msg.compact) {
+            onSessionProcessing?.(sid, {
+              statusText: msg.compact.phase === 'running' ? 'Compacting' : null,
+              canInterrupt: msg.canInterrupt !== false,
+            });
+            break;
+          }
           // The native goal row consumes goal state separately from run status text.
           if (msg.text === 'codex_goal') break;
           if (msg.text === 'token_budget' && msg.tokenBudget) {

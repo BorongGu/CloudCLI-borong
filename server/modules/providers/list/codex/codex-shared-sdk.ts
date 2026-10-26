@@ -1,7 +1,8 @@
 import type { ThreadOptions } from '@openai/codex-sdk';
-import type { AnyRecord as RecordValue } from '../../../../shared/index.js';
-import { sharedCodexConnection } from './codex-shared-connection.js';
-import { executeCodexGoal } from './codex-goals.provider.js';
+
+import type { AnyRecord as RecordValue } from '@/shared/index.js';
+import { sharedCodexConnection } from '@/modules/providers/list/codex/codex-shared-connection.js';
+import { executeCodexGoal } from '@/modules/providers/list/codex/codex-goals.provider.js';
 import type { CodexGoal, CodexGoalCommand, CodexRpcConnection } from '@/shared/types.js';
 
 type Event = RecordValue & { type: string };
@@ -73,9 +74,16 @@ export class SharedCodexThread {
     let goal: CodexGoal | null = null;
     let goalRevision = 0;
     let nativeRunning = false;
+    // Preserve the native compaction phase separately from ordinary item output.
+    let compacting = false;
     const observedTurns = new Set<string>();
     const goalIsActive = () => goal?.status === 'active';
     const push = (event: Event) => { queue.push(event); wake?.(); wake = null; };
+    const setCompacting = (value: boolean, completion: 'done' | 'failed' = 'done') => {
+      if (compacting === value) return;
+      compacting = value;
+      push({ type: 'compaction.updated', compact: { phase: value ? 'running' : completion } });
+    };
     const synchronizeGoal = async (command: CodexGoalCommand) => {
       const revision = goalRevision;
       const result = await executeCodexGoal(this.client, this.id!, command);
@@ -83,6 +91,7 @@ export class SharedCodexThread {
       if (revision === goalRevision) goal = result;
     };
     const complete = async (turn: RecordValue) => {
+      setCompacting(false, turn.status === 'completed' ? 'done' : 'failed');
       if (targetTurn === turn.id) { targetTurn = null; nativeRunning = false; }
       if (turn.status === 'completed') push({ type: 'turn.completed', ...(usage ? { usage } : {}) });
       else push({ type: 'turn.failed', error: turn.error || { message: `Codex turn ${turn.status}` } });
@@ -95,6 +104,7 @@ export class SharedCodexThread {
       if (!goalIsActive() && !nativeRunning) finished = true;
     };
     const disconnected = (error: Error) => {
+      setCompacting(false, 'failed');
       push({ type: 'turn.failed', error: { message: error.message } }); finished = true;
     };
     const notification = (message: { method: string; params: RecordValue }) => {
@@ -113,9 +123,16 @@ export class SharedCodexThread {
       if (targetTurn && p.turnId && p.turnId !== targetTurn) return;
       if (message.method === 'item/started' || message.method === 'item/completed') {
         const item = p.item;
+        if (item.type === 'contextCompaction') {
+          setCompacting(message.method === 'item/started');
+          return;
+        }
         items.set(item.id, item);
         const transformed = transformItem(item);
         if (transformed) push({ type: message.method === 'item/started' ? 'item.started' : 'item.completed', item: transformed });
+      } else if (message.method === 'thread/compacted') {
+        // Older app servers can acknowledge compaction through this notification.
+        setCompacting(false);
       } else if (message.method === 'item/agentMessage/delta') {
         const item = items.get(p.itemId) || { id: p.itemId, type: 'agentMessage', text: '' };
         item.text = (item.text || '') + p.delta; items.set(item.id, item);

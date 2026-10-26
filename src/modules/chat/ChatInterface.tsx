@@ -156,8 +156,6 @@ function ChatInterface({
     loadFullTranscript,
     allMessagesLoaded,
     isLoadingAllMessages,
-    loadAllJustFinished,
-    showLoadAllOverlay,
     createDiff,
     scrollContainerRef,
     scrollToBottom,
@@ -212,7 +210,6 @@ function ChatInterface({
     textareaRef,
     inputHighlightRef,
     isTextareaExpanded,
-    slashCommandsCount,
     filteredCommands,
     frequentCommands,
     commandQuery,
@@ -523,8 +520,6 @@ function ChatInterface({
               loadAllMessages={loadAllMessages}
               allMessagesLoaded={allMessagesLoaded}
               isLoadingAllMessages={isLoadingAllMessages}
-              loadAllJustFinished={loadAllJustFinished}
-              showLoadAllOverlay={showLoadAllOverlay}
               createDiff={createDiff}
               onFileOpen={onFileOpen}
               onShowSettings={onShowSettings}
@@ -585,7 +580,6 @@ function ChatInterface({
           scheduledMessages={scheduledMessages}
           onScheduleMessage={handleScheduleMessage}
           onCancelScheduledMessage={cancelScheduledMessage}
-          slashCommandsCount={slashCommandsCount}
           onToggleCommandMenu={handleToggleCommandMenu}
           hasInput={Boolean(input.trim())}
           onClearInput={handleClearInput}

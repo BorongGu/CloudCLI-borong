@@ -100,8 +100,6 @@ function paneProps(chatMessages: ChatMessage[]) {
     loadAllMessages: noop,
     allMessagesLoaded: true,
     isLoadingAllMessages: false,
-    loadAllJustFinished: false,
-    showLoadAllOverlay: false,
     showRawParameters: false,
     showThinking: true,
   };

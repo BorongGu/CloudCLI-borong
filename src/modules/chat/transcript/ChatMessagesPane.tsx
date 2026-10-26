@@ -16,7 +16,6 @@ import LazyMessageRow from '@/modules/chat/transcript/LazyMessageRow';
 import MessageComponent from '@/modules/chat/transcript/MessageComponent';
 import ProviderSelectionEmptyState from '@/modules/chat/transcript/ProviderSelectionEmptyState';
 import ToolGroupContainer from '@/modules/chat/transcript/ToolGroupContainer';
-import LoadAllMessagesOverlay from '@/modules/chat/transcript/LoadAllMessagesOverlay';
 import ChatExportMenu from '@/modules/chat/transcript/ChatExportMenu';
 import { BackgroundTasksStrip } from '@/modules/chat/transcript/BackgroundTasksStrip';
 
@@ -66,8 +65,6 @@ type ChatMessagesPaneProps = {
   loadAllMessages: () => void;
   allMessagesLoaded: boolean;
   isLoadingAllMessages: boolean;
-  loadAllJustFinished: boolean;
-  showLoadAllOverlay: boolean;
   createDiff: any;
   onFileOpen?: (filePath: string, diffInfo?: unknown) => void;
   onShowSettings?: () => void;
@@ -95,8 +92,7 @@ const getGroupedMessageKey = (message: ChatMessage): string =>
 
 /**
  * Rendered by chat's ChatInterface as the scrolling transcript: the message
- * list and tool groups, the export menu, the provider empty state and the
- * load-all-history overlay.
+ * list and tool groups, the export menu and the provider empty state.
  */
 function ChatMessagesPane({
   scrollContainerRef,
@@ -133,8 +129,6 @@ function ChatMessagesPane({
   loadAllMessages,
   allMessagesLoaded,
   isLoadingAllMessages,
-  loadAllJustFinished,
-  showLoadAllOverlay,
   createDiff,
   onEditMessage,
   onForkFromMessage,
@@ -268,27 +262,12 @@ function ChatMessagesPane({
             </div>
           )}
 
-          <LoadAllMessagesOverlay
-            showLoadAllOverlay={showLoadAllOverlay}
-            isLoadingAllMessages={isLoadingAllMessages}
-            loadAllJustFinished={loadAllJustFinished}
-            totalMessages={totalMessages}
-            onLoadAllMessages={loadAllMessages}
-          />
-
           {/* Legacy message count indicator (for non-paginated view) */}
           {!hasMoreMessages && chatMessages.length > visibleMessageCount && (
             <div className="border-b border-gray-200 py-2 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
               {t('session.messages.showingLast', { count: visibleMessageCount, total: chatMessages.length })} |
               <button className="ml-1 text-primary underline hover:text-primary" onClick={loadEarlierMessages}>
                 {t('session.messages.loadEarlier')}
-              </button>
-              {' | '}
-              <button
-                className="text-primary underline hover:text-primary dark:hover:text-primary"
-                onClick={loadAllMessages}
-              >
-                {t('session.messages.loadAll')}
               </button>
             </div>
           )}

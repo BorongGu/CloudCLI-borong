@@ -405,7 +405,7 @@ export type NormalizedMessage = {
   isLocalCommand?: boolean;
   isLocalCommandStdout?: boolean;
   isCompactSummary?: boolean;
-  /** Set on the row that stands in for a compaction, so the UI can draw it as one. */
+  /** Compaction phase and metadata on transcript rows or live context_compaction status frames. */
   compact?: CompactionInfo;
   images?: unknown;
   /** Non-image files attached to a user turn after provider history normalization. */
