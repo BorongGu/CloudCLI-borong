@@ -64,6 +64,46 @@ const writeCodexTranscript = async (
   return filePath;
 };
 
+test('persisted assistant replies retain their live item identity across history reads', { concurrency: false }, async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'codex-assistant-identity-'));
+  const workspacePath = path.join(tempRoot, 'workspace');
+  const restoreHomeDir = patchHomeDir(tempRoot);
+  const content = '我们的字段同时保留两层身份：\n\n- task_example_id：任务编号。\n- trial_index：采集次数。\n\n因此可以还原完整搭建。';
+  const nativeId = 'msg_native-answer';
+
+  try {
+    await mkdir(workspacePath, { recursive: true });
+    const transcript = await writeCodexTranscript(tempRoot, 'native-identity', workspacePath, '解释这些字段');
+    const entries = [
+      { type: 'session_meta', payload: { id: 'native-identity', cwd: workspacePath } },
+      // Native completion and retained response both describe the same item.
+      { type: 'event_msg', payload: { type: 'item_completed', item: { type: 'AgentMessage', id: nativeId, content: [{ type: 'Text', text: content }] } } },
+      { type: 'response_item', payload: { type: 'message', role: 'assistant', id: nativeId, content: [{ type: 'output_text', text: content }] } },
+      { type: 'response_item', payload: { type: 'message', role: 'assistant', id: 'msg_other-answer', content: [{ type: 'output_text', text: content }] } },
+    ];
+    await writeFile(transcript, entries.map((entry, index) => JSON.stringify({ ...entry, timestamp: `2026-10-26T02:54:5${index}.000Z` })).join('\n') + '\n');
+
+    await withIsolatedDatabase(async () => {
+      await new CodexSessionSynchronizer().synchronize();
+      const provider = new CodexSessionsProvider();
+      const first = await provider.fetchHistory('native-identity');
+      const second = await provider.fetchHistory('native-identity');
+      const live = provider.normalizeMessage({
+        type: 'item', itemType: 'agent_message', itemId: nativeId,
+        message: { role: 'assistant', content: content.slice(0, 30) },
+      }, 'native-identity');
+
+      assert.deepEqual(first.messages.map(message => message.id), [nativeId, 'msg_other-answer']);
+      assert.deepEqual(second.messages.map(message => message.id), [nativeId, 'msg_other-answer']);
+      assert.equal(first.messages[0].id, live[0].id);
+      assert.equal(first.messages[0].content, content);
+    });
+  } finally {
+    restoreHomeDir();
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('Codex synchronizer preserves the title assigned when CloudCLI creates a session', { concurrency: false }, async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'codex-session-sync-app-'));
   const workspacePath = path.join(tempRoot, 'workspace');

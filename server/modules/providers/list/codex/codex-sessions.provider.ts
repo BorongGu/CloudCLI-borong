@@ -1526,6 +1526,9 @@ async function getCodexSessionMessages(sessionId: string): Promise<CodexHistoryR
       }
 
       messages.push({
+        // Reconnects reconcile this persisted row with a possibly unfinished
+        // live snapshot by the native item id, even when their text differs.
+        uuid: readNonEmptyString(payload.id),
         type: 'assistant',
         timestamp,
         message: { role: 'assistant', content: textContent },

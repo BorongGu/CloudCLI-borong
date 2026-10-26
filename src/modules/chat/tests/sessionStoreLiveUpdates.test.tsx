@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { act, renderHook } from '@testing-library/react';
 import { describe, it, vi } from 'vitest';
+
 import { useSessionStore } from '@/modules/chat/hooks/useSessionStore';
+import { api } from '@/shared/api';
 import type { NormalizedMessage } from '@/shared/types';
 
 vi.mock('@/shared/api', () => ({ api: { providers: { sessionMessages: vi.fn() } } }));
@@ -11,6 +13,28 @@ const row = (id: string, content: string, timestamp = '2026-10-25T08:00:00Z'): N
 });
 
 describe('realtime item updates', () => {
+  it('replaces a partial reply after reconnect with the complete persisted native item', async () => {
+    const { result } = renderHook(() => useSessionStore());
+    const nativeId = 'msg_native-answer';
+    const fullReply = '按这段话的语义，我理解是 trial：某一次完整结构搭建过程。\n\n我们的字段同时保留两层身份：\n\n- task_example_id：任务编号。\n- trial_index：采集次数。\n\n因此可以还原完整搭建。';
+    const partial = row(nativeId, fullReply.slice(0, -12));
+    const persisted = row(nativeId, fullReply, '2026-10-25T08:00:10Z');
+    vi.mocked(api.providers.sessionMessages).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: { messages: [persisted], total: 1, hasMore: false } }),
+    } as Response);
+
+    act(() => result.current.appendRealtime('chat', partial));
+    await act(async () => { await result.current.refreshLatestFromServer('chat'); });
+
+    assert.deepEqual(result.current.getMessages('chat'), [persisted]);
+    assert.equal(result.current.getSessionSlot('chat')?.realtimeMessages.length, 0);
+
+    // An already buffered pre-disconnect update can arrive after the refresh.
+    act(() => result.current.appendRealtime('chat', partial));
+    assert.deepEqual(result.current.getMessages('chat'), [persisted]);
+  });
+
   it('keeps one row through incremental Chinese text and completion', () => {
     const { result } = renderHook(() => useSessionStore());
     for (const content of ['', '收到', '收到，', '收到，测试', '收到，测试消息已成功发送。']) {
