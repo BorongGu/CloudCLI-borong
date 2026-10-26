@@ -165,6 +165,30 @@ test('a tab that subscribes to an idle session is not attached to its old run', 
   });
 });
 
+test('reconnecting after failure replays the retained error while leaving the session idle', async () => {
+  await withIsolatedDatabase(async () => {
+    const run = chatRunRegistry.startRun({ appSessionId: SESSION_ID, provider: 'claude', providerSessionId: 'native-1',
+      connection: createFakeSocket() as never, userId: 1 });
+    assert.ok(run);
+    run.writer.send({ kind: 'text', content: 'Earlier response', role: 'assistant' } as never);
+    const content = 'Selected model is at capacity. Please try a different model.';
+    run.writer.send({ kind: 'error', id: 'capacity', content } as never);
+    run.writer.send({ kind: 'complete', exitCode: 1 } as never);
+    const socket = createFakeSocket();
+    handleChatConnection(socket as never, { user: { id: 1 } } as never, {
+      runtime: { hasBackgroundWork: () => false, getPendingApprovalsForSession: () => [] } as never,
+    });
+    socket.emit('message', JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: SESSION_ID, lastSeq: 0 }] }));
+    await settle();
+    assert.deepEqual(socket.frames.map(frame => frame.kind), ['chat_subscribed', 'error']);
+    assert.equal(socket.frames[0].isProcessing, false);assert.equal(socket.frames[1].content, content);
+    const lastSeq = socket.frames[1].seq;
+    socket.frames.length = 0;
+    socket.emit('message', JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: SESSION_ID, lastSeq }] }));
+    await settle();assert.deepEqual(socket.frames.map(frame => frame.kind), ['chat_subscribed']);
+  });
+});
+
 test('a completed run stays registered while its session still has background work', async () => {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {

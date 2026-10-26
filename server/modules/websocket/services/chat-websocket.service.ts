@@ -523,12 +523,12 @@ async function handleChatSubscribe(
       timestamp: new Date().toISOString(),
     });
 
-    // Replay only for RUNNING runs, strictly after the ack. Completed runs
-    // are fully persisted to the provider transcript and served over REST —
-    // replaying them (e.g. after a page reload where the client's lastSeq is
-    // 0) would duplicate messages the history fetch already returned.
-    if (isProcessing && (target as AnyRecord).replay !== false) {
+    // Running runs replay their missed stream. A finished run can retain
+    // native errors absent from its rollout, so replay those after the idle
+    // acknowledgement while its transcript continues to load through REST.
+    if ((target as AnyRecord).replay !== false) {
       for (const event of chatRunRegistry.replayEvents(sessionId, lastSeq)) {
+        if (!isProcessing && event.kind !== 'error') continue;
         // Goal state comes from the current native snapshot and live updates.
         // Historical statuses would overwrite a newer pause or usage counter.
         if (event.kind === 'status' && event.text === 'codex_goal') continue;

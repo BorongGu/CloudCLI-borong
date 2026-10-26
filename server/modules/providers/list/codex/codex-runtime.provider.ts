@@ -305,6 +305,7 @@ async function queryCodex(
   // stderr dump of unrelated CLI log lines, so the thrown wrapper is dropped
   // when the stream already reported the failure.
   let errorSurfaced = false;
+  const surfacedErrors = new Set<string>();
   const abortController = new AbortController();
   // Session-map key: the app session id when the caller supplied one, else
   // the provider-native thread id once captured (legacy/direct API callers).
@@ -425,6 +426,11 @@ async function queryCodex(
       const normalizedMsgs = event.type === 'turn.completed' ? []
         : context.normalizeMessage(transformed, capturedSessionId || sessionId || null);
       for (const msg of normalizedMsgs) {
+        // Retry notices and the terminal failure can carry the same native error.
+        if (msg.kind === 'error' && msg.content) {
+          if (surfacedErrors.has(msg.content)) continue;
+          surfacedErrors.add(msg.content);
+        }
         sendMessage(ws, msg);
       }
 

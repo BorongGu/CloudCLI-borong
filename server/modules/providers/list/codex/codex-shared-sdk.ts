@@ -109,7 +109,7 @@ export class SharedCodexThread {
     };
     const notification = (message: { method: string; params: RecordValue }) => {
       const p = message.params || {};
-      if (p.threadId !== this.id) return;
+      if (finished || p.threadId !== this.id) return;
       if (message.method === 'thread/goal/updated' || message.method === 'thread/goal/cleared') {
         goalRevision++;
         goal = message.method === 'thread/goal/cleared' ? null : p.goal;
@@ -121,7 +121,15 @@ export class SharedCodexThread {
         targetTurn = p.turn.id; nativeRunning = true; observedTurns.add(targetTurn!);
       }
       if (targetTurn && p.turnId && p.turnId !== targetTurn) return;
-      if (message.method === 'item/started' || message.method === 'item/completed') {
+      if (message.method === 'error') {
+        const error = { ...p.error, message: p.error?.message || p.message || 'Codex request failed.' };
+        if (p.willRetry) push({ type: 'error', message: error.message });
+        else {
+          setCompacting(false, 'failed');
+          nativeRunning = false;targetTurn = null;finished = true;
+          push({ type: 'turn.failed', error });
+        }
+      } else if (message.method === 'item/started' || message.method === 'item/completed') {
         const item = p.item;
         if (item.type === 'contextCompaction') {
           setCompacting(message.method === 'item/started');

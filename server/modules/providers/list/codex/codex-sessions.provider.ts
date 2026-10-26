@@ -2365,14 +2365,14 @@ export class CodexSessionsProvider implements IProviderSessions {
         kind: 'complete',
       })];
     }
-    if (raw.type === 'turn_failed') {
+    if (raw.type === 'turn_failed' || raw.type === 'error') {
       return [createNormalizedMessage({
         id: baseId,
         sessionId,
         timestamp: ts,
         provider: PROVIDER,
         kind: 'error',
-        content: raw.error?.message || 'Turn failed',
+        content: raw.error?.message || raw.message || 'Turn failed',
       })];
     }
 
