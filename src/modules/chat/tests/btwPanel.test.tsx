@@ -23,9 +23,9 @@ class FakeSocket {
   send(data: string) { this.sent.push(JSON.parse(data)); }
   close() { this.readyState = 3;this.onclose?.(); }
 }
-const REQUEST: BtwRequest = { key: 'window', sessionId: 'parent', question: 'Initial side question', model: 'gpt-6.1-sol', effort: 'low' };
+const REQUEST: BtwRequest = { key: 'window', sessionId: 'parent', question: 'Initial side question', model: 'gpt-6.1-sol', effort: 'low', provider: 'codex' };
 beforeEach(() => { instances.length = 0;vi.stubGlobal('WebSocket', FakeSocket); });
-afterEach(() => { cleanup();vi.unstubAllGlobals(); });
+afterEach(() => { cleanup();vi.useRealTimers();vi.unstubAllGlobals(); });
 
 test('BTW streams one row per native item, accepts a follow-up and cleans up on close', async () => {
   const onClose = vi.fn();const view = render(<BtwPanel request={REQUEST} onClose={onClose} />);
@@ -58,4 +58,18 @@ test('a lost socket ends the temporary UI and preserves the reply for reading', 
   assert.ok(view.getByText('Saved in the window'));
   assert.equal((view.getByRole('textbox') as HTMLTextAreaElement).disabled, true);
   assert.ok(view.getByText(/Conversation ended|对话已结束/));
+});
+
+test('OpenCode forwards its Go selection and displays provider phases with elapsed time', async () => {
+  vi.useFakeTimers();
+  const view = render(<BtwPanel request={{ ...REQUEST, provider: 'opencode', model: 'opencode-go/glm-5.3-flash', permissionMode: 'bypassPermissions' }} onClose={() => {}} />);
+  const socket = instances[0];
+  await act(async () => { socket.open();socket.frame({ kind: 'btw_ready' });socket.frame({ kind: 'btw_status', busy: true, phase: 'compacting' });vi.advanceTimersByTime(3000); });
+  assert.equal(socket.sent[0].model, 'opencode-go/glm-5.3-flash');assert.equal(socket.sent[0].permissionMode, 'bypassPermissions');
+  assert.ok(view.getByText(/压缩|Compacting/));assert.ok(view.getByText('3s'));
+  await act(async () => { socket.frame({ kind: 'btw_status', busy: false }); });
+  fireEvent.change(view.getByRole('textbox'), { target: { value: 'Follow up' } });
+  fireEvent.submit(view.getByRole('dialog').querySelector('form')!);
+  assert.ok(view.getByText('0s'));
+  assert.ok(view.getByText(/等待|Waiting/));
 });

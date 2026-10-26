@@ -9,18 +9,26 @@ import type { BtwRequest } from '@/shared/types';
 
 type BtwPanelProps = { request: BtwRequest; onClose(): void };
 
-/** ChatInterface opens this smaller nonmodal window for temporary Codex side questions. */
+/** ChatInterface opens this smaller nonmodal window for temporary Codex and OpenCode side questions. */
 export function BtwPanel({ request, onClose }: BtwPanelProps) {
   const { t } = useTranslation('chat');
   const titleId = useId();
-  const { messages, ready, busy, closed, error, label, send, stop } = useBtwConversation(request);
+  const { messages, ready, busy, busySince, closed, error, label, phase, send, stop } = useBtwConversation(request);
   // Keep the next side question editable while a reply streams above it.
   const [draft, setDraft] = useState('');
+  // Elapsed time distinguishes an active provider request from a frozen panel.
+  const [clock, setClock] = useState(Date.now);
+  const elapsed = Math.max(0, Math.floor((clock - busySince) / 1000));
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
   const compositionEndRef = useRef(0);
   useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (!busy) return;
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => { clearInterval(timer); };
+  }, [busy]);
   useEffect(() => {
     if (followRef.current && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, busy, error]);
@@ -48,7 +56,10 @@ export function BtwPanel({ request, onClose }: BtwPanelProps) {
         : 'prose prose-sm max-w-none break-words font-serif text-foreground dark:prose-invert'}>
         {message.role === 'assistant' ? <Markdown>{message.content}</Markdown> : message.content}
       </div>)}
-      {busy && <p role="status" className="truncate text-xs text-muted-foreground">{label || t(ready ? 'btw.working' : 'btw.connecting')}</p>}
+      {busy && <p role="status" title={label} className="flex gap-2 text-xs text-muted-foreground">
+        <span className="min-w-0 truncate">{phase ? t(`btw.phase.${phase}`) : label || t(ready ? 'btw.working' : 'btw.connecting')}</span>
+        <span className="shrink-0 tabular-nums">{elapsed}s</span>
+      </p>}
       {error && <p role="alert" className="whitespace-pre-wrap text-xs text-muted-foreground">{error}</p>}
       {closed && <p role="status" className="text-xs text-muted-foreground">{t('btw.ended')}</p>}
     </div>

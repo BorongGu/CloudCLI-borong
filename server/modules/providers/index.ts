@@ -6,7 +6,7 @@ export { providerRuntimeService } from './services/provider-runtime.service.js';
 // Goal state is consumed by the websocket gateway when reattaching native work.
 export { codexGoalsService } from './services/codex-goals.service.js';
 // The BTW websocket owns the lifetime of each disposable native side conversation.
-export { createCodexBtwSession } from './services/codex-btw.service.js';
+export { createBtwSession } from './services/btw.service.js';
 
 // providerModelsService: used by Commands to list models and resolve the active session model.
 export { providerModelsService } from './services/provider-models.service.js';

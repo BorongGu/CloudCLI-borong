@@ -465,6 +465,13 @@
     "connecting": "Preparing conversation context…",
     "working": "Thinking…",
     "ended": "Conversation ended. Temporary context has been cleared.",
-    "startFirst": "Open an existing Codex conversation to use /btw."
+    "startFirst": "Open an existing Codex or OpenCode conversation to use /btw.",
+    "phase": {
+      "waiting": "Waiting for the model…",
+      "thinking": "Thinking…",
+      "compacting": "Compacting conversation context…",
+      "working": "Working…",
+      "retrying": "Retrying model connection…"
+    }
   }
 }

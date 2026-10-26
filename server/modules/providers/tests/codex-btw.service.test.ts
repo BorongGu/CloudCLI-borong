@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import test from 'node:test';
 
 import { createCodexBtwSession } from '@/modules/providers/services/codex-btw.service.js';
-import type { CodexBtwEvent } from '@/shared/types.js';
+import type { BtwEvent } from '@/shared/types.js';
 
 class FakeConnection extends EventEmitter {
   calls: Array<{ method: string; params: any }> = [];
@@ -11,10 +11,14 @@ class FakeConnection extends EventEmitter {
   ephemeral = true;
   forkGate: Promise<void> | null = null;
   startGate: Promise<void> | null = null;
+  turns: any[] = [{ id: 'completed-turn', status: 'completed' }];
+  items: any[] = [];
   async initialize() {}
   async call(method: string, params: any) {
     this.calls.push({ method, params });
-    if (method === 'thread/fork') {
+    if (method === 'thread/turns/list') return { data: this.turns };
+    if (method === 'thread/items/list') return { data: this.items };
+    if (method === 'thread/fork' || method === 'thread/start') {
       await this.forkGate;
       return { thread: { id: 'temporary-fork', ephemeral: this.ephemeral, path: this.ephemeral ? null : '/tmp/new-fork.jsonl' }, model: 'gpt-6.1-sol' };
     }
@@ -28,10 +32,11 @@ class FakeConnection extends EventEmitter {
   async close() { this.closed = true; }
 }
 function setup(question = '') {
-  const client = new FakeConnection();const events: CodexBtwEvent[] = [];
+  const client = new FakeConnection();const events: BtwEvent[] = [];
   const conversation = createCodexBtwSession({ sessionId: 'parent-app', question, model: 'gpt-6.1-sol', effort: 'low' }, event => events.push(event), {
     lookup: () => ({ provider: 'codex', provider_session_id: 'parent-native', project_path: '/workspace' }) as never,
     connect: () => client,
+    readContextConfig: async () => ({ model_context_window: 500000, model_auto_compact_token_limit: 450000 }),
   });
   return { client, events, conversation };
 }
@@ -39,10 +44,12 @@ function setup(question = '') {
 test('BTW forks the parent ephemerally and runs questions only on that fork', async () => {
   const { client, conversation, events } = setup('Which file did we change?');
   await conversation.start();
-  const fork = client.calls[0];assert.equal(fork.method, 'thread/fork');
+  const fork = client.calls.find(call => call.method === 'thread/fork')!;
+  assert.equal(fork.params.lastTurnId, 'completed-turn');
+  assert.equal(fork.params.config.model_context_window, 500000);
   assert.equal(fork.params.threadId, 'parent-native');assert.equal(fork.params.ephemeral, true);
   assert.equal(fork.params.excludeTurns, true);assert.equal(fork.params.cwd, '/workspace');
-  assert.equal(client.calls[1].params.threadId, 'temporary-fork');
+  assert.equal(client.calls.find(call => call.method === 'turn/start')!.params.threadId, 'temporary-fork');
   assert.ok(client.calls.every(c => c.method !== 'thread/goal/set' && c.method !== 'thread/resume'));
   assert.ok(events.some(e => e.kind === 'btw_message' && e.role === 'user'));
   await conversation.close();assert.equal(client.closed, true);
@@ -97,5 +104,39 @@ test('Stop waits for a just-submitted turn id before interrupting', async () => 
   assert.equal(client.calls.filter(c => c.method === 'turn/interrupt').length, 0);
   release();await sending;await stopping;
   assert.deepEqual(client.calls.at(-1), { method: 'turn/interrupt', params: { threadId: 'temporary-fork', turnId: 'side-turn' } });
+  await conversation.close();
+});
+
+test('an unfinished main turn becomes read-only context after a completed fork boundary', async () => {
+  const { client, conversation } = setup('Side question');
+  client.turns = [{ id: 'active-turn', status: 'interrupted' }, { id: 'completed-turn', status: 'completed' }];
+  client.items = [
+    { type: 'userMessage', content: [{ type: 'text', text: 'Current main task' }, { type: 'localImage', path: '/image.png' }] },
+    { type: 'dynamicToolCall', id: 'pending-tool', status: 'inProgress', tool: 'shell' },
+    { type: 'agentMessage', text: 'Current findings' },
+  ];
+  await conversation.start();
+  const fork = client.calls.find(call => call.method === 'thread/fork')!;
+  assert.equal(fork.params.lastTurnId, 'completed-turn');
+  const first = client.calls.find(call => call.method === 'turn/start')!.params.input;
+  assert.ok(first[0].text.includes('Current main task'));
+  assert.ok(first[0].text.includes('pending-tool'));
+  assert.ok(first[0].text.includes('Current findings'));
+  assert.deepEqual(first[1], { type: 'localImage', path: '/image.png' });
+  assert.ok(first.at(-1).text.endsWith('Side question'));
+  client.emit('notification', { method: 'turn/completed', params: { threadId: 'temporary-fork', turn: { id: 'side-turn', status: 'completed' } } });
+  await conversation.send('Follow up');
+  assert.equal(client.calls.filter(call => call.method === 'turn/start').at(-1)!.params.input.length, 1);
+  await conversation.close();
+});
+
+test('a first in-progress turn starts a clean ephemeral context with the full user snapshot', async () => {
+  const { client, conversation } = setup('Side question');
+  client.turns = [{ id: 'first-active-turn', status: 'interrupted' }];
+  client.items = [{ type: 'userMessage', content: [{ type: 'text', text: 'First task' }] }];
+  await conversation.start();
+  assert.equal(client.calls.some(call => call.method === 'thread/fork'), false);
+  assert.equal(client.calls.find(call => call.method === 'thread/start')!.params.ephemeral, true);
+  assert.ok(client.calls.find(call => call.method === 'turn/start')!.params.input[0].text.includes('First task'));
   await conversation.close();
 });

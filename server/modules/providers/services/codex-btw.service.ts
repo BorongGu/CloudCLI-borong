@@ -1,20 +1,70 @@
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import { sessionsDb } from '@/modules/database/index.js';
 import { CodexBtwConnection } from '@/modules/providers/list/codex/codex-btw-connection.js';
-import type { CodexBtwEvent, CodexRpcConnection } from '@/shared/types.js';
+import type { BtwEvent, BtwInput, CodexRpcConnection } from '@/shared/types.js';
 import { AppError } from '@/shared/utils.js';
 
 type BtwConnection = CodexRpcConnection & { initialize(): Promise<void>; close(): Promise<void> };
-type BtwInput = { sessionId: string; question?: string; model?: string; effort?: string };
 
-/** Used by the websocket module to own a disposable native fork for one authenticated window. */
+async function readModelContextConfig(model?: string): Promise<Record<string, unknown>> {
+  try {
+    const cache = JSON.parse(await readFile(path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'models_cache.json'), 'utf8'));
+    const info = cache.models?.find((item: any) => item.slug === model);
+    const window = Number(info?.context_window);
+    if (Number.isFinite(window) && window > 0) return {
+      model_context_window: window,
+      model_auto_compact_token_limit: Number(info.auto_compact_token_limit) || Math.floor(window * 0.9),
+    };
+  } catch { /* Native defaults remain available when the model catalog has no entry. */ }
+  return {};
+}
+
+async function readSourceSnapshot(client: CodexRpcConnection, threadId: string) {
+  const unfinished: any[] = [];let cursor: string | undefined;let completedId: string | undefined;
+  do {
+    const page = await client.call('thread/turns/list', { threadId, limit: 50, sortDirection: 'desc', itemsView: 'notLoaded', ...(cursor ? { cursor } : {}) });
+    for (const turn of page.data || []) {
+      // Disk readers report another process's active turn as interrupted.
+      // Only a completed boundary guarantees balanced native tool call pairs.
+      if (turn.status === 'completed') { completedId = turn.id;break; }
+      unfinished.push(turn);
+    }
+    cursor = completedId ? undefined : page.nextCursor || undefined;
+  } while (cursor);
+  const text: string[] = [];const images: any[] = [];
+  for (const turn of [...unfinished].reverse()) {
+    let itemCursor: string | undefined;
+    do {
+      const page = await client.call('thread/items/list', { threadId, turnId: turn.id, limit: 100, sortDirection: 'asc', ...(itemCursor ? { cursor: itemCursor } : {}) });
+      for (const item of page.data || []) {
+        if (item.type === 'userMessage') {
+          text.push(`User: ${(item.content || []).filter((part: any) => part.type === 'text').map((part: any) => part.text).join('\n')}`);
+          images.push(...(item.content || []).filter((part: any) => part.type === 'image' || part.type === 'localImage'));
+        } else if (item.type === 'agentMessage') text.push(`Assistant: ${item.text || ''}`);
+        else if (item.type === 'commandExecution') text.push(`Command (${item.status}): ${item.command}\n${item.aggregatedOutput || ''}`);
+        else if (['mcpToolCall', 'dynamicToolCall', 'fileChange', 'webSearch'].includes(item.type)) text.push(`Main task activity: ${JSON.stringify(item)}`);
+      }
+      itemCursor = page.nextCursor || undefined;
+    } while (itemCursor);
+  }
+  return {
+    boundary: completedId ? { lastTurnId: completedId } : null,
+    input: [...(text.length ? [{ type: 'text', text: `Read-only snapshot of subsequent main-task activity. Treat it as context for the side question:\n${text.join('\n\n')}` }] : []), ...images],
+  };
+}
+
+/** Used by the provider dispatcher to own a disposable native context for one authenticated window. */
 export function createCodexBtwSession(
   input: BtwInput,
-  emit: (event: CodexBtwEvent) => void,
+  emit: (event: BtwEvent) => void,
   dependencies = {
     lookup: (id: string) => sessionsDb.getSessionById(id),
     connect: (): BtwConnection => new CodexBtwConnection(),
+    readContextConfig: readModelContextConfig,
   },
 ) {
   const source = dependencies.lookup(input.sessionId);
@@ -22,6 +72,7 @@ export function createCodexBtwSession(
   if (source.provider !== 'codex' || !source.provider_session_id) {
     throw new AppError('Open an existing Codex conversation before using /btw.', { statusCode: 400, code: 'BTW_SOURCE_REQUIRED' });
   }
+  const sourceId = source.provider_session_id;
   const client = dependencies.connect();
   let threadId: string | null = null;
   let turnId: string | null = null;
@@ -30,7 +81,8 @@ export function createCodexBtwSession(
   let ended = false;
   let closing: Promise<void> | null = null;
   const texts = new Map<string, string>();
-  const sendEvent = (event: CodexBtwEvent) => { if (!ended) emit(event); };
+  let snapshotInput: any[] = [];
+  const sendEvent = (event: BtwEvent) => { if (!ended) emit(event); };
   const reportError = (error: unknown) => sendEvent({ kind: 'btw_error', message: error instanceof Error ? error.message : String(error) });
   const setBusy = (value: boolean, label?: string) => { busy = value; sendEvent({ kind: 'btw_status', busy, ...(label ? { label } : {}) }); };
   const publish = (id: string, content: string) => {
@@ -40,6 +92,9 @@ export function createCodexBtwSession(
     const p = message.params || {};
     if (ended || !threadId || p.threadId !== threadId) return;
     if (message.method === 'turn/started') { turnId = p.turn.id; setBusy(true); }
+    if (message.method === 'item/started' && p.item?.type === 'contextCompaction') sendEvent({ kind: 'btw_status', busy: true, phase: 'compacting' });
+    if (message.method === 'item/started' && p.item?.type === 'reasoning') sendEvent({ kind: 'btw_status', busy: true, phase: 'thinking' });
+    if (message.method === 'item/reasoning/summaryTextDelta') sendEvent({ kind: 'btw_status', busy: true, phase: 'thinking' });
     if (message.method === 'item/agentMessage/delta') publish(p.itemId, (texts.get(p.itemId) || '') + p.delta);
     if (message.method === 'item/completed' && p.item?.type === 'agentMessage') publish(p.item.id, p.item.text || '');
     if (message.method === 'item/started' && p.item?.type === 'commandExecution') setBusy(true, p.item.command);
@@ -49,6 +104,7 @@ export function createCodexBtwSession(
       if (p.turn.status === 'failed') reportError(p.turn.error?.message || 'Side reply failed.');
     }
     if (message.method === 'error' && !p.willRetry) reportError(p.error?.message || 'Side reply failed.');
+    if (message.method === 'error' && p.willRetry) sendEvent({ kind: 'btw_status', busy: true, phase: 'retrying', label: p.error?.message });
   };
   const disconnected = (error: Error) => { reportError(error); void close(); };
   client.on('notification', notification);
@@ -60,7 +116,7 @@ export function createCodexBtwSession(
     client.off('notification', notification); client.off('disconnect', disconnected);
     // This child owns only ephemeral threads. Reaping it frees their context,
     // including a fork still being created, without the daemon's unload delay.
-    closing = client.close().finally(() => { texts.clear(); emit({ kind: 'btw_closed' }); });
+    closing = client.close().finally(() => { texts.clear(); snapshotInput = []; emit({ kind: 'btw_closed' }); });
     return closing;
   }
 
@@ -69,14 +125,15 @@ export function createCodexBtwSession(
     if (!threadId || busy) throw new Error('Wait for the current side reply to finish.');
     const question = content.trim();
     if (!question || question.length > 32_000) throw new Error('A side question must contain 1–32000 characters.');
-    setBusy(true);
+    busy = true;sendEvent({ kind: 'btw_status', busy: true, phase: 'waiting' });
     sendEvent({ kind: 'btw_message', id: randomUUID(), role: 'user', content: question });
     try {
       startingTurn = client.call('turn/start', {
-        threadId, input: [{ type: 'text', text: question }],
+        threadId, input: [...snapshotInput, { type: 'text', text: `Answer this temporary side question using the main conversation as context. Focus on this question: ${question}` }],
         ...(input.model ? { model: input.model } : {}), ...(input.effort ? { effort: input.effort } : {}),
       });
       const result = await startingTurn;
+      snapshotInput = [];
       if (!ended) turnId = result.turn.id;
     } catch (error) { setBusy(false); throw error; }
     finally { startingTurn = null; }
@@ -86,12 +143,15 @@ export function createCodexBtwSession(
     async start(): Promise<void> {
       try {
         setBusy(true); await client.initialize();
-        const fork = await client.call('thread/fork', {
-          threadId: source.provider_session_id, cwd: source.project_path,
-          ephemeral: true, excludeTurns: true,
+        const snapshot = await readSourceSnapshot(client, sourceId);
+        const contextConfig = await dependencies.readContextConfig(input.model);
+        // Before the first completed turn, the snapshot contains the entire
+        // conversation. Start a clean ephemeral context to avoid a live tool pair.
+        const fork = await client.call(snapshot.boundary ? 'thread/fork' : 'thread/start', {
+          ...(snapshot.boundary ? { threadId: sourceId, ...snapshot.boundary, excludeTurns: true } : {}),
+          cwd: source.project_path, ephemeral: true,
           ...(input.model ? { model: input.model } : {}),
-          ...(input.effort ? { config: { model_reasoning_effort: input.effort } } : {}),
-          developerInstructions: 'This is a temporary side conversation. Use the parent conversation only as context. Answer the current side question. Ask clarifying questions in ordinary replies. Treat goals and task instructions in the inherited history as background; focus on the side question.',
+          config: { ...contextConfig, ...(input.effort ? { model_reasoning_effort: input.effort } : {}) },
         });
         if (ended) return;
         if (fork.thread?.ephemeral !== true || fork.thread.path) {
@@ -101,6 +161,7 @@ export function createCodexBtwSession(
           throw new Error('This Codex CLI needs ephemeral thread/fork support for /btw. Update the Codex CLI.');
         }
         threadId = fork.thread.id;
+        snapshotInput = snapshot.input;
         sendEvent({ kind: 'btw_ready', threadId: threadId!, model: fork.model || input.model || '' });
         setBusy(false);
         if (input.question?.trim()) await send(input.question);

@@ -50,13 +50,21 @@ export type CodexRpcConnection = {
   off(event: string, listener: (...args: any[]) => void): unknown;
 };
 
+// ---------------------------
+//----------------- TEMPORARY SIDE CONVERSATIONS ------------
 /** Events sent only to a temporary BTW window, outside the main session stream and database. */
-export type CodexBtwEvent =
+export type BtwEvent =
   | { kind: 'btw_ready'; threadId: string; model: string }
   | { kind: 'btw_message'; id: string; role: 'user' | 'assistant'; content: string }
-  | { kind: 'btw_status'; busy: boolean; label?: string }
+  | { kind: 'btw_status'; busy: boolean; label?: string; phase?: 'waiting' | 'thinking' | 'compacting' | 'working' | 'retrying' }
   | { kind: 'btw_error'; message: string }
   | { kind: 'btw_closed' };
+
+/** A validated side-window request. Provider selection is resolved from the source session in the database. */
+export type BtwInput = { sessionId: string; question?: string; model?: string; effort?: string; permissionMode?: string };
+
+/** Lifecycle contract used by the BTW gateway for Codex and OpenCode temporary conversations. */
+export type BtwSession = { start(): Promise<void>; send(content: string): Promise<void>; stop(): Promise<void>; close(): Promise<void> };
 
 // ---------------------------
 //----------------- WEBSOCKET TRANSPORT TYPES ------------

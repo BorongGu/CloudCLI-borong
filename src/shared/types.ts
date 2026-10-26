@@ -16,7 +16,7 @@ export type CodexGoal = {
   timeUsedSeconds: number;
 };
 
-//----------------- TEMPORARY CODEX SIDE CONVERSATIONS ------------
+//----------------- TEMPORARY CODING AGENT SIDE CONVERSATIONS ------------
 
 /** Identifies one BTW window and the source context/model captured when it opens. */
 export type BtwRequest = {
@@ -25,6 +25,8 @@ export type BtwRequest = {
   question: string;
   model: string;
   effort: string;
+  provider: 'codex' | 'opencode';
+  permissionMode?: string;
 };
 
 /** A user question or assistant item displayed only inside a temporary BTW window. */

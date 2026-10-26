@@ -369,6 +369,13 @@
     "connecting": "正在准备会话上下文…",
     "working": "正在思考…",
     "ended": "对话已结束，临时上下文已清理。",
-    "startFirst": "请先打开一个已有的 Codex 会话，再使用 /btw。"
+    "startFirst": "请先打开一个已有的 Codex 或 OpenCode 会话，再使用 /btw。",
+    "phase": {
+      "waiting": "等待模型响应…",
+      "thinking": "正在思考…",
+      "compacting": "正在压缩会话上下文…",
+      "working": "正在执行…",
+      "retrying": "正在重连模型…"
+    }
   }
 }

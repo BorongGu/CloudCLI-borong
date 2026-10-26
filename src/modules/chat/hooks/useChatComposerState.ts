@@ -472,7 +472,7 @@ export function useChatComposerState({
 
         // Enter or a click on /btw opens its window immediately; Tab still
         // completes the command so a question can be typed in the composer.
-        if (provider === 'codex' && command.metadata?.type === 'codex-btw') {
+        if ((provider === 'codex' || provider === 'opencode') && command.metadata?.type === 'native-btw') {
           onOpenBtw?.(rawArgs);
           setInput(''); inputValueRef.current = '';
           if (draftScopeRef.current) writeDraftText(draftScopeRef.current, '');
@@ -887,7 +887,7 @@ export function useChatComposerState({
         return;
       }
 
-      if (!submitOptions?.skipCommandInterception && provider === 'codex' && /^\/btw(?:\s|$)/.test(currentInput)) {
+      if (!submitOptions?.skipCommandInterception && (provider === 'codex' || provider === 'opencode') && /^\/btw(?:\s|$)/.test(currentInput)) {
         onOpenBtw?.(currentInput.slice(4).trim());
         setInput(''); inputValueRef.current = ''; resetCommandMenuState();
         if (draftScopeRef.current) writeDraftText(draftScopeRef.current, '');
@@ -1438,7 +1438,7 @@ export function useChatComposerState({
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
       // /btw is a local window command. Handle an exact Enter before the
       // debounced menu can select an older result under the mouse pointer.
-      if (provider === 'codex' && inputValueRef.current.trim() === '/btw'
+      if ((provider === 'codex' || provider === 'opencode') && inputValueRef.current.trim() === '/btw'
         && event.key === 'Enter' && !event.shiftKey && (!sendByCtrlEnter || event.ctrlKey || event.metaKey)
         && !event.nativeEvent.isComposing && !isComposingRef.current
         && performance.now() - lastCompositionEndAtRef.current >= SAFARI_IME_RACE_WINDOW_MS) {

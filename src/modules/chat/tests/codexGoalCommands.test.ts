@@ -81,7 +81,7 @@ test('/btw alone opens an empty side window', async () => {
 test('selecting /btw from the command menu opens its window immediately', async () => {
   const view = composer(true);
   await act(async () => { view.result.current.setInput('/btw'); });
-  await act(async () => { view.result.current.handleCommandSelect({ name: '/btw', type: 'built-in', metadata: { type: 'codex-btw' } }, 0, false); });
+  await act(async () => { view.result.current.handleCommandSelect({ name: '/btw', type: 'built-in', metadata: { type: 'native-btw' } }, 0, false); });
   await waitFor(() => assert.deepEqual(view.sideQuestions, ['']));
   assert.equal(requests.some(r => r.url === '/api/commands/execute'), false);
 });
@@ -93,4 +93,11 @@ test('Enter uses the exact /btw command while the menu still shows the previous 
   await act(async () => { view.result.current.handleKeyDown({ key: 'Enter', preventDefault() {}, nativeEvent: {} } as never); });
   await waitFor(() => assert.deepEqual(view.sideQuestions, ['']));
   assert.equal(view.result.current.input, '');
+});
+
+test('OpenCode exposes /btw and opens it during work before queuing', async () => {
+  const view = composer(true, 'opencode');await waitFor(() => assert.equal(view.result.current.slashCommandsCount, 1));
+  await submit(view, '/btw summarize the current changes');
+  assert.deepEqual(view.sideQuestions, ['summarize the current changes']);assert.deepEqual(view.sent, []);
+  assert.equal(requests.some(request => /steer|queued|commands\/execute/.test(request.url)), false);
 });

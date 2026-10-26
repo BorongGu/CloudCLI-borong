@@ -193,16 +193,17 @@ function ChatInterface({
   const [btwRequest, setBtwRequest] = useState<BtwRequest | null>(null);
   const closeBtw = useCallback(() => setBtwRequest(null), []);
   const openBtw = useCallback((question: string) => {
+    if (provider !== 'codex' && provider !== 'opencode') return;
     const sessionId = selectedSession?.id || currentSessionId;
     if (!sessionId) {
       addMessage({ type: 'error', content: t('btw.startFirst'), timestamp: new Date() });
       return;
     }
     setBtwRequest({ key: `${Date.now()}-${Math.random()}`, sessionId, question,
-      model: currentProviderModel, effort: currentProviderEffort });
-  }, [selectedSession?.id, currentSessionId, currentProviderModel, currentProviderEffort, addMessage, t]);
+      model: currentProviderModel, effort: currentProviderEffort, provider, permissionMode });
+  }, [selectedSession?.id, currentSessionId, currentProviderModel, currentProviderEffort, provider, permissionMode, addMessage, t]);
   useEffect(() => {
-    if (btwRequest && (btwRequest.sessionId !== (selectedSession?.id || currentSessionId) || provider !== 'codex')) closeBtw();
+    if (btwRequest && (btwRequest.sessionId !== (selectedSession?.id || currentSessionId) || provider !== btwRequest.provider)) closeBtw();
   }, [btwRequest, selectedSession?.id, currentSessionId, provider, closeBtw]);
 
   const {

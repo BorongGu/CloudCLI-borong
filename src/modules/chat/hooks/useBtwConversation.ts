@@ -6,7 +6,7 @@ import type { BtwMessage, BtwRequest } from '@/shared/types';
 /** The chat BTW panel uses a separate socket so its lifecycle and output stay local to the window. */
 export function useBtwConversation(request: BtwRequest) {
   // Keep only the temporary window's visible transcript and transport status.
-  const [view, setView] = useState({ messages: [] as BtwMessage[], ready: false, busy: true, closed: false, error: '', label: '' });
+  const [view, setView] = useState(() => ({ messages: [] as BtwMessage[], ready: false, busy: true, busySince: Date.now(), closed: false, error: '', label: '', phase: '' }));
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -15,14 +15,15 @@ export function useBtwConversation(request: BtwRequest) {
     socketRef.current = socket;
     socket.onopen = () => {
       if (!disposed) socket.send(JSON.stringify({ type: 'start', sessionId: request.sessionId, question: request.question,
-        model: request.model, effort: request.effort }));
+        model: request.model, effort: request.effort, permissionMode: request.permissionMode }));
     };
     socket.onmessage = event => {
       if (disposed) return;
       let data: any;
       try { data = JSON.parse(String(event.data)); } catch { return; }
       if (data.kind === 'btw_ready') setView(v => ({ ...v, ready: true }));
-      if (data.kind === 'btw_status') setView(v => ({ ...v, busy: Boolean(data.busy), label: data.label || '' }));
+      if (data.kind === 'btw_status') setView(v => ({ ...v, busy: Boolean(data.busy),
+        busySince: data.busy && !v.busy ? Date.now() : v.busySince, label: data.label || '', phase: data.phase || '' }));
       if (data.kind === 'btw_error') setView(v => ({ ...v, error: String(data.message || '') }));
       if (data.kind === 'btw_closed') { setView(v => ({ ...v, busy: false, closed: true })); socket.close(); }
       if (data.kind === 'btw_message' && typeof data.id === 'string' && typeof data.content === 'string'
@@ -57,7 +58,7 @@ export function useBtwConversation(request: BtwRequest) {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return false;
     socket.send(JSON.stringify({ type: 'send', content }));
-    setView(v => ({ ...v, busy: true, error: '', label: '' }));
+    setView(v => ({ ...v, busy: true, busySince: Date.now(), error: '', label: '', phase: 'waiting' }));
     return true;
   }, []);
   const stop = useCallback(() => {
