@@ -457,6 +457,8 @@
     "temporary": "Temporary side conversation",
     "finish": "Finish",
     "close": "Close side conversation",
+    "resize": "Resize window: {{direction}}",
+    "resizeDirection": { "n": "top edge", "s": "bottom edge", "w": "left edge", "e": "right edge", "nw": "top left corner", "ne": "top right corner", "sw": "bottom left corner", "se": "bottom right corner" },
     "input": "Side question",
     "placeholder": "Ask a side question…",
     "send": "Send side question",

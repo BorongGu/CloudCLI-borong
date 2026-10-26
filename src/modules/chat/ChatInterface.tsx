@@ -187,7 +187,7 @@ function ChatInterface({
     onNavigateToSession?.(sessionId);
   }, [setCurrentSessionId, onSessionEstablished, onNavigateToSession]);
 
-  // Capture the main context once per side window; its transcript stays local.
+  // Capture the source once; sidebar navigation keeps this window and its socket alive.
   const [btwRequest, setBtwRequest] = useState<BtwRequest | null>(null);
   const closeBtw = useCallback(() => setBtwRequest(null), []);
   const openBtw = useCallback((question: string) => {
@@ -197,12 +197,9 @@ function ChatInterface({
       addMessage({ type: 'error', content: t('btw.startFirst'), timestamp: new Date() });
       return;
     }
-    setBtwRequest({ key: `${Date.now()}-${Math.random()}`, sessionId, question,
+    setBtwRequest({ key: `${Date.now()}-${Math.random()}`, sessionId, projectId: selectedProject?.projectId ?? null, question,
       model: currentProviderModel, effort: currentProviderEffort, provider, permissionMode });
-  }, [selectedSession?.id, currentSessionId, currentProviderModel, currentProviderEffort, provider, permissionMode, addMessage, t]);
-  useEffect(() => {
-    if (btwRequest && (btwRequest.sessionId !== (selectedSession?.id || currentSessionId) || provider !== btwRequest.provider)) closeBtw();
-  }, [btwRequest, selectedSession?.id, currentSessionId, provider, closeBtw]);
+  }, [selectedSession?.id, selectedProject?.projectId, currentSessionId, currentProviderModel, currentProviderEffort, provider, permissionMode, addMessage, t]);
 
   const {
     input,
@@ -632,9 +629,7 @@ function ChatInterface({
         </div>
       </div>
 
-      {btwRequest && <MarkdownWorkspaceContext.Provider value={markdownWorkspaceValue}>
-        <BtwPanel key={btwRequest.key} request={btwRequest} onClose={closeBtw} />
-      </MarkdownWorkspaceContext.Provider>}
+      {btwRequest && <BtwPanel key={btwRequest.key} request={btwRequest} onClose={closeBtw} />}
       <CommandResultModal
         payload={commandModalPayload}
         onClose={closeCommandModal}

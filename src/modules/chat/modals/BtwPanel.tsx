@@ -1,19 +1,34 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowUp, MessageSquare, Square, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 
 import { useBtwConversation } from '@/modules/chat/hooks/useBtwConversation';
+import { useBtwPanelResize } from '@/modules/chat/hooks/useBtwPanelResize';
+import { MarkdownWorkspaceContext } from '@/modules/chat/context/MarkdownWorkspaceContext';
 import { Markdown } from '@/modules/chat/transcript/Markdown';
 import type { BtwRequest } from '@/shared/types';
 
 type BtwPanelProps = { request: BtwRequest; onClose(): void };
 
-/** ChatInterface opens this smaller nonmodal window for temporary Codex and OpenCode side questions. */
+const RESIZE_HANDLES = [
+  { direction: 'n', className: 'inset-x-4 top-0 h-2 cursor-ns-resize' },
+  { direction: 's', className: 'inset-x-4 bottom-0 h-2 cursor-ns-resize' },
+  { direction: 'w', className: 'inset-y-4 left-0 w-2 cursor-ew-resize' },
+  { direction: 'e', className: 'inset-y-4 right-0 w-2 cursor-ew-resize' },
+  { direction: 'nw', className: 'left-0 top-0 h-4 w-4 cursor-nwse-resize' },
+  { direction: 'ne', className: 'right-0 top-0 h-4 w-4 cursor-nesw-resize' },
+  { direction: 'sw', className: 'bottom-0 left-0 h-4 w-4 cursor-nesw-resize' },
+  { direction: 'se', className: 'bottom-0 right-0 h-4 w-4 cursor-nwse-resize' },
+] as const;
+
+/** ChatInterface opens this resizable side window, retaining its captured context during session navigation. */
 export function BtwPanel({ request, onClose }: BtwPanelProps) {
   const { t } = useTranslation('chat');
   const titleId = useId();
   const { messages, ready, busy, busySince, closed, error, label, phase, send, stop } = useBtwConversation(request);
+  const { panelRef, bounds, startResize, resizeWithKeyboard } = useBtwPanelResize();
+  const markdownWorkspaceValue = useMemo(() => ({ projectId: request.projectId ?? null }), [request.projectId]);
   // Keep the next side question editable while a reply streams above it.
   const [draft, setDraft] = useState('');
   // Elapsed time distinguishes an active provider request from a frozen panel.
@@ -36,10 +51,11 @@ export function BtwPanel({ request, onClose }: BtwPanelProps) {
     if (!draft.trim() || !ready || busy || closed) return;
     if (send(draft.trim())) { setDraft(''); followRef.current = true; }
   };
-  return createPortal(<section role="dialog" aria-modal="false" aria-labelledby={titleId} data-btw-panel
+  return createPortal(<MarkdownWorkspaceContext.Provider value={markdownWorkspaceValue}><section ref={panelRef} role="dialog" aria-modal="false" aria-labelledby={titleId} data-btw-panel
     className="fixed right-3 z-[60] flex w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-xl sm:right-6 sm:w-[30rem]"
     style={{ bottom: 'calc(var(--keyboard-height, 0px) + 12px + env(safe-area-inset-bottom, 0px))',
-      height: 'min(34rem, 72dvh)', maxHeight: 'calc(100dvh - var(--keyboard-height, 0px) - 2rem)' }}
+      height: 'min(34rem, 72dvh)', maxHeight: 'calc(100dvh - var(--keyboard-height, 0px) - 2rem)',
+      ...(bounds ? { ...bounds, right: 'auto', bottom: 'auto', maxHeight: 'none' } : {}) }}
     onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); } }}>
     <header className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-3">
       <MessageSquare aria-hidden className="h-4 w-4 text-primary/80" />
@@ -80,5 +96,12 @@ export function BtwPanel({ request, onClose }: BtwPanelProps) {
           className="rounded-lg bg-primary px-3 py-1.5 text-primary-foreground disabled:opacity-40"><ArrowUp className="h-4 w-4" /></button>}
       </div>
     </form>
-  </section>, document.body);
+    <span aria-hidden className="pointer-events-none absolute bottom-1.5 right-1.5 h-2 w-2 rounded-br-sm border-b border-r border-muted-foreground/40" />
+    {RESIZE_HANDLES.map(({ direction, className }) => <button key={direction} type="button" data-btw-resize={direction}
+      aria-label={t('btw.resize', { direction: t(`btw.resizeDirection.${direction}`) })}
+      title={t('btw.resize', { direction: t(`btw.resizeDirection.${direction}`) })}
+      className={`absolute z-10 touch-none select-none bg-transparent p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary/50 ${className}`}
+      onPointerDown={event => startResize(event, direction)}
+      onKeyDown={event => { if (resizeWithKeyboard(event.key, direction, event.shiftKey)) { event.preventDefault(); event.stopPropagation(); } }} />)}
+  </section></MarkdownWorkspaceContext.Provider>, document.body);
 }

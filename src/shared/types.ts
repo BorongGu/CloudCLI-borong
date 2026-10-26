@@ -22,6 +22,8 @@ export type CodexGoal = {
 export type BtwRequest = {
   key: string;
   sessionId: string;
+  /** Resolves relative markdown files against the project captured when the window opens. */
+  projectId?: string | null;
   question: string;
   model: string;
   effort: string;
