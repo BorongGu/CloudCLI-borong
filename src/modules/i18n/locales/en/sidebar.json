@@ -58,7 +58,7 @@
     "openCommandPalette": "Open command palette",
     "attentionRequiredIndicator": "Session needs attention",
     "processingSessionIndicator": "Task running",
-    "completedSessionIndicator": "Completed with a final reply",
+    "completedSessionIndicator": "Completed · final reply unread",
     "backgroundWorkIndicator": "Background work running"
   },
   "navigation": {

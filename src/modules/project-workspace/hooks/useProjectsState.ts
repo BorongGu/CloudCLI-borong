@@ -10,7 +10,7 @@ import type { ServerEvent,
   ProjectSession,IsSessionProcessing } from '@/shared/types';
 import { mergeProjectSelectionMetadata } from '@/modules/project-workspace/utils/projectSelectionMetadata';
 import { readSelectedProvider } from '@/shared/selectedProvider';
-import { observeSessionCompletion } from '@/shared/utils';
+import { markSessionCompletionRead, observeSessionCompletion } from '@/shared/utils';
 
 type UseProjectsStateArgs = {
   sessionId?: string;
@@ -728,7 +728,8 @@ export function useProjectsState({
   // "suppress updates while a run is active" protection is needed anymore.
   useEffect(() => {
     const handleEvent = (event: ServerEvent) => {
-      observeSessionCompletion(event);
+      const viewedSessionId = document.visibilityState === 'hidden' ? null : selectedSessionRef.current?.id ?? sessionId ?? null;
+      observeSessionCompletion(event, viewedSessionId);
       // The project list is maintained purely by incremental `session_upserted`
       // deltas, so anything that happened while the socket was down is missing
       // from it until something else forces a refresh. Chat re-syncs itself on
@@ -894,6 +895,20 @@ export function useProjectsState({
   }, [clearSessionAttention, selectedSession?.id, sessionId]);
 
   useEffect(() => {
+    const acknowledgeVisibleSession = () => {
+      const viewedSessionId = selectedSessionRef.current?.id ?? sessionId;
+      if (viewedSessionId && document.visibilityState !== 'hidden') markSessionCompletionRead(viewedSessionId);
+    };
+    acknowledgeVisibleSession();
+    document.addEventListener('visibilitychange', acknowledgeVisibleSession);
+    window.addEventListener('focus', acknowledgeVisibleSession);
+    return () => {
+      document.removeEventListener('visibilitychange', acknowledgeVisibleSession);
+      window.removeEventListener('focus', acknowledgeVisibleSession);
+    };
+  }, [selectedSession?.id, sessionId]);
+
+  useEffect(() => {
     if (!sessionId) {
       return;
     }
@@ -1039,6 +1054,7 @@ export function useProjectsState({
   const handleSessionSelect = useCallback(
     (session: ProjectSession) => {
       clearSessionAttention(session.id);
+      markSessionCompletionRead(session.id);
       setSelectedSession(session);
 
       if (activeTab === 'tasks' || activeTab === 'browser') {

@@ -74,8 +74,10 @@ status, streamed response and completion arrive on the already-open clients.
   and reconnect snapshots clear resolved requests. Confirmed running/background
   work uses solid terracotta markers, actionable reminders use an outlined
   marker, and recent activity is shown by timestamps. A successful terminal
-  event with assistant output adds a small completion check that survives
-  refresh; new turns and confirmed running responses clear the previous check.
+  event with assistant output adds a small unread completion check that survives
+  refresh. Opening the session or receiving its final reply in the visible
+  session acknowledges the reply; read receipts suppress replayed terminal
+  events. New turns and confirmed running responses clear the previous check.
 - BTW windows restore their original source, transcript, unsent draft and resized
   geometry after a page reload. Native Codex/OpenCode forks stay attached to a
   user-scoped server registry and replay output on reconnect. A disconnected

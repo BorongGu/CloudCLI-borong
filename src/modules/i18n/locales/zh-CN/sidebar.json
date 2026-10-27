@@ -59,7 +59,7 @@
     "attentionRequiredIndicator": "会话需要处理",
     "processingSessionIndicator": "任务运行中",
     "backgroundWorkIndicator": "后台任务运行中",
-    "completedSessionIndicator": "已完成，已给出最终回复"
+    "completedSessionIndicator": "已完成，最终回复待查看"
   },
   "navigation": {
     "chat": "聊天",

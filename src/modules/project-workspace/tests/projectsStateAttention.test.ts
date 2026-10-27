@@ -5,6 +5,7 @@ import { beforeEach, test, vi } from 'vitest';
 
 import { useProjectsState } from '@/modules/project-workspace/hooks/useProjectsState';
 import type { ProjectSession, ServerEvent } from '@/shared/types';
+import { isSessionCompleted } from '@/shared/utils';
 
 vi.mock('@/shared/api', () => ({ api: {
   projects: async () => ({ ok: true, json: async () => [{ projectId: 'project', fullPath: '/repo', displayName: 'Repo',
@@ -61,4 +62,37 @@ test('reconnect snapshots clear resolved prompts while keeping explicit errors u
   assert.equal(result.current.sidebarSharedProps.attentionSessionIds.has('other'), false);
   emit({ kind: 'session_upserted', sessionId: 'other', session: { id: 'other', summary: 'Metadata refresh' } });
   assert.equal(result.current.sidebarSharedProps.attentionSessionIds.size, 0);
+});
+
+test('opening a background final reply clears its check and a later unread reply restores it', async () => {
+  const { result } = await fixture();
+  const finish = (terminalId: string) => {
+    emit({ kind: 'text', sessionId: 'other', role: 'assistant', content: 'Final reply' });
+    emit({ kind: 'complete', sessionId: 'other', success: true, id: terminalId });
+  };
+  finish('first');
+  assert.equal(isSessionCompleted('other'), true);
+  act(() => result.current.handleSessionSelect({ id: 'other', provider: 'opencode' } as ProjectSession));
+  assert.equal(isSessionCompleted('other'), false);
+  act(() => result.current.handleSessionSelect({ id: 'viewed', provider: 'codex' } as ProjectSession));
+  finish('first');
+  assert.equal(isSessionCompleted('other'), false);
+  finish('second');
+  assert.equal(isSessionCompleted('other'), true);
+});
+
+test('visible sessions acknowledge final replies and returning to a hidden tab clears its check', async () => {
+  await fixture();
+  const finish = (terminalId: string) => {
+    emit({ kind: 'text', sessionId: 'viewed', role: 'assistant', content: 'Final reply' });
+    emit({ kind: 'complete', sessionId: 'viewed', success: true, id: terminalId });
+  };
+  finish('visible');
+  assert.equal(isSessionCompleted('viewed'), false);
+  const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+  finish('hidden');
+  assert.equal(isSessionCompleted('viewed'), true);
+  visibility.mockReturnValue('visible');
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  assert.equal(isSessionCompleted('viewed'), false);
 });

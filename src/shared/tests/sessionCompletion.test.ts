@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { afterEach, beforeEach, test, vi } from 'vitest';
 
-import { clearRunningSessionCompletions, isSessionCompleted, observeSessionCompletion } from '@/shared/utils';
+import { clearRunningSessionCompletions, isSessionCompleted, markSessionCompletionRead, observeSessionCompletion } from '@/shared/utils';
 
 beforeEach(() => { localStorage.clear(); });
 afterEach(() => { vi.useRealTimers(); });
@@ -48,4 +48,44 @@ test('an in-flight poll describing the previous run preserves a completion that 
   vi.useFakeTimers();vi.setSystemTime(1000);reply();finish();
   clearRunningSessionCompletions(['session'], 999);assert.equal(isSessionCompleted('session'), true);
   clearRunningSessionCompletions(['session'], 1001);assert.equal(isSessionCompleted('session'), false);
+});
+
+test('opening a session acknowledges its final reply and suppresses the same terminal replay', async () => {
+  const terminal = { id: 'terminal-one', timestamp: '2026-10-27T10:00:00.000Z' };
+  reply();finish(terminal);
+  assert.equal(isSessionCompleted('session'), true);
+  markSessionCompletionRead('session');
+  assert.equal(isSessionCompleted('session'), false);
+  reply();finish(terminal);
+  assert.equal(isSessionCompleted('session'), false);
+
+  vi.resetModules();
+  const restored = await import('@/shared/utils');
+  restored.observeSessionCompletion({ sessionId: 'session', kind: 'text', role: 'assistant', content: 'Replayed answer' });
+  restored.observeSessionCompletion({ sessionId: 'session', kind: 'complete', success: true, ...terminal });
+  assert.equal(restored.isSessionCompleted('session'), false);
+
+  restored.observeSessionCompletion({ sessionId: 'session', kind: 'text', role: 'user', content: 'Next question' });
+  restored.observeSessionCompletion({ sessionId: 'session', kind: 'text', role: 'assistant', content: 'New final answer' });
+  restored.observeSessionCompletion({ sessionId: 'session', kind: 'complete', success: true, id: 'terminal-two', timestamp: terminal.timestamp });
+  assert.equal(restored.isSessionCompleted('session'), true);
+});
+
+test('a visible final reply is read immediately while another session stays unread', () => {
+  reply();
+  observeSessionCompletion({ sessionId: 'session', kind: 'complete', success: true, id: 'visible-terminal' }, 'session');
+  assert.equal(isSessionCompleted('session'), false);
+  reply('other');
+  observeSessionCompletion({ sessionId: 'other', kind: 'complete', success: true, id: 'background-terminal' }, 'session');
+  assert.equal(isSessionCompleted('other'), true);
+});
+
+test('legacy completion snapshots migrate when read and suppress older timestamped replays', () => {
+  localStorage.setItem('cloudcli-completed-sessions', JSON.stringify([['legacy', 1000]]));
+  assert.equal(isSessionCompleted('legacy'), true);
+  markSessionCompletionRead('legacy');
+  assert.equal(isSessionCompleted('legacy'), false);
+  reply('legacy');
+  observeSessionCompletion({ sessionId: 'legacy', kind: 'complete', success: true, timestamp: '2020-01-01T00:00:00.000Z' });
+  assert.equal(isSessionCompleted('legacy'), false);
 });

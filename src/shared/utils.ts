@@ -264,6 +264,10 @@ let completionCachedRaw: string | null | undefined;
 let completedSessionIds = new Set<string>();
 // Completion instants distinguish a new run from a poll that began before the previous run finished.
 let completionTimes = new Map<string, number>();
+// Native terminal identities keep an acknowledged reply clear when the same event is replayed.
+let completionKeys = new Map<string, string>();
+// Read receipts survive reloads and travel to other tabs through the same storage snapshot.
+let completionReads = new Map<string, { at: number; eventKey?: string }>();
 // Output and errors belong to the current turn and are discarded at its terminal event.
 const completionOutput = new Set<string>();
 // An error blocks completion until a successful recovery produces output or an explicit success event.
@@ -277,12 +281,21 @@ function readSessionCompletions() {
     if (raw !== completionCachedRaw) {
       completionCachedRaw = raw;
       const value: unknown = JSON.parse(raw || '[]');
-      const entries: [string, number][] = Array.isArray(value) ? value.flatMap(entry => {
+      const snapshot = value && typeof value === 'object' && !Array.isArray(value)
+        ? value as Record<string, unknown> : null;
+      const unread = snapshot?.unread ?? value;
+      const entries: [string, number, string?][] = Array.isArray(unread) ? unread.flatMap(entry => {
         if (typeof entry === 'string') return [[entry, 0] as [string, number]];
-        return Array.isArray(entry) && typeof entry[0] === 'string' && Number.isFinite(entry[1]) ? [[entry[0], entry[1]] as [string, number]] : [];
+        return Array.isArray(entry) && typeof entry[0] === 'string' && Number.isFinite(entry[1])
+          ? [[entry[0], entry[1], typeof entry[2] === 'string' ? entry[2] : undefined] as [string, number, string?]] : [];
       }).slice(-MAX_SESSION_COMPLETIONS) : [];
-      completionTimes = new Map(entries);
+      completionTimes = new Map(entries.map(([id, at]) => [id, at]));
       completedSessionIds = new Set(completionTimes.keys());
+      completionReads = new Map(Array.isArray(snapshot?.read) ? snapshot.read.filter(entry => Array.isArray(entry)
+        && typeof entry[0] === 'string' && Number.isFinite(entry[1]?.at)).slice(-MAX_SESSION_COMPLETIONS) : []);
+      completionKeys = new Map();
+      for (const [id, receipt] of completionReads) if (typeof receipt.eventKey === 'string') completionKeys.set(id, receipt.eventKey);
+      for (const [id, , eventKey] of entries) if (eventKey) completionKeys.set(id, eventKey);
     }
   } catch { /* Current-page outcomes remain available when storage is restricted. */ }
   return completedSessionIds;
@@ -291,12 +304,16 @@ function readSessionCompletions() {
 function publishSessionCompletions() {
   completedSessionIds = new Set([...completedSessionIds].slice(-MAX_SESSION_COMPLETIONS));
   completionTimes = new Map([...completedSessionIds].map(id => [id, completionTimes.get(id) ?? 0]));
-  completionCachedRaw = JSON.stringify([...completionTimes]);
+  completionReads = new Map([...completionReads].slice(-MAX_SESSION_COMPLETIONS));
+  completionCachedRaw = JSON.stringify({
+    unread: [...completionTimes].map(([id, at]) => [id, at, completionKeys.get(id)]),
+    read: [...completionReads],
+  });
   try { localStorage.setItem(SESSION_COMPLETION_STORAGE_KEY, completionCachedRaw); } catch {}
   for (const listener of completionListeners) listener();
 }
 
-/** Sidebar status markers read the latest successful reply outcome for their own session. */
+/** Sidebar status markers read whether a successful final reply is waiting to be viewed. */
 export function isSessionCompleted(sessionId: string): boolean {
   return readSessionCompletions().has(sessionId);
 }
@@ -307,6 +324,17 @@ export function subscribeToSessionCompletion(listener: () => void): () => void {
   const onStorage = (event: StorageEvent) => { if (event.key === SESSION_COMPLETION_STORAGE_KEY || event.key === null) listener(); };
   window.addEventListener('storage', onStorage);
   return () => { completionListeners.delete(listener);window.removeEventListener('storage', onStorage); };
+}
+
+/** The workspace acknowledges a final reply when its session is opened or the visible session finishes. */
+export function markSessionCompletionRead(sessionId: string): void {
+  if (!sessionId) return;
+  readSessionCompletions();
+  const eventKey = completionKeys.get(sessionId);
+  completionReads.delete(sessionId);
+  completionReads.set(sessionId, { at: Date.now(), ...(eventKey ? { eventKey } : {}) });
+  completedSessionIds.delete(sessionId);completionTimes.delete(sessionId);
+  publishSessionCompletions();
 }
 
 /** The running-sessions poll clears previous completions when the server confirms a new response. */
@@ -321,8 +349,8 @@ export function clearRunningSessionCompletions(sessionIds: readonly string[], ob
   if (changed) publishSessionCompletions();
 }
 
-/** The workspace subscription records successful final replies and clears stale checks on a new turn. */
-export function observeSessionCompletion(event: ServerEvent): void {
+/** The workspace subscription records unseen final replies, acknowledging the visible session immediately. */
+export function observeSessionCompletion(event: ServerEvent, viewedSessionId?: string | null): void {
   const id = event.sessionId;
   if (!id) return;
   readSessionCompletions();
@@ -341,7 +369,17 @@ export function observeSessionCompletion(event: ServerEvent): void {
   if (event.kind === 'complete') {
     const hasReply = completionOutput.has(id) || (typeof event.result === 'string' && Boolean(event.result.trim()));
     const success = event.success !== false && event.aborted !== true && (!completionFailures.has(id) || event.success === true);
-    if (success && (hasReply || completedSessionIds.has(id))) {
+    const eventKey = typeof event.id === 'string' ? `id:${event.id}`
+      : typeof event.timestamp === 'string' ? `time:${event.timestamp}`
+        : typeof event.seq === 'number' ? `seq:${event.seq}` : undefined;
+    const receipt = completionReads.get(id);
+    const eventTime = typeof event.timestamp === 'string' ? Date.parse(event.timestamp) : NaN;
+    const alreadyRead = receipt && (eventKey && receipt.eventKey === eventKey
+      || !receipt.eventKey && Number.isFinite(eventTime) && eventTime <= receipt.at);
+    if (eventKey && success && hasReply) completionKeys.set(id, eventKey);
+    if (viewedSessionId === id) markSessionCompletionRead(id);
+    else if (alreadyRead) clear();
+    else if (success && (hasReply || completedSessionIds.has(id))) {
       if (!completedSessionIds.has(id)) { completedSessionIds.add(id);completionTimes.set(id, Date.now());changed = true; }
     }
     else clear();
