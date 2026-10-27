@@ -69,6 +69,9 @@ status, streamed response and completion arrive on the already-open clients.
 
 ## Other included changes
 
+- Upstream release checks, update banners and the web self-upgrade modal are
+  removed. The About tab displays the installed build version; deployments of
+  this fork are maintained through its Git repository and host build scripts.
 - Sidebar reminders are limited to explicit errors and unanswered interactive
   requests; metadata/history updates leave idle rows clear. Prompt resolution
   and reconnect snapshots clear resolved requests. Confirmed running/background

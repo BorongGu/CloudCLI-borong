@@ -627,7 +627,7 @@ export const api = {
   },
 
   system: {
-    update: () => post('/api/system/update'),
+    health: (options: ApiRequestOptions = {}) => get('/health', options),
   },
 };
 

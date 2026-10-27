@@ -178,21 +178,6 @@ export type LoadingProgress = {
 
 // ---------------------------
 
-//----------------- RELEASES ------------
-
-/** The latest GitHub release for the app, rendered by the update prompt and the About tab. */
-export type ReleaseInfo = {
-  title: string;
-  body: string;
-  htmlUrl: string;
-  publishedAt: string;
-};
-
-/** How this CloudCLI install was obtained; decides whether the UI offers a self-update action. */
-export type InstallMode = 'git' | 'npm';
-
-// ---------------------------
-
 //----------------- SESSION PROCESSING STATE ------------
 
 /**
