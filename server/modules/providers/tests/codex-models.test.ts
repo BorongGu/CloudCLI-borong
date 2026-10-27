@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 
@@ -27,11 +28,18 @@ test('lists GPT-6 Sol and GPT-6 Luna with the effort levels the Codex CLI accept
   );
 });
 
-test('bundles a Codex CLI new enough to know the GPT-6 Sol and Luna models', () => {
-  // Codex only ships metadata for gpt-6-sol / gpt-6-luna from 0.155.0 on. An
-  // older CLI still sends the request, but on fallback metadata: it warns
-  // "Model metadata ... not found" and quietly drops `ultra` to `medium`.
+test('lists GPT-6.1 Terra with the effort choices returned by Codex model/list', () => {
+  const terra = findCodexModel('gpt-6.1-terra');
+  assert.equal(terra?.label, 'GPT-6.1 Terra');
+  assert.equal(terra?.effort?.default, 'low');
+  assert.deepEqual(terra?.effort?.values.map(effort => effort.value), ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
+  assert.equal(CODEX_PREDEFINED_MODELS.OPTIONS.filter(option => option.value === 'gpt-6.1-terra').length, 1);
+});
+
+test('bundles the Codex CLI and SDK versions validated with GPT-6.1 Terra', () => {
   const { version } = require('@openai/codex/package.json') as { version: string };
   const [major, minor] = version.split('.').map(Number);
-  assert.ok(major > 0 || minor >= 155, `bundled @openai/codex ${version} predates 0.155.0`);
+  assert.ok(major > 0 || minor >= 164, `bundled @openai/codex ${version} predates the validated 0.164.0 release`);
+  const sdk = JSON.parse(readFileSync(new URL('../package.json', import.meta.resolve('@openai/codex-sdk')), 'utf8')) as { version: string };
+  assert.equal(sdk.version, version);
 });

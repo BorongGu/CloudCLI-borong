@@ -19,6 +19,23 @@ import {
 export const CODEX_PREDEFINED_MODELS: ProviderModelsDefinition = {
   OPTIONS: [
     {
+      value: 'gpt-6.1-terra',
+      label: 'GPT-6.1 Terra',
+      description: 'Fast model for visual reasoning, computer use, and focused coding tasks.',
+      effort: {
+        default: 'low',
+        // Match Codex model/list; its effort choices differ from the Responses API.
+        values: [
+          { value: 'low' },
+          { value: 'medium' },
+          { value: 'high' },
+          { value: 'xhigh' },
+          { value: 'max' },
+          { value: 'ultra' },
+        ],
+      },
+    },
+    {
       value: 'gpt-6-astra',
       label: 'GPT-6 Astra',
       description: 'Our most capable model for complex, demanding work.',
