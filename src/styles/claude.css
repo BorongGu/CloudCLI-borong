@@ -240,6 +240,7 @@ code, pre, kbd, samp, .font-mono {
 
 /* Keep the mention overlay and textarea on the same type scale. */
 .chat-composer-form .chat-input-placeholder {
+  min-height: 84px;
   padding: 16px 18px;
   font-family: var(--font-text);
   font-size: 15px;
@@ -318,15 +319,50 @@ code, pre, kbd, samp, .font-mono {
   }
 
   .chat-composer-shell {
-    padding-right: 10px;
-    padding-bottom: 12px;
-    padding-left: 10px;
+    padding-right: 8px;
+    padding-bottom: 6px;
+    padding-left: 8px;
+  }
+
+  .chat-composer-form {
+    border-radius: 14px;
   }
 
   .chat-composer-form .chat-input-placeholder {
-    padding-right: 14px;
-    padding-left: 14px;
+    min-height: 40px;
+    padding: 8px 12px;
     font-size: 16px;
+    line-height: 24px;
+  }
+
+  .chat-composer-form [data-slot="prompt-input-textarea"] {
+    max-height: min(30dvh, 160px);
+  }
+
+  .chat-composer-form [data-slot="prompt-input-textarea"]:placeholder-shown {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .chat-composer-form [data-slot="prompt-input-header"] {
+    padding: 8px 8px 0;
+  }
+
+  .chat-composer-form [data-slot="prompt-input-footer"] {
+    row-gap: 2px;
+    padding: 0 8px 6px;
+  }
+
+  .chat-composer-form [data-slot="prompt-input-submit"] {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .chat-composer-shell .chat-activity-tab {
+    height: 28px;
+    padding-right: 8px;
+    padding-left: 8px;
   }
 
   .chat-message .prose,

@@ -100,6 +100,9 @@ status, streamed response and completion arrive on the already-open clients.
   prose at 15px. Text weights and relative math sizing use the same styling;
   mobile form fields retain 16px for steady iOS keyboard focus. The Appearance
   font-size setting controls the code editor independently.
+- Phone composers start with one text line, tighter padding and smaller activity
+  tabs. Multiline input grows to 160px or 30% of the viewport, then scrolls;
+  context, quota, model and send controls remain available in the compact footer.
 
 ## Host deployment
 

@@ -81,7 +81,7 @@ function TokenUsageSummary({ usage, onClick, provider, sessionId, model }: Token
   const date = (value: string) => new Date(value).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const toggle = () => { updateAnchor(); setIsOpen(current => !current); };
   const planLabel = (plan: string) => ({ prolite: 'Pro Lite', pro: 'Pro', plus: 'Plus', team: 'Team', business: 'Business', enterprise: 'Enterprise', free: 'Free' }[plan] || plan);
-  const buttonClass = 'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background/70 px-2 text-xs text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  const buttonClass = 'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background/70 px-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:px-2';
 
   // Other composer consumers can still open the existing cumulative token details.
   if (provider !== 'codex' && provider !== 'opencode') {
@@ -93,12 +93,12 @@ function TokenUsageSummary({ usage, onClick, provider, sessionId, model }: Token
     <>
       <button type="button" onClick={toggle} className={buttonClass} aria-label={t('usage.contextTrigger')} aria-haspopup="dialog" aria-expanded={isOpen} title={percent === null ? t('usage.pendingContext') : `${t('usage.context')} ${number(percent)}`}>
         <ActivityIcon className="h-3.5 w-3.5 text-primary" />
-        <span className="text-[10px] text-muted-foreground">Ctx</span>
+        <span className="hidden text-[10px] text-muted-foreground md:inline">Ctx</span>
         <span className="whitespace-nowrap font-medium text-foreground">{used === null ? '—' : formatTokenCount(used)}<span className="px-0.5 text-muted-foreground/50">/</span>{limit ? formatTokenCount(limit) : '—'}</span>
       </button>
       <button ref={triggerRef} type="button" onClick={toggle} className={buttonClass} aria-label={t('usage.trigger')} aria-haspopup="dialog" aria-expanded={isOpen}>
         <Gauge className="h-3.5 w-3.5 text-primary" />
-        <span>{t('usage.quota')}</span>
+        <span className="hidden md:inline">{t('usage.quota')}</span>
         {primary && <span className="whitespace-nowrap text-foreground">{windowLabel(primary)} {t('usage.remaining', { percent: number(remaining(primary)) })}</span>}
       </button>
       {isOpen && anchor && createPortal(
