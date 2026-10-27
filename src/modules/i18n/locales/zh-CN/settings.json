@@ -168,6 +168,11 @@
     }
   },
   "appearanceSettings": {
+    "style": {
+      "label": "界面风格",
+      "claudeDescription": "暖色底、陶土色与衬线字体",
+      "githubDescription": "中性灰、细边框与系统字体"
+    },
     "darkMode": {
       "label": "深色模式",
       "description": "切换浅色和深色主题"
@@ -178,6 +183,11 @@
       "light": "浅色",
       "dark": "深色",
       "system": "跟随系统外观"
+    },
+    "keepProjectsExpanded": {
+      "section": "侧栏",
+      "label": "保持项目展开",
+      "description": "同时展开多个项目，并在刷新后保留。"
     },
     "projectSorting": {
       "label": "项目排序",

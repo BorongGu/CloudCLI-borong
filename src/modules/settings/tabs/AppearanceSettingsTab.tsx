@@ -36,6 +36,29 @@ export default function AppearanceSettingsTab({
 
   return (
     <div className="space-y-8">
+      <SettingsSection title={t('appearanceSettings.style.label', { defaultValue: 'Interface style' })}>
+        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={t('appearanceSettings.style.label', { defaultValue: 'Interface style' })}>
+          {[{ github: false, name: 'Claude' }, { github: true, name: 'GitHub' }].map(option => (
+            <label key={option.name} className={`appearance-style-option relative cursor-pointer rounded-xl border p-3 transition-colors focus-within:ring-2 focus-within:ring-ring ${preferences.githubAppearance === option.github ? 'border-ring bg-accent/30' : 'border-border bg-card hover:bg-muted/40'}`}>
+              <input type="radio" name="interface-style" value={option.name.toLowerCase()} aria-label={option.name}
+                checked={preferences.githubAppearance === option.github} onChange={() => setPreference('githubAppearance', option.github)} className="peer sr-only" />
+              <span aria-hidden="true" className="appearance-style-preview" data-preview={option.name.toLowerCase()}>
+                <span className="appearance-preview-sidebar"><i /><i /><i /></span>
+                <span className="appearance-preview-main"><i /><i /><i /></span>
+              </span>
+              <span className="mt-2.5 flex items-center justify-between gap-2 text-sm font-semibold">
+                {option.name}<span aria-hidden="true" className={`h-3.5 w-3.5 rounded-full border ${preferences.githubAppearance === option.github ? 'border-ring bg-ring shadow-[inset_0_0_0_3px_hsl(var(--card))]' : 'border-input'}`} />
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                {option.github
+                  ? t('appearanceSettings.style.githubDescription', { defaultValue: 'Neutral surfaces, fine borders and system type.' })
+                  : t('appearanceSettings.style.claudeDescription', { defaultValue: 'Warm surfaces, terracotta accents and serif type.' })}
+              </span>
+            </label>
+          ))}
+        </div>
+      </SettingsSection>
+
       <SettingsSection title={t('appearanceSettings.theme.label')}>
         <SettingsCard>
           <SettingsRow

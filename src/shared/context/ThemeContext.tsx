@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { ThemeMode } from '@/shared/types';
+import { readStoredUiPreferences } from '@/shared/uiPreferences';
 import {
   readUserPreference,
   subscribeToUserPreferences,
@@ -55,6 +56,8 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // The resolved colour. It is not derivable from `themeMode` alone, because
   // under `system` it changes when the OS does, with no state change here.
   const [isDarkMode, setIsDarkMode] = useState(() => resolveIsDarkMode(readStoredThemeMode()));
+  // The saved interface style travels with the account and applies before the first workspace paint.
+  const [githubAppearance, setGithubAppearance] = useState(() => readStoredUiPreferences().githubAppearance);
 
   // The theme now lives in auth.db, so a change made on another device (or in
   // another tab) arrives through the preference store rather than a re-render.
@@ -62,41 +65,23 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const storedMode = readStoredThemeMode();
     setThemeModeState(storedMode);
     setIsDarkMode(resolveIsDarkMode(storedMode));
+    setGithubAppearance(readStoredUiPreferences().githubAppearance);
   }), []);
 
   // Applying the theme to the document and persisting it are deliberately
   // separate. Persisting from here would also fire on mount — before the stored
   // theme had been fetched — writing this device's system default over the
   // theme the user actually chose on another one.
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-
-      // Update iOS status bar style and theme color for dark mode
-      const statusBarMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-      if (statusBarMeta) {
-        statusBarMeta.setAttribute('content', 'black-translucent');
-      }
-
-      const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-      if (themeColorMeta) {
-        themeColorMeta.setAttribute('content', '#1c1b19'); // Warm charcoal canvas.
-      }
-    } else {
-      document.documentElement.classList.remove('dark');
-
-      // Update iOS status bar style and theme color for light mode
-      const statusBarMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-      if (statusBarMeta) {
-        statusBarMeta.setAttribute('content', 'default');
-      }
-
-      const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-      if (themeColorMeta) {
-        themeColorMeta.setAttribute('content', '#faf9f5'); // Warm ivory canvas.
-      }
-    }
-  }, [isDarkMode]);
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('dark', isDarkMode);
+    document.documentElement.dataset.appearance = githubAppearance ? 'github' : 'claude';
+    document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+      ?.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
+    const canvas = githubAppearance
+      ? isDarkMode ? '#0d1117' : '#ffffff'
+      : isDarkMode ? '#1c1b19' : '#faf9f5';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', canvas);
+  }, [githubAppearance, isDarkMode]);
 
   // Listen for system theme changes
   useEffect(() => {

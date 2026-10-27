@@ -5,6 +5,7 @@ import React from 'react';
 import { afterEach, beforeEach, test } from 'vitest';
 
 import { ThemeProvider, useTheme } from '@/shared/context/ThemeContext';
+import { UiPreferencesProvider, useSetUiPreference } from '@/shared/context/UiPreferencesContext';
 import {
   readUserPreference,
   resetUserPreferences,
@@ -25,6 +26,8 @@ const wrapper = ({ children }: { children: React.ReactNode }) =>
 const originalMatchMedia = window.matchMedia;
 /** Listeners the provider registered on the emulated `prefers-color-scheme` query. */
 let colorSchemeListeners: Array<(event: MediaQueryListEvent) => void> = [];
+/** The emulated query remains current when another preference prompts a fresh OS read. */
+let systemDarkAppearance = false;
 
 /**
  * Emulates an OS appearance so `system` mode has something to follow. jsdom's
@@ -32,8 +35,9 @@ let colorSchemeListeners: Array<(event: MediaQueryListEvent) => void> = [];
  */
 const emulateSystemDarkAppearance = (matches: boolean) => {
   colorSchemeListeners = [];
+  systemDarkAppearance = matches;
   window.matchMedia = ((query: string) => ({
-    matches: query.includes('prefers-color-scheme: dark') ? matches : false,
+    get matches() { return query.includes('prefers-color-scheme: dark') ? systemDarkAppearance : false; },
     media: query,
     onchange: null,
     addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
@@ -49,6 +53,7 @@ const emulateSystemDarkAppearance = (matches: boolean) => {
 };
 
 const changeSystemAppearance = (matches: boolean) => {
+  systemDarkAppearance = matches;
   colorSchemeListeners.forEach((listener) => listener({ matches } as MediaQueryListEvent));
 };
 
@@ -58,6 +63,7 @@ beforeEach(() => {
   // outlives localStorage.clear() and would leak one test's writes into the next.
   resetUserPreferences();
   document.documentElement.classList.remove('dark');
+  delete document.documentElement.dataset.appearance;
   emulateSystemDarkAppearance(false);
 });
 
@@ -196,4 +202,50 @@ test('a stored value written by a newer client falls back to following the syste
 
   assert.equal(result.current.themeMode, 'system');
   assert.equal(result.current.isDarkMode, true);
+});
+
+test('the default interface is Claude and mounting leaves its saved style unset', () => {
+  renderHook(() => useTheme(), { wrapper });
+  assert.equal(document.documentElement.dataset.appearance, 'claude');
+  assert.equal(readUserPreference('uiPreferences', null), null);
+});
+
+test('a saved GitHub interface applies immediately alongside the pinned dark mode', () => {
+  writeUserPreference('uiPreferences', { githubAppearance: true });
+  writeUserPreference('theme', 'dark');
+  renderHook(() => useTheme(), { wrapper });
+  assert.equal(document.documentElement.dataset.appearance, 'github');
+  assert.ok(document.documentElement.classList.contains('dark'));
+});
+
+test('account style updates and system color changes independently update the browser chrome', () => {
+  const meta = document.createElement('meta');
+  meta.name = 'theme-color';document.head.appendChild(meta);
+  try {
+    renderHook(() => useTheme(), { wrapper });
+    assert.equal(meta.content, '#faf9f5');
+    act(() => writeUserPreference('uiPreferences', { githubAppearance: true }));
+    assert.equal(document.documentElement.dataset.appearance, 'github');
+    assert.equal(meta.content, '#ffffff');
+    act(() => changeSystemAppearance(true));
+    assert.equal(meta.content, '#0d1117');
+    act(() => writeUserPreference('uiPreferences', { githubAppearance: false }));
+    assert.equal(document.documentElement.dataset.appearance, 'claude');
+    assert.equal(meta.content, '#1c1b19');
+    assert.equal(readUserPreference('theme', null), null);
+  } finally { meta.remove(); }
+});
+
+test('the appearance choice survives remounting through the existing UI preference owner', () => {
+  const providers = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(ThemeProvider, null, React.createElement(UiPreferencesProvider, null, children));
+  const first = renderHook(() => useSetUiPreference(), { wrapper: providers });
+  act(() => first.result.current('githubAppearance', true));
+  assert.equal(document.documentElement.dataset.appearance, 'github');
+  assert.equal(readUserPreference<Record<string, unknown>>('uiPreferences', {}).githubAppearance, true);
+  first.unmount();
+  const restored = renderHook(() => useSetUiPreference(), { wrapper: providers });
+  assert.equal(document.documentElement.dataset.appearance, 'github');
+  act(() => restored.result.current('githubAppearance', false));
+  assert.equal(document.documentElement.dataset.appearance, 'claude');
 });

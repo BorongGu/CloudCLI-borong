@@ -1,0 +1,358 @@
+/* Selectable GitHub-inspired appearance, based on Primer's semantic color roles. */
+:root[data-appearance="github"] {
+  --font-text: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --background: 0 0% 100%;
+  --foreground: 213.33 12.68% 13.92%;
+  --card: 0 0% 100%;
+  --card-foreground: var(--foreground);
+  --popover: 0 0% 100%;
+  --popover-foreground: var(--foreground);
+  --primary: 137.71 62.87% 32.75%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 28.57% 97.25%;
+  --secondary-foreground: var(--foreground);
+  --muted: var(--secondary);
+  --muted-foreground: 211.43 10.55% 39.02%;
+  --accent: 210 23.53% 93.33%;
+  --accent-foreground: var(--foreground);
+  --destructive: 355.84 71.78% 47.25%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 208.7 19.48% 84.9%;
+  --input: var(--border);
+  --ring: 212.44 92.07% 44.51%;
+  --radius: 0.375rem;
+  --surface-sidebar: #f6f8fa;
+  --surface-user: #f6f8fa;
+  --surface-code: #f6f8fa;
+  --surface-shadow: 0 1px 0 rgb(31 35 40 / 4%);
+  --github-link: #0969da;
+  --github-selected: #ddf4ff;
+  --github-tab: #fd8c73;
+  --github-button-border: rgb(31 35 40 / 15%);
+  --nav-glass-bg: 210 28.57% 97.25% / 1;
+  --nav-tab-glow: 212.44 92.07% 44.51% / 0.06;
+  --nav-tab-ring: 212.44 92.07% 44.51% / 0.18;
+  --nav-divider-color: 208.7 19.48% 84.9% / 1;
+  --nav-input-bg: 0 0% 100% / 1;
+  --nav-input-focus-ring: 212.44 92.07% 44.51% / 0.3;
+  --scale-gray-50: 246 248 250;
+  --scale-gray-100: 234 238 242;
+  --scale-gray-200: 209 217 224;
+  --scale-gray-300: 183 192 201;
+  --scale-gray-400: 145 152 161;
+  --scale-gray-500: 89 99 110;
+  --scale-gray-600: 66 74 83;
+  --scale-gray-700: 50 56 63;
+  --scale-gray-800: 37 41 46;
+  --scale-gray-900: 31 35 40;
+  --scale-gray-950: 13 17 23;
+  --scale-blue-50: 221 244 255;
+  --scale-blue-100: 182 227 255;
+  --scale-blue-200: 128 204 255;
+  --scale-blue-300: 84 174 255;
+  --scale-blue-400: 33 139 255;
+  --scale-blue-500: 9 105 218;
+  --scale-blue-600: 5 80 174;
+  --scale-blue-700: 3 61 139;
+  --scale-blue-800: 10 48 105;
+  --scale-blue-900: 0 33 85;
+  --scale-blue-950: 0 24 61;
+}
+
+:root[data-appearance="github"].dark {
+  --background: 216 27.78% 7.06%;
+  --foreground: 210 66.67% 96.47%;
+  --card: 214.29 25% 10.98%;
+  --popover: 214.29 25% 10.98%;
+  --primary: 131.52 58.58% 33.14%;
+  --secondary: 212 18.52% 15.88%;
+  --muted-foreground: 213.75 7.84% 60%;
+  --accent: 215.29 18.68% 17.84%;
+  --destructive: 2.73 100% 70.2%;
+  --border: 213.75 11.59% 27.06%;
+  --ring: 213.67 92.78% 61.96%;
+  --surface-sidebar: #151b23;
+  --surface-user: #151b23;
+  --surface-code: #151b23;
+  --surface-shadow: 0 1px 0 rgb(1 4 9 / 15%);
+  --github-link: #4493f8;
+  --github-selected: #1a2a3f;
+  --github-button-border: rgb(240 246 252 / 10%);
+  --nav-glass-bg: 214.29 25% 10.98% / 1;
+  --nav-tab-glow: 213.67 92.78% 61.96% / 0.08;
+  --nav-tab-ring: 213.67 92.78% 61.96% / 0.2;
+  --nav-divider-color: 213.75 11.59% 27.06% / 1;
+  --nav-input-bg: 216 27.78% 7.06% / 1;
+  --nav-input-focus-ring: 213.67 92.78% 61.96% / 0.35;
+}
+
+:root[data-appearance="github"] body {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+:root[data-appearance="github"] .font-sans {
+  font-family: var(--font-text);
+}
+
+:root[data-appearance="github"] ::selection {
+  background: hsl(var(--ring) / 20%);
+}
+
+:root[data-appearance="github"] :is(button, input, select, textarea):focus-visible {
+  outline-color: hsl(var(--ring));
+}
+
+:root[data-appearance="github"] .workspace-sidebar {
+  border-right: 1px solid hsl(var(--border));
+}
+
+:root[data-appearance="github"] .workspace-sidebar h1 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+:root[data-appearance="github"] .workspace-sidebar :is(button, a, .nav-search-input) {
+  border-radius: 6px;
+}
+
+:root[data-appearance="github"] .workspace-sidebar .sidebar-session-row[data-selected="true"] {
+  position: relative;
+  background: var(--github-selected);
+}
+
+:root[data-appearance="github"] .workspace-sidebar .sidebar-session-row[data-selected="true"]::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--github-link);
+  content: "";
+}
+
+:root[data-appearance="github"] .workspace-header {
+  background: var(--surface-sidebar);
+  border-bottom-color: hsl(var(--border));
+}
+
+:root[data-appearance="github"] .workspace-header [role="tablist"] {
+  padding: 0;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-appearance="github"] .workspace-header [role="tab"] {
+  position: relative;
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-appearance="github"] .workspace-header [role="tab"]:hover {
+  background: hsl(var(--accent) / 60%);
+}
+
+:root[data-appearance="github"] .workspace-header [role="tab"][aria-selected="true"]::after {
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  left: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--github-tab);
+  content: "";
+}
+
+:root[data-appearance="github"] .chat-message .prose {
+  --tw-prose-links: var(--github-link);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+:root[data-appearance="github"] .chat-message .prose a {
+  color: var(--github-link);
+}
+
+:root[data-appearance="github"] .prose :where(strong, b) {
+  font-weight: 600;
+}
+
+:root[data-appearance="github"] .chat-message .prose :where(h1, h2, h3, h4) {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+:root[data-appearance="github"] .chat-user-bubble {
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+}
+
+:root[data-appearance="github"] .chat-user-bubble .prose {
+  font-size: 14px;
+}
+
+:root[data-appearance="github"] .chat-message pre {
+  border-radius: 6px;
+}
+
+:root[data-appearance="github"] [data-slot="code-block"] {
+  border-radius: 6px;
+  background: hsl(var(--muted));
+  box-shadow: none;
+}
+
+:root[data-appearance="github"] .chat-empty-state h2 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+:root[data-appearance="github"] .chat-composer-form {
+  border-radius: 8px;
+  box-shadow: var(--surface-shadow);
+}
+
+:root[data-appearance="github"] .chat-composer-form:focus-within {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+:root[data-appearance="github"] .chat-composer-form.rounded-t-none {
+  border-top-right-radius: 0;
+  border-top-left-radius: 0;
+}
+
+:root[data-appearance="github"] .chat-composer-form .chat-input-placeholder {
+  font-family: var(--font-text);
+}
+
+:root[data-appearance="github"] .chat-composer-form [data-slot="prompt-input-footer"] {
+  background: hsl(var(--muted) / 45%);
+}
+
+:root[data-appearance="github"] .chat-composer-form [data-slot="prompt-input-tools"] .text-primary {
+  color: var(--github-link);
+}
+
+:root[data-appearance="github"] .chat-composer-form [data-slot="prompt-input-submit"] {
+  border: 1px solid var(--github-button-border);
+  border-radius: 6px;
+  box-shadow: var(--surface-shadow);
+}
+
+:root[data-appearance="github"] :is(.settings-dialog, .auth-card) {
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+}
+
+:root[data-appearance="github"] :is([data-slot="settings-card"], [role="menu"]) {
+  border-radius: 6px;
+}
+
+/* Session work and unread markers keep their established terracotta meaning. */
+:root[data-appearance="github"] .chat-activity-tab .bg-primary,
+:root[data-appearance="github"] [data-session-status="running"] {
+  background: var(--brand-terracotta);
+}
+
+:root[data-appearance="github"] [data-session-status="completed"] {
+  color: var(--brand-terracotta);
+}
+
+:root[data-appearance="github"] [data-session-status="attention"] {
+  --tw-ring-color: var(--brand-terracotta);
+}
+
+/* Small theme previews stay recognizable inside either active appearance. */
+.appearance-style-preview {
+  display: flex;
+  height: 72px;
+  overflow: hidden;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.appearance-style-preview[data-preview="claude"] {
+  border-color: #e4e1d6;
+  border-radius: 10px;
+  background: #faf9f5;
+}
+
+.appearance-preview-sidebar {
+  display: flex;
+  width: 27%;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 5px;
+  border-right: 1px solid #d1d9e0;
+  background: #f6f8fa;
+}
+
+[data-preview="claude"] .appearance-preview-sidebar {
+  border-color: #e4e1d6;
+  background: #f0eee6;
+}
+
+.appearance-preview-sidebar i {
+  height: 4px;
+  border-radius: 2px;
+  background: #b7c0c9;
+}
+
+.appearance-preview-sidebar i:first-child {
+  background: #0969da;
+}
+
+[data-preview="claude"] .appearance-preview-sidebar i:first-child {
+  background: #d97757;
+}
+
+.appearance-preview-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 10px;
+}
+
+.appearance-preview-main i {
+  height: 4px;
+  border-radius: 2px;
+  background: #d1d9e0;
+}
+
+.appearance-preview-main i:first-child {
+  width: 65%;
+}
+
+.appearance-preview-main i:last-child {
+  height: 12px;
+  margin-top: auto;
+  border: 1px solid #d1d9e0;
+  border-radius: 3px;
+  background: transparent;
+}
+
+[data-preview="claude"] .appearance-preview-main i {
+  border-color: #d3cfc1;
+  border-radius: 5px;
+  background: #e4e1d6;
+}
+
+@media (max-width: 767px) {
+  :root[data-appearance="github"] .chat-composer-form .chat-input-placeholder {
+    font-size: 16px;
+  }
+
+  :root[data-appearance="github"] .chat-empty-state h2 {
+    font-size: 21px;
+  }
+}

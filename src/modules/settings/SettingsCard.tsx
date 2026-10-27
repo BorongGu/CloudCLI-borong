@@ -12,6 +12,7 @@ type SettingsCardProps = {
 export default function SettingsCard({ children, className, divided }: SettingsCardProps) {
   return (
     <div
+      data-slot="settings-card"
       className={cn(
         'rounded-xl border border-border bg-card/50',
         divided && 'divide-y divide-border',

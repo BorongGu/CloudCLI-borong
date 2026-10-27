@@ -69,6 +69,11 @@ status, streamed response and completion arrive on the already-open clients.
 
 ## Other included changes
 
+- Settings → Appearance offers Claude and GitHub interface styles independently
+  from light/dark/system color mode. The account's existing UI preferences store
+  persists the choice. GitHub uses [Primer](https://primer.style/product/getting-started/foundations/color-usage/)-inspired neutral surfaces, system text,
+  fine borders, compact panels and underlined navigation. Phone composers retain
+  their compact sizing, and session markers retain their terracotta meaning.
 - Upstream release checks, update banners and the web self-upgrade modal are
   removed. The About tab displays the installed build version; deployments of
   this fork are maintained through its Git repository and host build scripts.

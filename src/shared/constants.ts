@@ -20,11 +20,10 @@ type GitStatusFileGroup = 'modified' | 'added' | 'deleted' | 'untracked';
 //----------------- BRANDING ------------
 
 /**
- * Font stack used to render the CloudCLI wordmark consistently wherever the brand name
- * appears as text. Apply it inline so the wordmark does not inherit a themed font.
+ * The wordmark follows the selected interface's text face wherever the brand appears.
  */
 export const CLOUDCLI_WORDMARK_FONT_FAMILY =
-  '"Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif';
+  'var(--font-text, "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif)';
 
 // ---------------------------
 

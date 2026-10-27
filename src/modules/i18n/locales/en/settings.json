@@ -168,6 +168,11 @@
     }
   },
   "appearanceSettings": {
+    "style": {
+      "label": "Interface style",
+      "claudeDescription": "Warm surfaces, terracotta accents and serif type.",
+      "githubDescription": "Neutral surfaces, fine borders and system type."
+    },
     "darkMode": {
       "label": "Dark Mode",
       "description": "Toggle between light and dark themes"
