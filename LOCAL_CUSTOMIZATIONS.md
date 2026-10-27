@@ -93,6 +93,8 @@ status, streamed response and completion arrive on the already-open clients.
   and the tab's saved window immediately.
 - Native CLI and web chat share the same Codex App Server and thread history.
 - Live message snapshots retain stable ids, so incremental output updates one row.
+- Markdown renders HTML line-break tags inside table cells and prose, including
+  streamed replies. Code samples and escaped tags retain their literal text.
 - Mobile foreground return and send recover the websocket; unsent drafts remain available.
 - Native Codex model defaults, including GPT-6.1 Sol, are reflected in browser defaults.
 - OpenCode Go is available through the existing provider/model picker.

@@ -5,6 +5,8 @@ import remarkGfm from 'remark-gfm';
 import remarkCjkFriendly from 'remark-cjk-friendly/parseOnly';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import type { Element, Root, Text } from 'hast';
+import type { PluggableList } from 'unified';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTranslation } from 'react-i18next';
 
@@ -74,6 +76,28 @@ const childrenToText = (children: React.ReactNode): string => {
 const MATH_DELIMITER = /\$\$/;
 
 const EMPTY_PLUGINS: never[] = [];
+
+/** Convert HTML break nodes to normal elements while code and other HTML keep their existing rendering. */
+function rehypeHtmlLineBreaks() {
+  return (tree: Root) => {
+    const visit = (parent: Root | Element) => {
+      for (let index = 0; index < parent.children.length; index++) {
+        const node = parent.children[index];
+        if (node.type === 'raw' && /^\s*<br\s*\/?>/i.test(node.value)) {
+          // A standalone <br> can start an HTML block that also holds the following text.
+          const replacements: (Element | Text)[] = node.value.split(/(<br\s*\/?>)/gi).filter(Boolean).map(value => (
+            /^<br\s*\/?>$/i.test(value)
+              ? { type: 'element', tagName: 'br', properties: {}, children: [] }
+              : { type: 'text', value }
+          ));
+          parent.children.splice(index, 1, ...replacements);
+          index += replacements.length - 1;
+        } else if (node.type === 'element') visit(node);
+      }
+    };
+    visit(tree);
+  };
+}
 
 type CodeBlockProps = {
   node?: any;
@@ -270,6 +294,7 @@ function MarkdownBodyRenderer({ children, breaks = false }: Omit<MarkdownProps, 
   // render, and almost no assistant message contains math. Only wire the two
   // plugins up when the text has a delimiter they could act on.
   const hasMath = useMemo(() => MATH_DELIMITER.test(content), [content]);
+  const hasHtmlBreaks = useMemo(() => /<br\s*\/?>/i.test(content), [content]);
   const remarkPlugins = useMemo(
     () => {
       const plugins: unknown[] = [remarkGfm, remarkCjkFriendly];
@@ -283,7 +308,13 @@ function MarkdownBodyRenderer({ children, breaks = false }: Omit<MarkdownProps, 
     },
     [breaks, hasMath],
   );
-  const rehypePlugins = useMemo(() => (hasMath ? [rehypeKatex] : EMPTY_PLUGINS), [hasMath]);
+  const rehypePlugins = useMemo(() => {
+    if (!hasMath && !hasHtmlBreaks) return EMPTY_PLUGINS;
+    const plugins: PluggableList = [];
+    if (hasHtmlBreaks) plugins.push(rehypeHtmlLineBreaks);
+    if (hasMath) plugins.push(rehypeKatex);
+    return plugins;
+  }, [hasMath, hasHtmlBreaks]);
   const { openFileInEditor, openDirectory } = usePaletteOps();
 
   const components = useMemo(
