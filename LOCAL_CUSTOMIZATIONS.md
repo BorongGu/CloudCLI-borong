@@ -89,6 +89,22 @@ separately. The service reads host settings from
 `~/.config/cloudcli/server.env` and uses the existing private authentication
 stores.
 
+Choose the network mode when starting the host's service:
+
+```bash
+install -m 755 scripts/local-deployment/cloudcli-start.py "$HOME/.local/bin/cloudcli-start"
+cloudcli-start                    # Interactive localhost / Tailnet selection
+cloudcli-start localhost          # Bind to 127.0.0.1:3001
+cloudcli-start tailnet            # Bind to the address from tailscale ip -4
+cloudcli-start --status           # Show the saved mode and URL
+```
+
+`--mode localhost` and `--mode tailnet` are also accepted. The selected mode
+is saved in `~/.config/cloudcli/server.env` and reused by the enabled user
+service at boot. The launcher restarts the service, waits for its health check,
+and restores the previous configuration if startup fails. Localhost refers to
+the machine running CloudCLI; Tailnet mode is used by other Tailnet devices.
+
 Build the client and backend patches from the source checkout:
 
 ```bash

@@ -17,6 +17,7 @@ const files = [
   'server/shared/utils.ts',
   'server/shared/image-attachments.ts',
   'server/modules/providers/list/codex/codex-questions.provider.ts',
+  'server/modules/providers/list/codex/codex-models.provider.ts',
   'server/modules/providers/services/codex-steering.service.ts',
   'server/modules/providers/list/codex/codex-shared-connection.ts',
   'server/modules/providers/list/codex/codex-shared-sdk.ts',
