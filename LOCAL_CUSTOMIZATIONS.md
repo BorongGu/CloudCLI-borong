@@ -79,6 +79,10 @@ status, streamed response and completion arrive on the already-open clients.
   across CLI processes. Its source, lockfile, tests and MIT license are included.
 - The current interface styling, locally served JetBrains Mono and Source Han
   Serif assets, and their font licenses are included.
+- Application text uses a scale one pixel below Tailwind's defaults, with chat
+  prose at 15px. Text weights and relative math sizing use the same styling;
+  mobile form fields retain 16px for steady iOS keyboard focus. The Appearance
+  font-size setting controls the code editor independently.
 
 ## Host deployment
 

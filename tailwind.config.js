@@ -1,3 +1,5 @@
+import defaultTheme from 'tailwindcss/defaultTheme';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
@@ -14,6 +16,17 @@ export default {
       },
     },
     extend: {
+      // Reduce application type by one pixel while retaining control sizes and spacing.
+      fontSize: Object.fromEntries(
+        Object.entries(defaultTheme.fontSize).map(([name, [size, options]]) => [
+          name,
+          [`calc(${size} - 1px)`, options],
+        ]),
+      ),
+      typography: ({ theme }) => ({
+        DEFAULT: { css: { fontSize: theme('fontSize.base')[0] } },
+        sm: { css: { fontSize: theme('fontSize.sm')[0] } },
+      }),
       fontFamily: {
         sans: ['"Source Han Serif SC VF"', '"Noto Serif CJK SC"', 'Georgia', 'serif'],
         serif: ['"Source Han Serif SC VF"', '"Noto Serif CJK SC"', 'Georgia', 'serif'],

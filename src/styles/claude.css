@@ -18,6 +18,7 @@
 
 body {
   font-family: var(--font-text);
+  font-size: 15px;
   font-weight: 500;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -45,7 +46,7 @@ code, pre, kbd, samp, .font-mono {
 }
 
 .workspace-sidebar h1 {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 650;
   letter-spacing: -0.04em;
 }
@@ -123,7 +124,7 @@ code, pre, kbd, samp, .font-mono {
 
 .chat-message .prose {
   font-family: var(--font-text);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   line-height: 1.85;
   color: hsl(var(--foreground));
@@ -169,7 +170,7 @@ code, pre, kbd, samp, .font-mono {
 }
 
 .chat-user-bubble .prose {
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.75;
 }
 
@@ -183,7 +184,7 @@ code, pre, kbd, samp, .font-mono {
 .chat-message pre code,
 .chat-message pre code span {
   font-family: var(--font-code) !important;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.7;
   font-variant-ligatures: none;
 }
@@ -208,7 +209,7 @@ code, pre, kbd, samp, .font-mono {
 }
 
 .chat-empty-state h2 {
-  font-size: 30px;
+  font-size: 29px;
   font-weight: 500;
   line-height: 1.5;
   letter-spacing: -0.025em;
@@ -237,11 +238,11 @@ code, pre, kbd, samp, .font-mono {
   border-top-right-radius: 0;
 }
 
-/* Keep the mention overlay aligned with the textarea at the larger type size. */
+/* Keep the mention overlay and textarea on the same type scale. */
 .chat-composer-form .chat-input-placeholder {
   padding: 16px 18px;
   font-family: var(--font-text);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 26px;
 }
 
@@ -300,6 +301,11 @@ code, pre, kbd, samp, .font-mono {
 }
 
 @media (max-width: 767px) {
+  /* A 16px field size keeps iOS focus steady when the keyboard opens. */
+  :root :is(input, textarea, select) {
+    font-size: 16px;
+  }
+
   .workspace-header {
     min-height: 52px;
     padding-top: max(8px, env(safe-area-inset-top));
@@ -325,7 +331,7 @@ code, pre, kbd, samp, .font-mono {
 
   .chat-message .prose,
   .chat-user-bubble .prose {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .chat-user-bubble {
@@ -333,6 +339,6 @@ code, pre, kbd, samp, .font-mono {
   }
 
   .chat-empty-state h2 {
-    font-size: 26px;
+    font-size: 25px;
   }
 }
