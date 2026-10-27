@@ -50,13 +50,25 @@ function resizeBounds(bounds: PanelBounds, direction: ResizeDirection, dx: numbe
 }
 
 /** BtwPanel uses pointer and keyboard resizing while retaining its preferred size across keyboard/viewport changes. */
-export function useBtwPanelResize() {
+export function useBtwPanelResize(windowKey: string) {
+  const storageKey = `cloudcli-btw-bounds:${windowKey}`;
   const panelRef = useRef<HTMLElement>(null);
   const dragRef = useRef<ResizeDrag | null>(null);
   // A manual rectangle overrides the responsive default after the first resize.
-  const [bounds, setBounds] = useState<PanelBounds | null>(null);
+  const [bounds, setBounds] = useState<PanelBounds | null>(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+      if (saved && ['left', 'top', 'width', 'height'].every(key => Number.isFinite(saved[key]))
+        && saved.width > 0 && saved.height > 0) return saved;
+    } catch { /* Responsive defaults remain available when storage is restricted. */ }
+    return null;
+  });
   // Visual viewport changes constrain the displayed rectangle while retaining the user's preferred size.
   const [viewport, setViewport] = useState(readViewport);
+
+  useEffect(() => {
+    if (bounds) { try { sessionStorage.setItem(storageKey, JSON.stringify(bounds)); } catch {} }
+  }, [bounds, storageKey]);
 
   useEffect(() => {
     const updateViewport = () => {
@@ -120,5 +132,6 @@ export function useBtwPanelResize() {
     return true;
   }, []);
 
-  return { panelRef, bounds: bounds ? fitBounds(bounds, viewport) : null, startResize, resizeWithKeyboard };
+  const clearSavedBounds = () => { try { sessionStorage.removeItem(storageKey); } catch {} };
+  return { panelRef, bounds: bounds ? fitBounds(bounds, viewport) : null, startResize, resizeWithKeyboard, clearSavedBounds };
 }

@@ -12,6 +12,7 @@ import {
 } from '@/shared/hooks/useSessionProtection';
 import type { BackgroundTaskSummary, GetSessionActivity, IsSessionProcessing, MarkSessionBackground, MarkSessionIdle, MarkSessionProcessing, SessionActivity, SessionActivityMap, SyncProcessingSessions } from '@/shared/types';
 import { api } from '@/shared/api';
+import { clearRunningSessionCompletions } from '@/shared/utils';
 
 type RunningSessionApiItem = {
   sessionId?: unknown;
@@ -133,6 +134,7 @@ export function SessionProtectionProvider({ children }: { children: ReactNode })
   } = useSessionProtection();
 
   const refreshRunningSessions = useCallback(async () => {
+    const requestedAt = Date.now();
     try {
       const response = await api.runningSessions();
       if (!response.ok) {
@@ -141,6 +143,8 @@ export function SessionProtectionProvider({ children }: { children: ReactNode })
 
       const payload = (await response.json()) as RunningSessionsApiPayload;
       const sessions = Array.isArray(payload.data?.sessions) ? payload.data.sessions : [];
+      clearRunningSessionCompletions(sessions.filter(session => session.background !== true && typeof session.sessionId === 'string')
+        .map(session => session.sessionId as string), requestedAt);
 
       syncProcessingSessions(
         sessions

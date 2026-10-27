@@ -62,10 +62,17 @@ export function useSessionProtection() {
   );
   const processingSessionsRef = useRef<SessionActivityMap>(processingSessions);
   processingSessionsRef.current = processingSessions;
+  // Only locally observed starts awaiting their first server confirmation receive a polling grace period.
+  const unconfirmedStartsRef = useRef(new Map<string, number>());
 
   const markSessionProcessing = useCallback<MarkSessionProcessing>((sessionId, activity) => {
     if (!sessionId) {
       return;
+    }
+
+    const known = processingSessionsRef.current.get(sessionId);
+    if ((!known || known.background) && !unconfirmedStartsRef.current.has(sessionId)) {
+      unconfirmedStartsRef.current.set(sessionId, Date.now());
     }
 
     setProcessingSessions((prev) => {
@@ -120,12 +127,14 @@ export function useSessionProtection() {
       }
 
       const updated = new Map(prev);
+      unconfirmedStartsRef.current.delete(sessionId);
       updated.delete(sessionId);
       return updated;
     });
   }, []);
 
   const markSessionBackground = useCallback<MarkSessionBackground>((sessionId, tasks) => {
+    unconfirmedStartsRef.current.delete(sessionId);
     setProcessingSessions((prev) => {
       const existing = prev.get(sessionId);
       if (tasks.length === 0) {
@@ -182,12 +191,14 @@ export function useSessionProtection() {
           snapshot.background
           && existing
           && !existing.background
-          && now - existing.startedAt < LOCAL_ACTIVITY_GRACE_MS
+          && unconfirmedStartsRef.current.has(sessionId)
+          && now - unconfirmedStartsRef.current.get(sessionId)! < LOCAL_ACTIVITY_GRACE_MS
         ) {
           updated.set(sessionId, existing);
           continue;
         }
 
+        unconfirmedStartsRef.current.delete(sessionId);
         updated.set(sessionId, {
           statusText:
             snapshot.statusText !== undefined ? snapshot.statusText : existing?.statusText ?? null,
@@ -199,8 +210,10 @@ export function useSessionProtection() {
       }
 
       for (const [sessionId, activity] of prev) {
-        if (!incoming.has(sessionId) && now - activity.startedAt < LOCAL_ACTIVITY_GRACE_MS) {
-          updated.set(sessionId, activity);
+        if (!incoming.has(sessionId)) {
+          const pendingSince = unconfirmedStartsRef.current.get(sessionId);
+          if (pendingSince !== undefined && now - pendingSince < LOCAL_ACTIVITY_GRACE_MS) updated.set(sessionId, activity);
+          else unconfirmedStartsRef.current.delete(sessionId);
         }
       }
 

@@ -7,6 +7,7 @@ import { cn } from '@/shared/utils';
 import type { ProjectSession, RecentConversationListItem, SessionRowActions } from '@/shared/types';
 import { formatCompactAge } from '@/modules/sidebar/utils/sidebarProjectFormatting';
 import SessionOptions from '@/modules/sidebar/SessionOptions';
+import { SidebarSessionStatus } from '@/modules/sidebar/SidebarSessionStatus';
 
 type SidebarRecentConversationsProps = {
   conversations: RecentConversationListItem[];
@@ -111,8 +112,6 @@ export default function SidebarRecentConversations({
           const age = formatCompactAge(conversation.lastActivity, currentTime);
           const hasBackgroundWork = sessionActions.backgroundSessionIds.has(conversation.sessionId);
           const isProcessing = sessionActions.activeSessions.has(conversation.sessionId) && !hasBackgroundWork;
-          const showAttentionIndicator =
-            sessionActions.attentionSessionIds.has(conversation.sessionId) && !isSelected;
           // Resolved per row so a keystroke in one rename does not redraw the rest.
           const rename = sessionActions.activeRename;
           const sessionRename =
@@ -132,25 +131,8 @@ export default function SidebarRecentConversations({
 
           return (
             <div key={conversation.sessionId} className="group relative">
-              {/*
-                * Only the amber "needs attention" dot, and the spinner below. The
-                * Projects row also has a green dot for a session touched recently,
-                * which carries no information in a list ordered by recency.
-                */}
-              {showAttentionIndicator && (
-                <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 transform">
-                  <Tooltip
-                    content={t('tooltips.attentionRequiredIndicator', { defaultValue: 'Session needs attention' })}
-                    position="right"
-                  >
-                    <div
-                      role="status"
-                      aria-label={t('tooltips.attentionRequiredIndicator', { defaultValue: 'Session needs attention' })}
-                      className="h-2 w-2 animate-pulse rounded-full bg-amber-500"
-                    />
-                  </Tooltip>
-                </div>
-              )}
+              <SidebarSessionStatus sessionId={conversation.sessionId} isProcessing={isProcessing} hasBackgroundWork={hasBackgroundWork}
+                needsAttention={sessionActions.attentionSessionIds.has(conversation.sessionId)} isSelected={isSelected} t={t} />
 
               <a
                 href={`/session/${conversation.sessionId}`}
@@ -182,19 +164,6 @@ export default function SidebarRecentConversations({
                         <span className="flex-shrink-0 text-muted-foreground/40">·</span>
                         <Tooltip content={t('tooltips.processingSessionIndicator', 'Processing session')} position="top">
                           <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin" />
-                        </Tooltip>
-                      </>
-                    ) : hasBackgroundWork ? (
-                      // No spinner: nothing is responding. The purple of the
-                      // workflow and agent cards says what is still running.
-                      <>
-                        <span className="flex-shrink-0 text-muted-foreground/40">·</span>
-                        <Tooltip content={t('tooltips.backgroundWorkIndicator', 'Background work running')} position="top">
-                          <span
-                            role="status"
-                            aria-label={t('tooltips.backgroundWorkIndicator', 'Background work running')}
-                            className="h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-purple-500 dark:bg-purple-400"
-                          />
                         </Tooltip>
                       </>
                     ) : age && (

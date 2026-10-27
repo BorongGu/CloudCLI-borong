@@ -26,11 +26,9 @@ const RESIZE_HANDLES = [
 export function BtwPanel({ request, onClose }: BtwPanelProps) {
   const { t } = useTranslation('chat');
   const titleId = useId();
-  const { messages, ready, busy, busySince, closed, error, label, phase, send, stop } = useBtwConversation(request);
-  const { panelRef, bounds, startResize, resizeWithKeyboard } = useBtwPanelResize();
+  const { messages, ready, busy, busySince, closed, error, label, phase, draft, setDraft, send, stop } = useBtwConversation(request);
+  const { panelRef, bounds, startResize, resizeWithKeyboard, clearSavedBounds } = useBtwPanelResize(request.key);
   const markdownWorkspaceValue = useMemo(() => ({ projectId: request.projectId ?? null }), [request.projectId]);
-  // Keep the next side question editable while a reply streams above it.
-  const [draft, setDraft] = useState('');
   // Elapsed time distinguishes an active provider request from a frozen panel.
   const [clock, setClock] = useState(Date.now);
   const elapsed = Math.max(0, Math.floor((clock - busySince) / 1000));
@@ -38,6 +36,7 @@ export function BtwPanel({ request, onClose }: BtwPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
   const compositionEndRef = useRef(0);
+  const close = () => { clearSavedBounds();onClose(); };
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => {
     if (!busy) return;
@@ -56,13 +55,13 @@ export function BtwPanel({ request, onClose }: BtwPanelProps) {
     style={{ bottom: 'calc(var(--keyboard-height, 0px) + 12px + env(safe-area-inset-bottom, 0px))',
       height: 'min(34rem, 72dvh)', maxHeight: 'calc(100dvh - var(--keyboard-height, 0px) - 2rem)',
       ...(bounds ? { ...bounds, right: 'auto', bottom: 'auto', maxHeight: 'none' } : {}) }}
-    onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); } }}>
+    onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } }}>
     <header className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-3">
       <MessageSquare aria-hidden className="h-4 w-4 text-primary/80" />
       <h2 id={titleId} className="text-sm font-medium">{t('btw.title')}</h2>
       <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">{t('btw.temporary')}</span>
-      <button type="button" onClick={onClose} className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">{t('btw.finish')}</button>
-      <button type="button" onClick={onClose} aria-label={t('btw.close')} className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>
+      <button type="button" onClick={close} className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">{t('btw.finish')}</button>
+      <button type="button" onClick={close} aria-label={t('btw.close')} className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>
     </header>
     <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4"
       onScroll={event => { const node = event.currentTarget; followRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 48; }}>

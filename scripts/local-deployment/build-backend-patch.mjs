@@ -28,6 +28,9 @@ const files = [
   'server/modules/providers/index.ts',
   'server/modules/providers/provider.routes.ts',
   'server/modules/websocket/services/chat-websocket.service.ts',
+  'server/modules/websocket/services/btw-registry.service.ts',
+  'server/modules/websocket/services/btw-websocket.service.ts',
+  'server/modules/websocket/services/websocket-server.service.ts',
 ];
 
 for (const file of files) {

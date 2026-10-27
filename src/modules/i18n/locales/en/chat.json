@@ -473,7 +473,8 @@
       "thinking": "Thinking…",
       "compacting": "Compacting conversation context…",
       "working": "Working…",
-      "retrying": "Retrying model connection…"
+      "retrying": "Retrying model connection…",
+      "reconnecting": "Reconnecting side conversation…"
     }
   }
 }

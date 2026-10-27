@@ -11,7 +11,6 @@ import type {
 
 // Presentation data the sidebar derives from a session before rendering its row.
 type SessionViewModel = {
-  isActive: boolean;
   sessionName: string;
   sessionTime: string;
   messageCount: number;
@@ -63,14 +62,9 @@ const getSessionTime = (session: SessionWithProvider): string => {
 
 export const createSessionViewModel = (
   session: SessionWithProvider,
-  currentTime: Date,
   t: TFunction,
 ): SessionViewModel => {
-  const sessionDate = getSessionDate(session);
-  const diffInMinutes = Math.floor((currentTime.getTime() - sessionDate.getTime()) / (1000 * 60));
-
   return {
-    isActive: diffInMinutes < 10,
     sessionName: getSessionName(session, t),
     sessionTime: getSessionTime(session),
     messageCount: Number(session.messageCount || 0),

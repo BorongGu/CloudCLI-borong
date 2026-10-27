@@ -377,7 +377,8 @@
       "thinking": "正在思考…",
       "compacting": "正在压缩会话上下文…",
       "working": "正在执行…",
-      "retrying": "正在重连模型…"
+      "retrying": "正在重连模型…",
+      "reconnecting": "正在恢复临时对话连接…"
     }
   }
 }

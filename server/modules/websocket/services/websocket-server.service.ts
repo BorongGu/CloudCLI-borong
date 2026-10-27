@@ -110,7 +110,7 @@ export function createWebSocketServer(
     }
 
     if (pathname === '/btw') {
-      handleBtwConnection(ws);
+      handleBtwConnection(ws, incomingRequest);
       return;
     }
 

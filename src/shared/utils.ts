@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-import type { Project, ProjectSession, QuickSettingsTab, SlashCommand } from '@/shared/types';
+import type { Project, ProjectSession, QuickSettingsTab, ServerEvent, SlashCommand } from '@/shared/types';
 
 //----------------- DEPLOYMENT MODE ------------
 
@@ -250,3 +250,102 @@ export const getQuickSettingsTabId = (tab: QuickSettingsTab): string => `quick-s
 
 /** DOM id of the tabpanel a quick settings tab controls; pairs with `getQuickSettingsTabId`. */
 export const getQuickSettingsTabPanelId = (tab: QuickSettingsTab): string => `quick-settings-tabpanel-${tab}`;
+
+// ---------------------------
+
+//----------------- SESSION COMPLETION STATE ------------
+
+const SESSION_COMPLETION_STORAGE_KEY = 'cloudcli-completed-sessions';
+const MAX_SESSION_COMPLETIONS = 1000;
+
+// Persist terminal outcomes so sidebar checks survive reloads, with one mirror shared by all rows.
+let completionCachedRaw: string | null | undefined;
+// Successful session ids are the observable completion snapshot shared by sidebar rows.
+let completedSessionIds = new Set<string>();
+// Completion instants distinguish a new run from a poll that began before the previous run finished.
+let completionTimes = new Map<string, number>();
+// Output and errors belong to the current turn and are discarded at its terminal event.
+const completionOutput = new Set<string>();
+// An error blocks completion until a successful recovery produces output or an explicit success event.
+const completionFailures = new Set<string>();
+// Completion subscribers update only rows whose boolean snapshot actually changed.
+const completionListeners = new Set<() => void>();
+
+function readSessionCompletions() {
+  try {
+    const raw = localStorage.getItem(SESSION_COMPLETION_STORAGE_KEY);
+    if (raw !== completionCachedRaw) {
+      completionCachedRaw = raw;
+      const value: unknown = JSON.parse(raw || '[]');
+      const entries: [string, number][] = Array.isArray(value) ? value.flatMap(entry => {
+        if (typeof entry === 'string') return [[entry, 0] as [string, number]];
+        return Array.isArray(entry) && typeof entry[0] === 'string' && Number.isFinite(entry[1]) ? [[entry[0], entry[1]] as [string, number]] : [];
+      }).slice(-MAX_SESSION_COMPLETIONS) : [];
+      completionTimes = new Map(entries);
+      completedSessionIds = new Set(completionTimes.keys());
+    }
+  } catch { /* Current-page outcomes remain available when storage is restricted. */ }
+  return completedSessionIds;
+}
+
+function publishSessionCompletions() {
+  completedSessionIds = new Set([...completedSessionIds].slice(-MAX_SESSION_COMPLETIONS));
+  completionTimes = new Map([...completedSessionIds].map(id => [id, completionTimes.get(id) ?? 0]));
+  completionCachedRaw = JSON.stringify([...completionTimes]);
+  try { localStorage.setItem(SESSION_COMPLETION_STORAGE_KEY, completionCachedRaw); } catch {}
+  for (const listener of completionListeners) listener();
+}
+
+/** Sidebar status markers read the latest successful reply outcome for their own session. */
+export function isSessionCompleted(sessionId: string): boolean {
+  return readSessionCompletions().has(sessionId);
+}
+
+/** Sidebar status markers read boolean snapshots so unrelated sessions stay still. */
+export function subscribeToSessionCompletion(listener: () => void): () => void {
+  completionListeners.add(listener);
+  const onStorage = (event: StorageEvent) => { if (event.key === SESSION_COMPLETION_STORAGE_KEY || event.key === null) listener(); };
+  window.addEventListener('storage', onStorage);
+  return () => { completionListeners.delete(listener);window.removeEventListener('storage', onStorage); };
+}
+
+/** The running-sessions poll clears previous completions when the server confirms a new response. */
+export function clearRunningSessionCompletions(sessionIds: readonly string[], observedAt = Infinity): void {
+  readSessionCompletions();
+  let changed = false;
+  for (const id of sessionIds) {
+    if ((completionTimes.get(id) ?? Infinity) < observedAt && completedSessionIds.delete(id)) {
+      completionTimes.delete(id);completionOutput.delete(id);completionFailures.delete(id);changed = true;
+    }
+  }
+  if (changed) publishSessionCompletions();
+}
+
+/** The workspace subscription records successful final replies and clears stale checks on a new turn. */
+export function observeSessionCompletion(event: ServerEvent): void {
+  const id = event.sessionId;
+  if (!id) return;
+  readSessionCompletions();
+  let changed = false;
+  const clear = () => { if (completedSessionIds.delete(id)) { completionTimes.delete(id);changed = true; } };
+  const output = (event.kind === 'text' || event.kind === 'stream_delta') && event.role !== 'user'
+    && typeof event.content === 'string' && Boolean(event.content.trim());
+  const activity = event.kind === 'status' && !['token_budget', 'codex_goal', 'context_compacted'].includes(String(event.text));
+  if ((event.kind === 'text' && event.role === 'user') || activity
+    || (event.kind === 'chat_subscribed' && event.isProcessing === true)) {
+    if (completedSessionIds.has(id) || event.role === 'user') { completionOutput.delete(id);completionFailures.delete(id); }
+    clear();
+  }
+  if (output) { clear();completionOutput.add(id);completionFailures.delete(id); }
+  if (event.kind === 'error') { clear();completionFailures.add(id); }
+  if (event.kind === 'complete') {
+    const hasReply = completionOutput.has(id) || (typeof event.result === 'string' && Boolean(event.result.trim()));
+    const success = event.success !== false && event.aborted !== true && (!completionFailures.has(id) || event.success === true);
+    if (success && (hasReply || completedSessionIds.has(id))) {
+      if (!completedSessionIds.has(id)) { completedSessionIds.add(id);completionTimes.set(id, Date.now());changed = true; }
+    }
+    else clear();
+    completionOutput.delete(id);completionFailures.delete(id);
+  }
+  if (changed) publishSessionCompletions();
+}

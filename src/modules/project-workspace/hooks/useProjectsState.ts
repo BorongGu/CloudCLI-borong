@@ -10,6 +10,7 @@ import type { ServerEvent,
   ProjectSession,IsSessionProcessing } from '@/shared/types';
 import { mergeProjectSelectionMetadata } from '@/modules/project-workspace/utils/projectSelectionMetadata';
 import { readSelectedProvider } from '@/shared/selectedProvider';
+import { observeSessionCompletion } from '@/shared/utils';
 
 type UseProjectsStateArgs = {
   sessionId?: string;
@@ -389,7 +390,10 @@ export function useProjectsState({
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedSession, setSelectedSession] = useState<ProjectSession | null>(null);
+  // Only explicit errors and unanswered interactive requests need a sidebar reminder.
   const [attentionSessionIds, setAttentionSessionIds] = useState<Set<string>>(new Set());
+  // Request ids let another device resolve one prompt while other pending prompts remain visible.
+  const attentionReasonsRef = useRef(new Map<string, Set<string>>());
   const [activeTab, setActiveTab] = useState<AppTab>(readPersistedTab);
 
   useEffect(() => {
@@ -497,6 +501,7 @@ export function useProjectsState({
       return;
     }
 
+    attentionReasonsRef.current.delete(targetSessionId);
     setAttentionSessionIds((previous) => {
       if (!previous.has(targetSessionId)) {
         return previous;
@@ -723,6 +728,7 @@ export function useProjectsState({
   // "suppress updates while a run is active" protection is needed anymore.
   useEffect(() => {
     const handleEvent = (event: ServerEvent) => {
+      observeSessionCompletion(event);
       // The project list is maintained purely by incremental `session_upserted`
       // deltas, so anything that happened while the socket was down is missing
       // from it until something else forces a refresh. Chat re-syncs itself on
@@ -753,21 +759,21 @@ export function useProjectsState({
       const eventSessionId = typeof event.sessionId === 'string' && event.sessionId
         ? event.sessionId
         : null;
-      const viewedSessionId = selectedSessionRef.current?.id ?? sessionId ?? null;
 
-      if (
-        eventSessionId
-        && eventSessionId !== viewedSessionId
-        && event.kind !== 'chat_subscribed'
-        && event.kind !== 'loading_progress'
-        && event.kind !== 'session_upserted'
-        && event.kind !== 'status'
-        && event.kind !== 'stream_end'
-        && event.kind !== 'permission_resolved'
-        && event.kind !== 'permission_cancelled'
-        && event.kind !== 'websocket_reconnected'
-      ) {
-        markSessionAttention(eventSessionId);
+      if (eventSessionId && event.kind && ['error', 'permission_request', 'permission_resolved', 'permission_cancelled', 'chat_subscribed', 'complete'].includes(event.kind)) {
+        const reasons = attentionReasonsRef.current.get(eventSessionId) ?? new Set<string>();
+        if (event.kind === 'error') reasons.add('error');
+        if (event.kind === 'complete' && event.success === true) reasons.delete('error');
+        if (event.kind === 'permission_request' && typeof event.requestId === 'string') reasons.add(`request:${event.requestId}`);
+        if ((event.kind === 'permission_resolved' || event.kind === 'permission_cancelled') && typeof event.requestId === 'string') reasons.delete(`request:${event.requestId}`);
+        if (event.kind === 'chat_subscribed' && Array.isArray(event.pendingPermissions)) {
+          for (const reason of reasons) if (reason.startsWith('request:')) reasons.delete(reason);
+          for (const pending of event.pendingPermissions) {
+            if (typeof pending?.requestId === 'string') reasons.add(`request:${pending.requestId}`);
+          }
+        }
+        if (reasons.size) { attentionReasonsRef.current.set(eventSessionId, reasons);markSessionAttention(eventSessionId); }
+        else clearSessionAttention(eventSessionId);
       }
 
       if (event.kind !== 'session_upserted') {
@@ -789,8 +795,6 @@ export function useProjectsState({
         && !isSessionProcessing(upsert.sessionId)
       ) {
         setExternalMessageUpdate((prev) => prev + 1);
-      } else {
-        markSessionAttention(upsert.sessionId);
       }
 
       setProjects((previousProjects) => {
@@ -874,7 +878,7 @@ export function useProjectsState({
     };
 
     return subscribe(handleEvent);
-  }, [isSessionProcessing, markSessionAttention, navigate, refreshProjectsSilently, sessionId, subscribe]);
+  }, [clearSessionAttention, isSessionProcessing, markSessionAttention, navigate, refreshProjectsSilently, sessionId, subscribe]);
 
   useEffect(() => {
     return () => {

@@ -56,7 +56,10 @@
     "cancel": "取消",
     "clearSearch": "清除搜索",
     "openCommandPalette": "打开命令面板",
-    "attentionRequiredIndicator": "会话需要处理"
+    "attentionRequiredIndicator": "会话需要处理",
+    "processingSessionIndicator": "任务运行中",
+    "backgroundWorkIndicator": "后台任务运行中",
+    "completedSessionIndicator": "已完成，已给出最终回复"
   },
   "navigation": {
     "chat": "聊天",

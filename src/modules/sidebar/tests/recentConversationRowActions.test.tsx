@@ -132,7 +132,7 @@ test('a running session is marked processing and shows a spinner instead of its 
   assert.equal(container.querySelectorAll('time').length, 1);
 });
 
-test('a session with only background work running gets the purple dot, not the spinner, and is not processing', () => {
+test('background work receives a terracotta marker and keeps the row actions available', () => {
   // Its turn has ended: the row's destructive actions stay available and
   // nothing spins, but the session still counts as running and says so.
   const { container } = renderList(
@@ -142,19 +142,19 @@ test('a session with only background work running gets the purple dot, not the s
 
   assert.equal(recordedOptionsProps[0].isProcessing, false);
   assert.equal(container.querySelectorAll('.animate-spin').length, 0);
-  const dots = container.querySelectorAll('[role="status"].bg-purple-500');
+  const dots = container.querySelectorAll('[role="status"][class~="bg-primary/80"]');
   assert.equal(dots.length, 1);
   assert.equal(dots[0].getAttribute('aria-label'), 'tooltips.backgroundWorkIndicator');
-  assert.equal(container.querySelectorAll('time').length, 1, 'the other row shows its age');
+  assert.equal(container.querySelectorAll('time').length, 2);
 });
 
-test('a session needing attention gets the amber dot', () => {
+test('an actionable session receives a quiet terracotta reminder', () => {
   const { container } = renderList(
     [conversation('s1'), conversation('s2')],
     makeActions({ attentionSessionIds: new Set(['s2']) }),
   );
 
-  const dots = container.querySelectorAll('[role="status"].bg-amber-500');
+  const dots = container.querySelectorAll('[role="status"][class~="ring-primary/60"]');
   assert.equal(dots.length, 1);
   const rows = container.querySelectorAll('[data-testid="recent-conversation-row"]');
   assert.equal(rows.length, 2);

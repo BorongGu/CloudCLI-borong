@@ -52,6 +52,18 @@ type ChatInterfaceProps = {
   onShowAllTasks?: (() => void) | null;
 };
 
+const BTW_WINDOW_STORAGE_KEY = 'cloudcli-btw-window';
+
+function readSavedBtwRequest(): BtwRequest | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(BTW_WINDOW_STORAGE_KEY) || 'null');
+    if (value && (value.provider === 'codex' || value.provider === 'opencode')
+      && ['key', 'sessionId', 'question', 'model', 'effort'].every(field => typeof value[field] === 'string')
+      && value.key && value.sessionId) return value;
+  } catch { /* A new window remains available when browser storage is restricted. */ }
+  return null;
+}
+
 /**
  * Used by the project-workspace module (via the chat barrel) to render a
  * project session's chat tab; it owns the session, provider, realtime and
@@ -187,8 +199,14 @@ function ChatInterface({
     onNavigateToSession?.(sessionId);
   }, [setCurrentSessionId, onSessionEstablished, onNavigateToSession]);
 
-  // Capture the source once; sidebar navigation keeps this window and its socket alive.
-  const [btwRequest, setBtwRequest] = useState<BtwRequest | null>(null);
+  // Capture the source across sidebar navigation and restore this tab's window after refresh.
+  const [btwRequest, setBtwRequest] = useState<BtwRequest | null>(readSavedBtwRequest);
+  useEffect(() => {
+    try {
+      if (btwRequest) sessionStorage.setItem(BTW_WINDOW_STORAGE_KEY, JSON.stringify(btwRequest));
+      else sessionStorage.removeItem(BTW_WINDOW_STORAGE_KEY);
+    } catch { /* The live window continues when browser storage is restricted. */ }
+  }, [btwRequest]);
   const closeBtw = useCallback(() => setBtwRequest(null), []);
   const openBtw = useCallback((question: string) => {
     if (provider !== 'codex' && provider !== 'opencode') return;

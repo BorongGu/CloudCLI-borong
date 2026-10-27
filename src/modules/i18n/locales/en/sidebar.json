@@ -57,6 +57,8 @@
     "clearSearch": "Clear search",
     "openCommandPalette": "Open command palette",
     "attentionRequiredIndicator": "Session needs attention",
+    "processingSessionIndicator": "Task running",
+    "completedSessionIndicator": "Completed with a final reply",
     "backgroundWorkIndicator": "Background work running"
   },
   "navigation": {

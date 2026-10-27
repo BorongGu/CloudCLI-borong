@@ -51,6 +51,7 @@ class FakeSocket {
 }
 const REQUEST: BtwRequest = { key: 'window', sessionId: 'parent', question: 'Initial side question', model: 'gpt-6.1-sol', effort: 'low', provider: 'codex' };
 beforeEach(() => {
+  sessionStorage.clear();
   instances.length = 0;vi.stubGlobal('WebSocket', FakeSocket);
   vi.stubGlobal('innerWidth', 1200);vi.stubGlobal('innerHeight', 900);
   // jsdom lacks PointerEvent; preserve pointer identity and mouse/touch semantics.
@@ -87,13 +88,23 @@ test('closing during connection setup releases the socket without starting a for
   view.unmount();socket.open();assert.equal(socket.readyState, FakeSocket.CLOSED);assert.deepEqual(socket.sent, []);
 });
 
-test('a lost socket ends the temporary UI and preserves the reply for reading', async () => {
+test('a lost socket reconnects to the existing fork and retains the reply and unsent draft', async () => {
+  vi.useFakeTimers();
   const view = render(<BtwPanel request={REQUEST} onClose={() => {}} />);const socket = instances[0];
   await act(async () => { socket.open();socket.frame({ kind: 'btw_ready' });
-    socket.frame({ kind: 'btw_message', id: 'answer', role: 'assistant', content: 'Saved in the window' });socket.close(); });
+    socket.frame({ kind: 'btw_message', id: 'answer', role: 'assistant', content: 'Saved in the window' }); });
+  fireEvent.change(view.getByRole('textbox'), { target: { value: 'Unsent follow-up' } });
+  act(() => { socket.close(); });
   assert.ok(view.getByText('Saved in the window'));
-  assert.equal((view.getByRole('textbox') as HTMLTextAreaElement).disabled, true);
-  assert.ok(view.getByText(/Conversation ended|对话已结束/));
+  assert.ok(view.getByText(/Reconnecting side conversation|正在恢复临时对话连接/));
+  act(() => { vi.advanceTimersByTime(500); });
+  const resumed = instances[1];act(() => { resumed.open(); });
+  assert.deepEqual(resumed.sent[0], { type: 'resume', conversationId: REQUEST.key });
+  act(() => { resumed.frame({ kind: 'btw_ready' });resumed.frame({ kind: 'btw_message', id: 'answer', role: 'assistant', content: 'Caught up' });resumed.frame({ kind: 'btw_status', busy: false }); });
+  assert.equal(view.getByRole('dialog').querySelectorAll('[data-btw-message="assistant"]').length, 1);
+  assert.ok(view.getByText('Caught up'));
+  assert.equal((view.getByRole('textbox') as HTMLTextAreaElement).value, 'Unsent follow-up');
+  assert.equal(socket.sent.some(message => message.type === 'finish'), false);
 });
 
 test('OpenCode forwards its Go selection and displays provider phases with elapsed time', async () => {
@@ -190,4 +201,48 @@ test('sidebar session/provider/project navigation retains the BTW socket, source
   fireEvent.submit(panel.querySelector('form')!);assert.deepEqual(socket.sent.at(-1), { type: 'send', content: 'Keep this draft' });
   fireEvent.click(view.getByRole('button', { name: /Close side conversation|关闭临时对话/ }));
   assert.equal(view.queryByRole('dialog'), null);assert.equal(socket.sent.at(-1).type, 'finish');assert.equal(socket.readyState, FakeSocket.CLOSED);
+});
+
+test.each(['codex', 'opencode'] as const)('refresh restores the %s BTW window, original context, transcript, draft and preferred size', provider => {
+  const props = { isActive: true, selectedProject: { projectId: 'source-project', displayName: 'Source', fullPath: '/source' },
+    selectedSession: { id: 'parent', provider }, ws: null, sendMessage() {} };
+  const first = render(<ChatInterface {...props} />);
+  act(() => { composer.openBtw('Ask this once'); });
+  const panel = first.getByRole('dialog');mockPanelBounds(panel);
+  const socket = instances[0];
+  act(() => { socket.open();socket.frame({ kind: 'btw_attached' });socket.frame({ kind: 'btw_ready' });
+    socket.frame({ kind: 'btw_message', id: 'q', role: 'user', content: 'Ask this once' });
+    socket.frame({ kind: 'btw_message', id: 'a', role: 'assistant', content: 'Answer before refresh' }); });
+  fireEvent.change(first.getByRole('textbox'), { target: { value: 'Draft across refresh' } });
+  fireEvent.keyDown(panel.querySelector('[data-btw-resize="nw"]')!, { key: 'ArrowLeft' });
+  const bounds = panelBounds(panel);
+  act(() => { window.dispatchEvent(new Event('pagehide')); });first.unmount();
+  assert.equal(socket.sent.some(message => message.type === 'finish'), false);
+  const restored = render(<ChatInterface {...props} selectedProject={{ projectId: 'different-project', displayName: 'Other', fullPath: '/other' }}
+    selectedSession={{ id: 'different-session', provider: 'codex' }} />);
+  assert.ok(restored.getByText('Answer before refresh'));
+  assert.equal((restored.getByRole('textbox') as HTMLTextAreaElement).value, 'Draft across refresh');
+  assert.deepEqual(panelBounds(restored.getByRole('dialog')), bounds);
+  const resumed = instances[1];act(() => { resumed.open(); });
+  assert.deepEqual(resumed.sent[0], { type: 'resume', conversationId: socket.sent[0].conversationId });
+  act(() => { resumed.frame({ kind: 'btw_ready' });resumed.frame({ kind: 'btw_message', id: 'a', role: 'assistant', content: 'Answer completed during refresh' });
+    resumed.frame({ kind: 'btw_status', busy: false }); });
+  assert.equal(restored.getByRole('dialog').querySelectorAll('[data-btw-message="assistant"]').length, 1);
+  assert.equal(restored.getByText('Answer completed during refresh').dataset.markdownProject, 'source-project');
+  fireEvent.submit(restored.getByRole('dialog').querySelector('form')!);
+  assert.deepEqual(resumed.sent.at(-1), { type: 'send', content: 'Draft across refresh' });
+  fireEvent.click(restored.getByRole('button', { name: /Close side conversation|关闭临时对话/ }));
+  assert.equal(resumed.sent.at(-1).type, 'finish');assert.equal(sessionStorage.getItem('cloudcli-btw-window'), null);
+  restored.unmount();const closed = render(<ChatInterface {...props} />);assert.equal(closed.queryByRole('dialog'), null);
+});
+
+test('a server-expired fork displays its saved answer and error without replaying the question', () => {
+  const view = render(<BtwPanel request={REQUEST} onClose={() => {}} />);const socket = instances[0];
+  act(() => { socket.open();socket.frame({ kind: 'btw_ready' });socket.frame({ kind: 'btw_message', id: 'a', role: 'assistant', content: 'Preserve this answer' });
+    window.dispatchEvent(new Event('pagehide')); });view.unmount();
+  const restored = render(<BtwPanel request={REQUEST} onClose={() => {}} />);const next = instances[1];
+  act(() => { next.open();next.frame({ kind: 'btw_error', message: 'Temporary conversation expired' });next.frame({ kind: 'btw_closed' }); });
+  assert.ok(restored.getByText('Preserve this answer'));assert.ok(restored.getByRole('alert'));
+  assert.equal((restored.getByRole('textbox') as HTMLTextAreaElement).disabled, true);
+  assert.equal(next.sent[0].type, 'resume');assert.equal(next.sent.some(message => message.type === 'start'), false);
 });

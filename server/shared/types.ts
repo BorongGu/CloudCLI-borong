@@ -54,9 +54,10 @@ export type CodexRpcConnection = {
 //----------------- TEMPORARY SIDE CONVERSATIONS ------------
 /** Events sent only to a temporary BTW window, outside the main session stream and database. */
 export type BtwEvent =
+  | { kind: 'btw_attached'; conversationId: string }
   | { kind: 'btw_ready'; threadId: string; model: string }
   | { kind: 'btw_message'; id: string; role: 'user' | 'assistant'; content: string }
-  | { kind: 'btw_status'; busy: boolean; label?: string; phase?: 'waiting' | 'thinking' | 'compacting' | 'working' | 'retrying' }
+  | { kind: 'btw_status'; busy: boolean; busySince?: number; label?: string; phase?: 'waiting' | 'thinking' | 'compacting' | 'working' | 'retrying' }
   | { kind: 'btw_error'; message: string }
   | { kind: 'btw_closed' };
 
