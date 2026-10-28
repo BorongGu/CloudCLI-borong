@@ -140,3 +140,17 @@ test('a first in-progress turn starts a clean ephemeral context with the full us
   assert.ok(client.calls.find(call => call.method === 'turn/start')!.params.input[0].text.includes('First task'));
   await conversation.close();
 });
+
+
+test('BTW applies the unified context default when using Astra', async () => {
+  const client = new FakeConnection();
+  const conversation = createCodexBtwSession({ sessionId: 'parent-app', model: 'gpt-6-astra' }, () => {}, {
+    lookup: () => ({ provider: 'codex', provider_session_id: 'parent-native', project_path: '/workspace' }) as never,
+    connect: () => client,
+  });
+  await conversation.start();
+  const fork = client.calls.find(call => call.method === 'thread/fork')!;
+  assert.equal(fork.params.model, 'gpt-6-astra');
+  assert.equal(fork.params.config.model_context_window, 500_000);
+  await conversation.close();
+});

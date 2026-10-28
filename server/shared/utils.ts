@@ -42,6 +42,18 @@ import type {
 export const IS_PLATFORM = process.env.VITE_IS_PLATFORM === 'true';
 
 // ---------------------------
+//----------------- CODEX CONTEXT DEFAULTS ------------
+/**
+ * Providers use one context policy for Codex CLI, native threads, side questions
+ * and usage displays. The 500K raw window leaves the same 5% harness reserve as
+ * GPT-6.1 Sol, yielding 475K available tokens regardless of the selected model.
+ * Each call returns a fresh object so callers can build per-thread RPC options.
+ */
+export function getCodexContextDefaults() {
+  return { contextWindow: 500_000, effectiveContextWindow: 475_000 };
+}
+
+// ---------------------------
 //----------------- NORMALIZED MESSAGE HELPER INPUT TYPES ------------
 /**
  * Input payload accepted by `createNormalizedMessage`.

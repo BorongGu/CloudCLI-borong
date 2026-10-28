@@ -7,6 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { WebSocketServer } from 'ws';
 import { SharedCodex } from '../list/codex/codex-shared-sdk.js';
+import { CodexProviderModels } from '@/modules/providers/list/codex/codex-models.provider.js';
 import { SharedCodexConnection } from '../list/codex/codex-shared-connection.js';
 import { executeCodexGoal, parseCodexGoalCommand } from '../list/codex/codex-goals.provider.js';
 
@@ -121,9 +122,9 @@ test('goal resume uses native state and starts no duplicate user turn', async ()
   assert.equal(client.calls.some(c => c.method === 'turn/start'), false);
 });
 
-async function collect(client: FakeConnection, resumed = true, input: any = 'hello') {
+async function collect(client: FakeConnection, resumed = true, input: any = 'hello', model = 'gpt-6.1-sol') {
   const sdk = new SharedCodex(client);
-  const options = { model: 'gpt-6.1-sol', workingDirectory: '/workspace', sandboxMode: 'danger-full-access', approvalPolicy: 'never' } as const;
+  const options = { model, workingDirectory: '/workspace', sandboxMode: 'danger-full-access', approvalPolicy: 'never' } as const;
   const thread = resumed ? sdk.resumeThread('native', options) : sdk.startThread(options);
   const result = await thread.runStreamed(input);
   const events = [];
@@ -211,5 +212,18 @@ test('Unix transport initializes once and reconnects after a daemon socket close
     connection.close();
     for (const socket of wss.clients) socket.terminate();
     wss.close(); server.close(); await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test('every supported Codex model starts and resumes with the unified context configuration', async () => {
+  const catalog = await new CodexProviderModels().getSupportedModels();
+  for (const { value: model } of [...catalog.OPTIONS, { value: 'custom-codex-model' }]) {
+    for (const resumed of [false, true]) {
+      const client = new FakeConnection();
+      await collect(client, resumed, 'hello', model);
+      assert.equal(client.calls[0].params.config.model_context_window, 500_000, `${model} ${resumed ? 'resume' : 'start'}`);
+      assert.equal(client.calls.find(call => call.method === 'turn/start')?.params.model, model);
+    }
   }
 });

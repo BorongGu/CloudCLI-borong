@@ -7,7 +7,7 @@ import Database from 'better-sqlite3';
 import { sessionsDb } from '@/modules/database/index.js';
 import { sharedCodexConnection } from '@/modules/providers/list/codex/codex-shared-connection.js';
 import type { AnyRecord, ProviderUsageAccount, ProviderUsageSnapshot, ProviderUsageWindow, SessionContextUsage } from '@/shared/types.js';
-import { AppError, getOpenCodeDatabasePath, readObjectRecord } from '@/shared/utils.js';
+import { AppError, getCodexContextDefaults, getOpenCodeDatabasePath, readObjectRecord } from '@/shared/utils.js';
 
 const readUsageNumber = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 const object = (value: unknown): AnyRecord => readObjectRecord(value) ?? {};
@@ -156,18 +156,13 @@ export function createProviderUsageService(overrides: Partial<Dependencies> = {}
             if (!info) continue;
             // last_token_usage measures the current context; total_token_usage is cumulative billing activity.
             used = readUsageNumber(info.last_token_usage?.total_tokens);
-            limit = readUsageNumber(info.model_context_window);
             updatedAt = entry.timestamp || null;
             break;
           }
         } catch { /* The context stays unknown until a usage snapshot becomes available. */ }
       }
-      if (!limit && model) {
-        const catalog = await d.readJson(path.join(d.home(), '.codex', 'models_cache.json'));
-        const item = Array.isArray(catalog.models) ? catalog.models.find(candidate => candidate.slug === model) : null;
-        const window = readUsageNumber(item?.context_window);
-        if (window) limit = Math.floor(window * (readUsageNumber(item?.effective_context_window_percent) ?? 100) / 100);
-      }
+      // Stored snapshots may predate the unified native-thread configuration.
+      limit = getCodexContextDefaults().effectiveContextWindow;
     } else if (provider === 'opencode') {
       if (session?.provider_session_id) {
         try {

@@ -26,6 +26,7 @@ import {
 } from '@/shared/index.js';
 import { notifyRunFailed, notifyRunStopped } from '@/modules/notifications/index.js';
 import type { AnyRecord, ProviderRuntimeContext, ProviderRuntimeWriter } from '@/shared/index.js';
+import { getCodexContextDefaults } from '@/shared/utils.js';
 
 type ActiveCodexSession = {
   thread: Thread;
@@ -65,7 +66,7 @@ function extractCodexTokenBudget(event: AnyRecord) {
 
   return {
     used,
-    total: readUsageNumber(info?.model_context_window || event?.usage?.model_context_window) || 200000,
+    total: readUsageNumber(info?.model_context_window || event?.usage?.model_context_window) || getCodexContextDefaults().effectiveContextWindow,
     inputTokens,
     outputTokens,
     breakdown: {

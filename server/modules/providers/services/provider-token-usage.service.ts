@@ -7,7 +7,7 @@ import Database from 'better-sqlite3';
 
 import { sessionsDb } from '@/modules/database/index.js';
 import type { AnyRecord } from '@/shared/types.js';
-import { AppError, getOpenCodeDatabasePath } from '@/shared/utils.js';
+import { AppError, getCodexContextDefaults, getOpenCodeDatabasePath } from '@/shared/utils.js';
 
 type SessionRow = NonNullable<ReturnType<typeof sessionsDb.getSessionById>>;
 
@@ -206,7 +206,7 @@ function findCodexTokenUsage(fileContent: string): TokenUsageResult | null {
       }
       return {
         used: totalTokens,
-        total: readUsageNumber(tokenInfo.model_context_window) || 200_000,
+        total: readUsageNumber(tokenInfo.model_context_window) || getCodexContextDefaults().effectiveContextWindow,
         inputTokens,
         outputTokens,
         breakdown: { input: inputTokens, output: outputTokens },
@@ -222,7 +222,7 @@ function findCodexTokenUsage(fileContent: string): TokenUsageResult | null {
 function emptyCodexTokenUsage(): TokenUsageResult {
   return {
     used: 0,
-    total: 200_000,
+    total: getCodexContextDefaults().effectiveContextWindow,
     inputTokens: 0,
     outputTokens: 0,
     breakdown: { input: 0, output: 0 },

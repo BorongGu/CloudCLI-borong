@@ -1,27 +1,21 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 
 import { sessionsDb } from '@/modules/database/index.js';
 import { CodexBtwConnection } from '@/modules/providers/list/codex/codex-btw-connection.js';
 import type { BtwEvent, BtwInput, CodexRpcConnection } from '@/shared/types.js';
-import { AppError } from '@/shared/utils.js';
+import { AppError, getCodexContextDefaults } from '@/shared/utils.js';
 
 type BtwConnection = CodexRpcConnection & { initialize(): Promise<void>; close(): Promise<void> };
 
-async function readModelContextConfig(model?: string): Promise<Record<string, unknown>> {
-  try {
-    const cache = JSON.parse(await readFile(path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'models_cache.json'), 'utf8'));
-    const info = cache.models?.find((item: any) => item.slug === model);
-    const window = Number(info?.context_window);
-    if (Number.isFinite(window) && window > 0) return {
-      model_context_window: window,
-      model_auto_compact_token_limit: Number(info.auto_compact_token_limit) || Math.floor(window * 0.9),
-    };
-  } catch { /* Native defaults remain available when the model catalog has no entry. */ }
-  return {};
+async function readModelContextConfig(_model?: string): Promise<Record<string, unknown>> {
+  return { model_context_window: getCodexContextDefaults().contextWindow };
 }
+
+const defaultDependencies = {
+  lookup: (id: string) => sessionsDb.getSessionById(id),
+  connect: (): BtwConnection => new CodexBtwConnection(),
+  readContextConfig: readModelContextConfig,
+};
 
 async function readSourceSnapshot(client: CodexRpcConnection, threadId: string) {
   const unfinished: any[] = [];let cursor: string | undefined;let completedId: string | undefined;
@@ -61,12 +55,9 @@ async function readSourceSnapshot(client: CodexRpcConnection, threadId: string) 
 export function createCodexBtwSession(
   input: BtwInput,
   emit: (event: BtwEvent) => void,
-  dependencies = {
-    lookup: (id: string) => sessionsDb.getSessionById(id),
-    connect: (): BtwConnection => new CodexBtwConnection(),
-    readContextConfig: readModelContextConfig,
-  },
+  overrides: Partial<typeof defaultDependencies> = {},
 ) {
+  const dependencies = { ...defaultDependencies, ...overrides };
   const source = dependencies.lookup(input.sessionId);
   if (!source) throw new AppError('Source conversation was not found.', { statusCode: 404, code: 'SESSION_NOT_FOUND' });
   if (source.provider !== 'codex' || !source.provider_session_id) {

@@ -80,12 +80,12 @@ test('a quota outage retains the last successful snapshot and exposes a sanitize
   assert.deepEqual(result.accounts.map(account => account.checkedAt), first.accounts.map(account => account.checkedAt));
 });
 
-test('missing context and quota data stay unknown and an absent session returns 404', async () => {
+test('missing usage stays unknown with the Codex default window and an absent session returns 404', async () => {
   const service = createProviderUsageService({ home: () => '/test', getSession: () => null,
     readJson: async () => ({}), codexCall: async () => ({ account: { type: 'apiKey' } }),
   });
   const result = await service.getUsage({});
-  assert.equal(result.context.used, null); assert.equal(result.context.limit, null);
+  assert.equal(result.context.used, null); assert.equal(result.context.limit, 475_000);
   assert.deepEqual(result.accounts.map(account => account.windows), [[], []]);
   assert.equal(result.accounts[0].error, 'api_key');
   await assert.rejects(service.getUsage({ sessionId: 'missing' }), { statusCode: 404 });
@@ -97,4 +97,23 @@ test('an OpenCode model from another provider leaves the Go accounts available w
   const result = await service.getUsage({ sessionId: 'chat', model: 'anthropic/claude-opus-4-8' });
   assert.ok(result.accounts.every(account => !account.active));
   assert.equal(result.accounts.filter(account => account.provider === 'opencode').length, 2);
+});
+
+
+test('all Codex models use 475K with old usage snapshots and with empty histories', async () => {
+  for (const model of ['gpt-6.1-sol', 'gpt-6-astra', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna', 'custom-codex-model']) {
+    for (const hasHistory of [false, true]) {
+      const service = createProviderUsageService({
+        getSession: () => ({ provider: 'codex', model, jsonl_path: '/old-session' }) as never,
+        readJson: async () => ({}), codexCall: async () => ({ account: { type: 'apiKey' } }),
+        readTail: async () => hasHistory ? JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: {
+          model_context_window: 258_400, last_token_usage: { total_tokens: 96_000 },
+        } } }) : '',
+      });
+      const { context } = await service.getUsage({ sessionId: 'chat', model });
+      assert.equal(context.limit, 475_000, model);
+      assert.equal(context.used, hasHistory ? 96_000 : null);
+      assert.equal(context.model, model);
+    }
+  }
 });

@@ -4,6 +4,7 @@ import type { AnyRecord as RecordValue } from '@/shared/index.js';
 import { sharedCodexConnection } from '@/modules/providers/list/codex/codex-shared-connection.js';
 import { executeCodexGoal } from '@/modules/providers/list/codex/codex-goals.provider.js';
 import type { CodexGoal, CodexGoalCommand, CodexRpcConnection } from '@/shared/types.js';
+import { getCodexContextDefaults } from '@/shared/utils.js';
 
 type Event = RecordValue & { type: string };
 type Input = string | Array<RecordValue>;
@@ -186,13 +187,14 @@ export class SharedCodexThread {
     try {
       if (signal?.aborted) return;
       const threadOptions = this.options;
+      const contextConfig = { model_context_window: getCodexContextDefaults().contextWindow };
       const nativeOptions = {
         cwd: threadOptions.workingDirectory, model: threadOptions.model,
         sandbox: threadOptions.sandboxMode, approvalPolicy: threadOptions.approvalPolicy,
-        ...(threadOptions.modelReasoningEffort ? { config: { model_reasoning_effort: threadOptions.modelReasoningEffort } } : {}),
+        config: { ...contextConfig, ...(threadOptions.modelReasoningEffort ? { model_reasoning_effort: threadOptions.modelReasoningEffort } : {}) },
       };
       const session = this.id
-        ? await this.client.call('thread/resume', { threadId: this.id, excludeTurns: true, ...(goalCommand ? nativeOptions : {}) })
+        ? await this.client.call('thread/resume', { threadId: this.id, excludeTurns: true, config: contextConfig, ...(goalCommand ? nativeOptions : {}) })
         : await this.client.call('thread/start', nativeOptions);
       this.id = session.thread.id;
       push({ type: 'thread.started', thread_id: this.id });
