@@ -9,7 +9,12 @@ import { useMarkdownWorkspaceProjectId } from '@/modules/chat/context/MarkdownWo
 import { BtwPanel } from '@/modules/chat/modals/BtwPanel';
 import type { BtwRequest } from '@/shared/types';
 
-vi.mock('@/modules/chat/transcript/Markdown', () => ({ Markdown: ({ children }: any) => <div data-markdown-project={useMarkdownWorkspaceProjectId()}>{children}</div> }));
+vi.mock('@/modules/chat/transcript/Markdown', () => ({
+  Markdown: ({ children }: any) => <div data-markdown-project={useMarkdownWorkspaceProjectId()}>{children}</div>,
+  MarkdownBody: ({ children }: any) => <div data-markdown-project={useMarkdownWorkspaceProjectId()}>{children}</div>,
+}));
+// Frame pacing is covered by progressiveText tests; keep socket lifecycle assertions immediate.
+vi.mock('@/modules/chat/hooks/useProgressiveText', () => ({ useProgressiveText: (content: string) => content }));
 // Keep the real ChatInterface-to-BtwPanel lifecycle; unrelated main-chat work is stubbed.
 const composer = vi.hoisted(() => ({ openBtw: (_question: string) => {} }));
 vi.mock('@/modules/task-master', () => ({ useTasksSettings: () => ({}) }));

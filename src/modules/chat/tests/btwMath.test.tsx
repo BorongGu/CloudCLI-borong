@@ -8,6 +8,8 @@ import { BtwPanel } from '@/modules/chat/modals/BtwPanel';
 import type { BtwMessage, BtwRequest } from '@/shared/types';
 
 const conversation = vi.hoisted(() => ({ messages: [] as BtwMessage[] }));
+// Render complete formula snapshots here; frame pacing has its own clock-driven tests.
+vi.mock('@/modules/chat/hooks/useProgressiveText', () => ({ useProgressiveText: (content: string) => content }));
 vi.mock('@/modules/chat/hooks/useBtwConversation', () => ({ useBtwConversation: () => ({
   messages: conversation.messages, ready: true, busy: false, busySince: 0, closed: false,
   error: '', label: '', phase: '', draft: '', setDraft() {}, send() {}, stop() {},

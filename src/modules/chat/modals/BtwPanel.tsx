@@ -7,6 +7,7 @@ import { useBtwConversation } from '@/modules/chat/hooks/useBtwConversation';
 import { useBtwPanelResize } from '@/modules/chat/hooks/useBtwPanelResize';
 import { MarkdownWorkspaceContext } from '@/modules/chat/context/MarkdownWorkspaceContext';
 import { Markdown } from '@/modules/chat/transcript/Markdown';
+import StreamingMarkdown from '@/modules/chat/transcript/StreamingMarkdown';
 import type { BtwRequest } from '@/shared/types';
 
 type BtwPanelProps = { request: BtwRequest; active?: boolean; onClose(): void };
@@ -71,7 +72,9 @@ export function BtwPanel({ request, active = true, onClose }: BtwPanelProps) {
       {messages.map(message => <div key={message.id} data-btw-message={message.role} className={message.role === 'user'
         ? 'ml-8 break-words rounded-xl bg-muted/60 px-3 py-2 text-sm'
         : 'prose prose-sm max-w-none break-words font-serif text-foreground dark:prose-invert'}>
-        <Markdown breaks={message.role === 'user'} className={message.role === 'user' ? 'prose prose-sm max-w-none text-foreground dark:prose-invert' : undefined}>{message.content}</Markdown>
+        {message.role === 'assistant'
+          ? <StreamingMarkdown content={message.content} isStreaming={false} />
+          : <Markdown breaks className="prose prose-sm max-w-none text-foreground dark:prose-invert">{message.content}</Markdown>}
       </div>)}
       {busy && <p role="status" title={label} className="flex gap-2 text-xs text-muted-foreground">
         <span className="min-w-0 truncate">{phase ? t(`btw.phase.${phase}`) : label || t(ready ? 'btw.working' : 'btw.connecting')}</span>
