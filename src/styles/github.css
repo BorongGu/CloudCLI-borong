@@ -215,21 +215,73 @@
 }
 
 :root[data-appearance="github"] .chat-composer-form {
-  border-radius: 8px;
-  box-shadow: var(--surface-shadow);
+  --composer-edge: hsl(var(--ring) / 16%);
+  --composer-violet: hsl(265 75% 65% / 14%);
+  --composer-glow: hsl(var(--ring) / 3%);
+  border-color: transparent;
+  border-radius: 14px;
+  /* The solid padding layer keeps the gradient edge separate from the text surface. */
+  background:
+    radial-gradient(ellipse at 0% 0%, var(--composer-glow), transparent 58%) padding-box,
+    radial-gradient(ellipse at 100% 100%, hsl(265 75% 65% / 3%), transparent 55%) padding-box,
+    linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+    linear-gradient(120deg, var(--composer-edge), hsl(var(--border) / 22%) 38%, var(--composer-violet) 74%, hsl(var(--border) / 14%)) border-box;
+  box-shadow: 0 6px 24px -12px hsl(var(--foreground) / 10%);
+  transition: box-shadow 220ms ease, border-color 220ms ease;
+}
+
+:root[data-appearance="github"].dark .chat-composer-form {
+  --composer-edge: hsl(var(--ring) / 24%);
+  --composer-violet: hsl(265 75% 70% / 22%);
+  --composer-glow: hsl(var(--ring) / 5%);
 }
 
 :root[data-appearance="github"] .chat-composer-form:focus-within {
-  border-color: hsl(var(--ring));
-  box-shadow: 0 0 0 1px hsl(var(--ring));
+  --composer-edge: hsl(var(--ring) / 28%);
+  --composer-violet: hsl(265 75% 65% / 24%);
+  --composer-glow: hsl(var(--ring) / 6%);
+  border-color: transparent;
+  box-shadow: 0 8px 32px -12px hsl(var(--ring) / 15%), 0 2px 10px hsl(var(--foreground) / 3%);
 }
 
 :root[data-appearance="github"] .chat-composer-form .chat-input-placeholder {
   font-family: var(--font-text);
 }
 
+/* The composer's gradient edge carries focus for the textarea as a whole. */
+:root[data-appearance="github"] .chat-composer-form textarea:focus-visible {
+  outline: none;
+}
+
 :root[data-appearance="github"] .chat-composer-form [data-slot="prompt-input-footer"] {
-  background: hsl(var(--muted) / 45%);
+  position: relative;
+  border-top-color: transparent;
+  background: linear-gradient(180deg, transparent, hsl(var(--muted) / 22%));
+}
+
+:root[data-appearance="github"] .chat-goal-panel {
+  position: relative;
+  border-bottom-color: transparent;
+}
+
+/* Fading separators preserve the header/footer rhythm across light and dark surfaces. */
+:root[data-appearance="github"] .chat-goal-panel::after,
+:root[data-appearance="github"] .chat-composer-form [data-slot="prompt-input-footer"]::before {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--border) / 36%) 18%, hsl(var(--border) / 36%) 82%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+:root[data-appearance="github"] .chat-goal-panel::after {
+  bottom: -1px;
+}
+
+:root[data-appearance="github"] .chat-composer-form [data-slot="prompt-input-footer"]::before {
+  top: -1px;
 }
 
 :root[data-appearance="github"] .chat-composer-form [data-slot="prompt-input-tools"] .text-primary {
