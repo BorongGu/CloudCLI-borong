@@ -28,8 +28,8 @@ const INITIAL_MOUNTED_TAIL_ROWS = 30;
 
 type ChatMessagesPaneProps = {
   scrollContainerRef: RefObject<HTMLDivElement>;
-  onWheel: () => void;
-  onTouchMove: () => void;
+  onWheel: (event: { type: string; deltaY: number }) => void;
+  onTouchMove: (event: { type: string }) => void;
   isLoadingSessionMessages: boolean;
   /** True while the viewed session has an active provider run in flight. */
   isProcessing?: boolean;
@@ -50,21 +50,13 @@ type ChatMessagesPaneProps = {
   isTaskMasterInstalled: boolean | null;
   onShowAllTasks?: (() => void) | null;
   setInput: Dispatch<SetStateAction<string>>;
-  isLoadingMoreMessages: boolean;
-  hasMoreMessages: boolean;
-  totalMessages: number;
-  sessionMessagesCount: number;
-  visibleMessageCount: number;
   visibleMessages: ChatMessage[];
-  loadEarlierMessages: () => void;
   revealMessage: (message: ChatMessage) => void;
   /** The session's running background tasks from the activity map, for the strip to list ones whose rows are not loaded. */
   backgroundTasks?: BackgroundTaskSummary[];
   /** The chat websocket's send, which the background-tasks strip stops a task over. */
   sendMessage: (message: unknown) => void;
   loadAllMessages: () => void;
-  allMessagesLoaded: boolean;
-  isLoadingAllMessages: boolean;
   createDiff: any;
   onFileOpen?: (filePath: string, diffInfo?: unknown) => void;
   onShowSettings?: () => void;
@@ -116,19 +108,11 @@ function ChatMessagesPane({
   isTaskMasterInstalled,
   onShowAllTasks,
   setInput,
-  isLoadingMoreMessages,
-  hasMoreMessages,
-  totalMessages,
-  sessionMessagesCount,
-  visibleMessageCount,
   visibleMessages,
-  loadEarlierMessages,
   revealMessage,
   backgroundTasks,
   sendMessage,
   loadAllMessages,
-  allMessagesLoaded,
-  isLoadingAllMessages,
   createDiff,
   onEditMessage,
   onForkFromMessage,
@@ -240,38 +224,6 @@ function ChatMessagesPane({
         />
       ) : (
         <>
-          {/* Loading indicator for older messages (hide when load-all is active) */}
-          {isLoadingMoreMessages && !isLoadingAllMessages && !allMessagesLoaded && (
-            <div className="py-3 text-center text-gray-500 dark:text-gray-400">
-              <div className="flex items-center justify-center space-x-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-gray-400" />
-                <p className="text-sm">{t('session.loading.olderMessages')}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Indicator showing there are more messages to load (hide when all loaded) */}
-          {hasMoreMessages && !isLoadingMoreMessages && !allMessagesLoaded && (
-            <div className="border-b border-gray-200 py-2 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-              {totalMessages > 0 && (
-                <span>
-                  {t('session.messages.showingOf', { shown: sessionMessagesCount, total: totalMessages })}{' '}
-                  <span className="text-xs">{t('session.messages.scrollToLoad')}</span>
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Legacy message count indicator (for non-paginated view) */}
-          {!hasMoreMessages && chatMessages.length > visibleMessageCount && (
-            <div className="border-b border-gray-200 py-2 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-              {t('session.messages.showingLast', { count: visibleMessageCount, total: chatMessages.length })} |
-              <button className="ml-1 text-primary underline hover:text-primary" onClick={loadEarlierMessages}>
-                {t('session.messages.loadEarlier')}
-              </button>
-            </div>
-          )}
-
           {(() => {
             let prevMessage: ChatMessage | null = null;
             const rowCount = groupedVisibleMessages.length;
@@ -288,7 +240,7 @@ function ChatMessagesPane({
 
                 return (
                   <LazyMessageRow
-                    key={`tool-group-${getMessageKey(item.messages[0])}`}
+                    key={`${selectedSession?.id || currentSessionId}:tool-group-${getMessageKey(item.messages[0])}`}
                     lazyRows={lazyRows}
                     timestamp={item.timestamp}
                     initiallyNearViewport={initiallyNearViewport}
@@ -315,7 +267,7 @@ function ChatMessagesPane({
 
               return (
                 <LazyMessageRow
-                  key={getMessageKey(item)}
+                  key={`${selectedSession?.id || currentSessionId}:${getMessageKey(item)}`}
                   lazyRows={lazyRows}
                   timestamp={item.timestamp}
                   initiallyNearViewport={initiallyNearViewport}

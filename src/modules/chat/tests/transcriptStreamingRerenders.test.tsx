@@ -142,3 +142,19 @@ test('a stream tick re-renders the growing row, not the collapsed tool groups ab
     `only the streaming row may re-render per flush; got ${JSON.stringify(perFlush)}`,
   );
 });
+
+test('a growing native snapshot retains its row through projection and completion', async () => {
+  const { normalizedToChatMessages } = await import('@/modules/chat/hooks/useChatMessages');
+  const native = {
+    id: 'native-answer', sessionId: 'session-1', provider: 'codex' as const,
+    kind: 'text' as const, role: 'assistant' as const,
+    timestamp: '2026-10-28T00:00:00.000Z', content: '第一段正在生成。',
+  };
+  const view = render(pane(normalizedToChatMessages([native])));
+  const row = view.container.querySelector('.chat-message');
+  for (const content of ['第一段正在生成。这里是继续生成的内容。', '第一段正在生成。这里是继续生成的内容。最终回复完成。']) {
+    view.rerender(pane(normalizedToChatMessages([{ ...native, content }])));
+    assert.strictEqual(view.container.querySelector('.chat-message'), row,
+      'the provider item id must survive projection so text updates retain the DOM');
+  }
+});

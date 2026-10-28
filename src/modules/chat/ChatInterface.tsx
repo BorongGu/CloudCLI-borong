@@ -153,21 +153,14 @@ function ChatInterface({
     currentSessionId,
     setCurrentSessionId,
     isLoadingSessionMessages,
-    isLoadingMoreMessages,
-    hasMoreMessages,
-    totalMessages,
     isUserScrolledUp,
     setIsUserScrolledUp,
     tokenBudget,
     setTokenBudget,
-    visibleMessageCount,
     visibleMessages,
-    loadEarlierMessages,
     revealMessage,
     loadAllMessages,
     loadFullTranscript,
-    allMessagesLoaded,
-    isLoadingAllMessages,
     createDiff,
     scrollContainerRef,
     scrollToBottom,
@@ -522,19 +515,11 @@ function ChatInterface({
               isTaskMasterInstalled={isTaskMasterInstalled}
               onShowAllTasks={onShowAllTasks}
               setInput={setInput}
-              isLoadingMoreMessages={isLoadingMoreMessages}
-              hasMoreMessages={hasMoreMessages}
-              totalMessages={totalMessages}
-              sessionMessagesCount={chatMessages.length}
-              visibleMessageCount={visibleMessageCount}
               visibleMessages={visibleMessages}
-              loadEarlierMessages={loadEarlierMessages}
               revealMessage={revealMessage}
               backgroundTasks={sessionActivity?.tasks}
               sendMessage={sendMessage}
               loadAllMessages={loadAllMessages}
-              allMessagesLoaded={allMessagesLoaded}
-              isLoadingAllMessages={isLoadingAllMessages}
               createDiff={createDiff}
               onFileOpen={onFileOpen}
               onShowSettings={onShowSettings}

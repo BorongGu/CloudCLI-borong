@@ -636,6 +636,8 @@ export function useSessionStore() {
     opts: {
       limit?: number;
       canRequest?: CanRequestHistory;
+      /** Capture the viewport immediately before publishing a prepended page. */
+      beforePublish?: (prependedCount: number) => void;
     } = {},
   ) => {
     const slot = getSlot(sessionId);
@@ -691,11 +693,17 @@ export function useSessionStore() {
           break;
         }
 
-        if (changed) notify(sessionId);
+        if (changed) {
+          opts.beforePublish?.(prependedCount);
+          notify(sessionId);
+        }
         return { slot, prependedCount };
       } catch (error) {
         console.error(`[SessionStore] fetchMore failed for ${sessionId}:`, error);
-        if (changed) notify(sessionId);
+        if (changed) {
+          opts.beforePublish?.(prependedCount);
+          notify(sessionId);
+        }
         return { slot, prependedCount };
       }
     });
@@ -784,19 +792,25 @@ export function useSessionStore() {
     opts: {
       limit?: number;
       canRequest?: CanRequestHistory;
+      /** Keep a reader's history window as newly persisted tail rows arrive. */
+      beforePublish?: (addedCount: number) => void;
     } = {},
   ) => {
     const slot = getSlot(sessionId);
 
     return enqueueHistoryMutation(slot, async () => {
       try {
+        const previousCount = slot.merged.length;
         const result = await refreshLatestSlotFromServer(
           sessionId,
           slot,
           opts.limit ?? SESSION_MESSAGES_PAGE_SIZE,
           opts.canRequest,
         );
-        if (result.changed) notify(sessionId);
+        if (result.changed) {
+          opts.beforePublish?.(Math.max(0, slot.merged.length - previousCount));
+          notify(sessionId);
+        }
         return { slot, ...result };
       } catch (error) {
         console.error(`[SessionStore] latest refresh failed for ${sessionId}:`, error);
@@ -821,15 +835,17 @@ export function useSessionStore() {
   const updateStreaming = useCallback((sessionId: string, accumulatedText: string, msgProvider: LLMProvider) => {
     const slot = getSlot(sessionId);
     const streamId = `__streaming_${sessionId}`;
+    const idx = slot.realtimeMessages.findIndex(m => m.id === streamId);
+    const previous = idx >= 0 ? slot.realtimeMessages[idx] : undefined;
     const msg: NormalizedMessage = {
       id: streamId,
+      renderId: previous?.renderId ?? `stream_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       sessionId,
-      timestamp: new Date().toISOString(),
+      timestamp: previous?.timestamp ?? new Date().toISOString(),
       provider: msgProvider,
       kind: 'stream_delta',
       content: accumulatedText,
     };
-    const idx = slot.realtimeMessages.findIndex(m => m.id === streamId);
     if (idx >= 0) {
       slot.realtimeMessages = [...slot.realtimeMessages];
       slot.realtimeMessages[idx] = msg;

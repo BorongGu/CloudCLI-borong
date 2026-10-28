@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
@@ -25,6 +25,8 @@ type MarkdownProps = {
   className?: string;
   /** Render single newlines as hard line breaks (for user-typed messages). */
   breaks?: boolean;
+  /** In a growing reply, source text after this offset receives a short ink fade. */
+  inkFrom?: number;
 };
 
 // Links to the wider web (or in-page anchors) keep normal browser navigation;
@@ -97,6 +99,54 @@ function rehypeHtmlLineBreaks() {
     };
     visit(tree);
   };
+}
+
+/** Small stable inline groups let only newly appended text fade to its final color. */
+function rehypeStreamingInk({ from }: { from: number }) {
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  return (tree: Root) => {
+    const visit = (parent: Root | Element) => {
+      if (parent.type === 'element' && (
+        ['code', 'pre', 'svg', 'math'].includes(parent.tagName)
+        || String(parent.properties.className ?? '').includes('katex')
+      )) return;
+      for (let index = 0; index < parent.children.length; index++) {
+        const node = parent.children[index];
+        if (node.type === 'element') { visit(node); continue; }
+        if (node.type !== 'text' || !node.value.trim() || !node.position) continue;
+        const groups: Element[] = [];
+        const graphemes = Array.from(segmenter.segment(node.value));
+        for (let start = 0; start < graphemes.length; start += 8) {
+          const offset = graphemes[start].index;
+          const end = graphemes[start + 8]?.index ?? node.value.length;
+          groups.push({
+            type: 'element', tagName: 'stream-ink',
+            properties: { fresh: (node.position.start.offset ?? 0) + offset >= from },
+            children: [{ type: 'text', value: node.value.slice(offset, end) }],
+          });
+        }
+        parent.children.splice(index, 1, ...groups);
+        index += groups.length - 1;
+      }
+    };
+    visit(tree);
+  };
+}
+
+function InkText({ node, children }: { node?: Element; children?: React.ReactNode }) {
+  const elementRef = useRef<HTMLSpanElement>(null);
+  // Existing groups keep their animation as new text arrives; only mounted groups start one.
+  useLayoutEffect(() => {
+    if (!node?.properties.fresh || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const animation = elementRef.current?.animate?.(
+      [{ opacity: 0.2 }, { opacity: 1 }],
+      { duration: 280, easing: 'ease-out' },
+    );
+    return () => animation?.cancel();
+  // Freshness describes the group's birth, rather than subsequent stream ticks.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <span ref={elementRef} data-stream-ink="">{children}</span>;
 }
 
 type CodeBlockProps = {
@@ -283,7 +333,7 @@ const markdownComponents = {
  * render model-authored markdown with this module's shared prose styling,
  * code highlighting and table rules.
  */
-function MarkdownBodyRenderer({ children, breaks = false }: Omit<MarkdownProps, 'className'>) {
+function MarkdownBodyRenderer({ children, breaks = false, inkFrom }: Omit<MarkdownProps, 'className'>) {
   const content = useMemo(
     // The LaTeX pass runs second because it reads the code spans the fence pass
     // normalizes, and must leave the LaTeX inside them literal.
@@ -309,17 +359,19 @@ function MarkdownBodyRenderer({ children, breaks = false }: Omit<MarkdownProps, 
     [breaks, hasMath],
   );
   const rehypePlugins = useMemo(() => {
-    if (!hasMath && !hasHtmlBreaks) return EMPTY_PLUGINS;
+    if (!hasMath && !hasHtmlBreaks && inkFrom === undefined) return EMPTY_PLUGINS;
     const plugins: PluggableList = [];
     if (hasHtmlBreaks) plugins.push(rehypeHtmlLineBreaks);
     if (hasMath) plugins.push(rehypeKatex);
+    if (inkFrom !== undefined) plugins.push([rehypeStreamingInk, { from: inkFrom }]);
     return plugins;
-  }, [hasMath, hasHtmlBreaks]);
+  }, [hasMath, hasHtmlBreaks, inkFrom]);
   const { openFileInEditor, openDirectory } = usePaletteOps();
 
   const components = useMemo(
     () => ({
       ...markdownComponents,
+      'stream-ink': InkText,
       a: ({ href, children: linkChildren }: { href?: string; children?: React.ReactNode }) => {
         // Prefer the href when it is a real path; otherwise fall back to the
         // link text, since models often emit `[src/foo.ts]()` with an empty href.

@@ -372,6 +372,8 @@ export function normalizedToChatMessages(messages: NormalizedMessage[]): ChatMes
 
     const convertedStart = converted.length;
     const sharedMetadata = {
+      // Growing native snapshots keep one React row even as their content changes.
+      id: msg.renderId ?? msg.id,
       displayText: msg.displayText,
       commandName: msg.commandName,
       commandMessage: msg.commandMessage,

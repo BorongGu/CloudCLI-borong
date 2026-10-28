@@ -72,3 +72,23 @@ describe('realtime item updates', () => {
     assert.equal(result.current.getMessages('other')[0].content, 'Other session.');
   });
 });
+
+describe('delta stream render identity', () => {
+  it('retains its timestamp and render key through completion, then starts a distinct turn', () => {
+    const { result } = renderHook(() => useSessionStore());
+    act(() => result.current.updateStreaming('chat', '开始', 'claude'));
+    const first = result.current.getMessages('chat')[0];
+    act(() => result.current.updateStreaming('chat', '开始继续生成', 'claude'));
+    const update = result.current.getMessages('chat')[0];
+    assert.equal(update.renderId, first.renderId);
+    assert.equal(update.timestamp, first.timestamp);
+    act(() => result.current.finalizeStreaming('chat'));
+    const finished = result.current.getMessages('chat')[0];
+    assert.equal(finished.renderId, first.renderId);
+    assert.equal(finished.timestamp, first.timestamp);
+    assert.equal(finished.kind, 'text');
+    act(() => result.current.updateStreaming('chat', '下一轮', 'claude'));
+    const next = result.current.getMessages('chat')[1];
+    assert.notEqual(next.renderId, finished.renderId);
+  });
+});
