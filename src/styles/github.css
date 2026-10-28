@@ -26,7 +26,7 @@
   --surface-code: #f6f8fa;
   --surface-shadow: 0 1px 0 rgb(31 35 40 / 4%);
   --github-link: #0969da;
-  --github-primary-gradient: linear-gradient(120deg, #2563eb, #6155e7 55%, #7c3aed);
+  --github-primary-gradient: linear-gradient(120deg, #1e40af, #4938b8 55%, #5b21b6);
   --github-selected: linear-gradient(110deg, hsl(225 76% 52% / 10%), hsl(263 76% 58% / 8%));
   --github-tab: var(--github-primary-gradient);
   --github-button-border: rgb(31 35 40 / 15%);
@@ -365,7 +365,7 @@
 }
 
 .appearance-preview-sidebar i:first-child {
-  background: linear-gradient(120deg, #2563eb, #6155e7 55%, #7c3aed);
+  background: linear-gradient(120deg, #1e40af, #4938b8 55%, #5b21b6);
 }
 
 [data-preview="claude"] .appearance-preview-sidebar i:first-child {
