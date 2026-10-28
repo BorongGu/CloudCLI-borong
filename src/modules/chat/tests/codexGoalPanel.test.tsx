@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import type { FormEvent } from 'react';
 import { afterEach, beforeEach, test, vi } from 'vitest';
 
 import '@/modules/i18n';
@@ -86,11 +87,28 @@ test('a live goal update supersedes an older HTTP snapshot', async () => {
 test('the compact objective expands on demand while goal updates keep that choice', async () => {
   const view = render(<CodexGoalPanel sessionId="session" />);
   const objective = await view.findByRole('button', { name: 'A native goal' });
+  const detailsId = objective.getAttribute('aria-controls')!;
   assert.equal(objective.getAttribute('aria-expanded'), 'false');
+  assert.equal(document.getElementById(detailsId), null);
   fireEvent.click(objective);
   assert.equal(objective.getAttribute('aria-expanded'), 'true');
+  assert.match(document.getElementById(detailsId)?.textContent ?? '', /A native goal/);
   await act(async () => { for (const listener of state.listeners) listener({ kind: 'status', text: 'codex_goal', sessionId: 'session', goal: { ...goal, tokensUsed: 321 } }); });
   assert.equal(objective.getAttribute('aria-expanded'), 'true');
   fireEvent.click(objective);
   assert.equal(objective.getAttribute('aria-expanded'), 'false');
+  assert.equal(document.getElementById(detailsId), null);
+});
+
+test('goal controls inside the composer act without sending a chat message', async () => {
+  const submit = vi.fn((event: FormEvent) => event.preventDefault());
+  const view = render(<form onSubmit={submit}><CodexGoalPanel sessionId="session" /></form>);
+  fireEvent.click(await view.findByRole('button', { name: 'A native goal' }));
+  fireEvent.click(view.getByRole('button', { name: /Pause|暂停/ }));
+  fireEvent.click(await view.findByRole('button', { name: /Resume|恢复/ }));
+  const pause = await view.findByRole('button', { name: /Pause|暂停/ });
+  await waitFor(() => assert.equal((pause as HTMLButtonElement).disabled, false));
+  fireEvent.click(view.getByRole('button', { name: /Clear|清除/ }));
+  await waitFor(() => assert.equal(Boolean(view.queryByTestId('codex-goal-panel')), false));
+  assert.equal(submit.mock.calls.length, 0);
 });

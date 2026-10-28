@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Flag, Pause, Play, X } from 'lucide-react';
 
 import { api } from '@/shared/api';
 import { useWebSocket } from '@/shared/context/WebSocketContext';
 import type { CodexGoal } from '@/shared/types';
 
-/** ChatInterface uses this persistent native-goal status row above the composer. */
-export function CodexGoalPanel({ sessionId, hasActivityIndicator = false }: { sessionId: string | null; hasActivityIndicator?: boolean }) {
+const compactTokenFormatter = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+
+/** ChatInterface supplies this native-goal row to ChatComposer's input header. */
+export function CodexGoalPanel({ sessionId }: { sessionId: string | null }) {
   const { t } = useTranslation('chat');
   const { subscribe, sendMessage } = useWebSocket();
   // Tag async results with their session so navigation never displays another goal.
@@ -22,6 +24,7 @@ export function CodexGoalPanel({ sessionId, hasActivityIndicator = false }: { se
   const goal = snapshot?.sessionId === sessionId ? snapshot.goal : null;
   const pending = sessionId !== null && pendingSessionId === sessionId;
   const expanded = sessionId !== null && expandedSessionId === sessionId;
+  const detailsId = useId();
 
   useEffect(() => {
     if (!sessionId) return;
@@ -89,29 +92,56 @@ export function CodexGoalPanel({ sessionId, hasActivityIndicator = false }: { se
   }, [sessionId, sendMessage, subscribe]);
 
   if (!goal && !error) return null;
-  return <div className={`px-2 sm:px-4 ${hasActivityIndicator ? 'pb-10' : 'pb-2'}`}>
-    <div className="mx-auto max-w-[50rem]">
-      <div data-testid="codex-goal-panel" className="w-fit max-w-full rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs sm:max-w-lg">
-    {goal && <>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">Goal · {t(`goal.status.${goal.status}`, { defaultValue: goal.status })}</span>
-        <span className="whitespace-nowrap tabular-nums text-muted-foreground">{goal.tokensUsed.toLocaleString()}{goal.tokenBudget ? ` / ${goal.tokenBudget.toLocaleString()}` : ''} tokens · {Math.floor(goal.timeUsedSeconds / 60)}m</span>
-        <div className="ml-auto flex gap-3">
-          {goal.status !== 'complete' && <button type="button" disabled={pending} onClick={() => void control.current(goal.status === 'active' ? 'pause' : 'resume')}>
-            {t(goal.status === 'active' ? 'goal.pause' : 'goal.resume', { defaultValue: goal.status === 'active' ? '暂停' : '恢复' })}
-          </button>}
-          <button type="button" disabled={pending} onClick={() => void control.current('clear')}>{t('goal.clear', { defaultValue: '清除' })}</button>
+  const usageLabel = goal
+    ? `${goal.tokensUsed.toLocaleString()}${goal.tokenBudget ? ` / ${goal.tokenBudget.toLocaleString()}` : ''} tokens · ${Math.floor(goal.timeUsedSeconds / 60)}m`
+    : '';
+  const actionLabel = t(goal?.status === 'active' ? 'goal.pause' : 'goal.resume');
+
+  return (
+    <div data-testid="codex-goal-panel" className="chat-goal-panel mx-3 mt-1 border-b border-border/50 pb-1 text-[11px] sm:mx-4 sm:mt-1.5">
+      {goal && <>
+        <div className="flex h-7 min-w-0 items-center gap-2">
+          <button
+            type="button"
+            aria-label={goal.objective}
+            aria-expanded={expanded}
+            aria-controls={detailsId}
+            title={goal.objective}
+            onClick={() => setExpandedSessionId(expanded ? null : sessionId)}
+            className="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded text-left hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <Flag aria-hidden className="h-3 w-3 shrink-0 text-primary" />
+            <span className="shrink-0 font-medium">Goal</span>
+            <span className="truncate text-muted-foreground">{t(`goal.status.${goal.status}`, { defaultValue: goal.status })}</span>
+            <span className="hidden min-w-0 flex-1 truncate text-muted-foreground/70 sm:block">{goal.objective}</span>
+            <ChevronDown aria-hidden className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          </button>
+          <span title={usageLabel} aria-label={usageLabel} className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
+            {compactTokenFormatter.format(goal.tokensUsed)}<span className="hidden sm:inline"> tokens</span> · {Math.floor(goal.timeUsedSeconds / 60)}m
+          </span>
+          <div className="flex shrink-0 items-center gap-0.5">
+            {goal.status !== 'complete' && (
+              <button type="button" aria-label={actionLabel} title={actionLabel} disabled={pending}
+                onClick={() => void control.current(goal.status === 'active' ? 'pause' : 'resume')}
+                className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40">
+                {goal.status === 'active' ? <Pause aria-hidden className="h-3 w-3" /> : <Play aria-hidden className="h-3 w-3" />}
+              </button>
+            )}
+            <button type="button" aria-label={t('goal.clear')} title={t('goal.clear')} disabled={pending}
+              onClick={() => void control.current('clear')}
+              className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40">
+              <X aria-hidden className="h-3 w-3" />
+            </button>
+          </div>
         </div>
-      </div>
-      <button type="button" aria-expanded={expanded} title={goal.objective}
-        onClick={() => setExpandedSessionId(expanded ? null : sessionId)}
-        className="mt-1 flex w-full min-w-0 items-start gap-1 text-left text-muted-foreground hover:text-foreground">
-        <span className={expanded ? 'min-w-0 whitespace-pre-wrap break-words' : 'min-w-0 truncate'}>{goal.objective}</span>
-        <ChevronDown aria-hidden className={`mt-0.5 h-3 w-3 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-      </button>
-    </>}
-    {error && <p role="alert" className="mt-1 text-muted-foreground">{error}</p>}
-      </div>
+        {expanded && (
+          <div id={detailsId} className="max-h-36 overflow-y-auto pb-2 pt-1 text-xs leading-relaxed text-muted-foreground">
+            <p className="whitespace-pre-wrap break-words">{goal.objective}</p>
+            <p className="mt-1 text-[10px] tabular-nums text-muted-foreground/70">{usageLabel}</p>
+          </div>
+        )}
+      </>}
+      {error && <p role="alert" className="pb-1 text-muted-foreground">{error}</p>}
     </div>
-  </div>;
+  );
 }

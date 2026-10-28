@@ -224,11 +224,6 @@
   box-shadow: 0 0 0 1px hsl(var(--ring));
 }
 
-:root[data-appearance="github"] .chat-composer-form.rounded-t-none {
-  border-top-right-radius: 0;
-  border-top-left-radius: 0;
-}
-
 :root[data-appearance="github"] .chat-composer-form .chat-input-placeholder {
   font-family: var(--font-text);
 }
@@ -257,7 +252,7 @@
 }
 
 /* Session work and unread markers keep their established terracotta meaning. */
-:root[data-appearance="github"] .chat-activity-tab .bg-primary,
+:root[data-appearance="github"] .chat-activity-row .bg-primary,
 :root[data-appearance="github"] [data-session-status="running"] {
   background: var(--brand-terracotta);
 }

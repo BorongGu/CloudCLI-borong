@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
@@ -9,7 +10,7 @@ import { describeBackgroundTask, ownBackgroundTasks } from '@/modules/chat/utils
 type ActivityIndicatorProps = {
   activity: SessionActivity | null;
   onAbort?: () => void;
-  isInputFocused?: boolean;
+  hint?: ReactNode;
 };
 
 const ACTION_KEYS = [
@@ -31,21 +32,8 @@ function describeBackgroundTasks(allTasks: BackgroundTaskSummary[], t: TFunction
     : t('claudeStatus.backgroundTask.count', { count: tasks.length, defaultValue: '{{count}} tasks' });
 }
 
-/**
- * Minimal response-in-progress indicator, in the spirit of the inline status
- * lines in Claude Code / Codex / OpenCode: a shimmering activity label, the
- * elapsed time, and an interrupt affordance. Rendered only while the viewed
- * session has an entry in the processing map; it disappears the instant that
- * entry is removed.
- *
- * A session whose turn has ended while the tasks it launched still run is
- * drawn in the workflow and agent cards' purple, naming the work, and with no
- * Stop: nothing is responding, and the composer can send.
- *
- * Rendered by chat's ChatComposer above the input so the user can see and
- * interrupt the in-flight turn without leaving the composer.
- */
-export default function ActivityIndicator({ activity, onAbort, isInputFocused = false }: ActivityIndicatorProps) {
+/** ChatComposer uses this bottom row for activity, elapsed time, shortcuts and Stop. */
+export default function ActivityIndicator({ activity, onAbort, hint }: ActivityIndicatorProps) {
   const { t } = useTranslation('chat');
   const [renderedActivity, setRenderedActivity] = useState<SessionActivity | null>(activity);
   const [isExiting, setIsExiting] = useState(false);
@@ -78,7 +66,7 @@ export default function ActivityIndicator({ activity, onAbort, isInputFocused = 
     return () => clearInterval(timer);
   }, [startedAt]);
 
-  if (!renderedActivity) return null;
+  if (!renderedActivity) return hint ? <div className="flex justify-center">{hint}</div> : null;
 
   const isBackground = Boolean(renderedActivity.background);
   const actionWords = ACTION_KEYS.map((key, i) => t(key, { defaultValue: DEFAULT_ACTION_WORDS[i] }));
@@ -93,37 +81,31 @@ export default function ActivityIndicator({ activity, onAbort, isInputFocused = 
   const elapsedLabel = minutes < 1
     ? t('claudeStatus.elapsed.seconds', { count: seconds, defaultValue: '{{count}}s' })
     : t('claudeStatus.elapsed.minutesSeconds', { minutes, seconds, defaultValue: '{{minutes}}m {{seconds}}s' });
-  const tabSurfaceClassName = [
-    'chat-activity-tab inline-flex h-8 items-center rounded-b-none rounded-t-lg border border-b-0 bg-card px-3 text-xs transition-all duration-200',
-    isInputFocused
-      ? 'border-primary/30 shadow-[0_-1px_2px_hsl(var(--foreground)/0.08),1px_0_2px_hsl(var(--foreground)/0.06),-1px_0_2px_hsl(var(--foreground)/0.06)]'
-      : 'border-border/50 shadow-[0_-1px_1px_hsl(var(--foreground)/0.04),1px_0_1px_hsl(var(--foreground)/0.03),-1px_0_1px_hsl(var(--foreground)/0.03)]',
-  ].join(' ');
-
   return (
     <div
-      className={`pointer-events-none bg-transparent ${
+      className={`chat-activity-row grid min-h-6 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-1 text-[11px] text-muted-foreground ${hint ? 'lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]' : ''} ${
         isExiting ? 'chat-activity-exit' : 'chat-activity-enter'
       }`}
     >
-      <div className="flex items-end justify-between gap-2">
-        <div className={`${tabSurfaceClassName} min-w-0 max-w-full gap-2`}>
-          <span
-            className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary"
-            aria-hidden
-          />
-          <Shimmer className="shrink-0 font-medium">{`${label}…`}</Shimmer>
-          {detail && (
-            <span className="min-w-0 truncate text-muted-foreground" title={detail}>{detail}</span>
-          )}
-          <span className="shrink-0 tabular-nums text-muted-foreground/60">{elapsedLabel}</span>
-        </div>
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary"
+          aria-hidden
+        />
+        <Shimmer className="truncate font-medium">{`${label}…`}</Shimmer>
+        {detail && (
+          <span className="min-w-0 truncate text-muted-foreground" title={detail}>{detail}</span>
+        )}
+        <span className="shrink-0 tabular-nums text-muted-foreground/60">{elapsedLabel}</span>
+      </div>
 
+      {hint}
+      <div className="justify-self-end">
         {renderedActivity.canInterrupt && onAbort && (
           <button
             type="button"
             onClick={onAbort}
-            className={`${tabSurfaceClassName} pointer-events-auto gap-1.5 text-muted-foreground hover:bg-card hover:text-destructive`}
+            className="inline-flex h-6 items-center gap-1.5 rounded px-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label={t('claudeStatus.stop', { defaultValue: 'Stop' })}
           >
             <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24" aria-hidden>

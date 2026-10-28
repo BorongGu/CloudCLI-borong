@@ -105,7 +105,7 @@ code, pre, kbd, samp, .font-mono {
 
 .chat-transcript-content {
   padding-top: 12px;
-  padding-bottom: 20px;
+  padding-bottom: 0;
 }
 
 .chat-message {
@@ -237,11 +237,6 @@ code, pre, kbd, samp, .font-mono {
   box-shadow: 0 0 0 2px hsl(var(--ring) / 8%), var(--surface-shadow);
 }
 
-.chat-composer-form.rounded-t-none {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-}
-
 /* Keep the mention overlay and textarea on the same type scale. */
 .chat-composer-form .chat-input-placeholder {
   min-height: 84px;
@@ -361,12 +356,6 @@ code, pre, kbd, samp, .font-mono {
     width: 36px;
     height: 36px;
     border-radius: 10px;
-  }
-
-  .chat-composer-shell .chat-activity-tab {
-    height: 28px;
-    padding-right: 8px;
-    padding-left: 8px;
   }
 
   .chat-message .prose,

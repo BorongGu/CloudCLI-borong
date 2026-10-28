@@ -44,6 +44,8 @@ type MentionableFile = {
 };
 
 type ChatComposerProps = {
+  /** ChatInterface supplies the session goal as a compact row inside the input. */
+  goalPanel?: ReactNode;
   pendingPermissionRequests: PendingPermissionRequest[];
   handlePermissionDecision: (
     requestIds: string | string[],
@@ -115,7 +117,6 @@ type ChatComposerProps = {
   onTextareaPaste: (event: ClipboardEvent<HTMLTextAreaElement>) => void;
   onTextareaScrollSync: (target: HTMLTextAreaElement) => void;
   onTextareaInput: (event: FormEvent<HTMLTextAreaElement>) => void;
-  isInputFocused?: boolean;
   onInputFocusChange?: (focused: boolean) => void;
   placeholder: string;
   isTextareaExpanded: boolean;
@@ -128,6 +129,7 @@ type ChatComposerProps = {
  * model/permission popovers that drive the next turn.
  */
 export default function ChatComposer({
+  goalPanel,
   pendingPermissionRequests,
   handlePermissionDecision,
   handleGrantToolPermission,
@@ -193,7 +195,6 @@ export default function ChatComposer({
   onTextareaPaste,
   onTextareaScrollSync,
   onTextareaInput,
-  isInputFocused = false,
   onInputFocusChange,
   placeholder,
   isTextareaExpanded,
@@ -261,7 +262,6 @@ export default function ChatComposer({
 
   // Hide the thinking/status bar while any permission request is pending
   const hasPendingPermissions = pendingPermissionRequests.some(request => (request.context as { isBlocking?: boolean } | undefined)?.isBlocking !== false);
-  const hasActivityIndicator = Boolean(activity && !hasPendingPermissions);
 
   const hasQueuedDraft = Boolean(queuedDraft);
   const canQueueDraft = isLoading && Boolean(input.trim() || attachedFiles.length > 0);
@@ -284,13 +284,20 @@ export default function ChatComposer({
       ? t('input.stop')
       : t('input.send');
 
+  const submitHintContent = (
+    <span
+      className={`hidden px-2 text-center text-xs leading-4 text-muted-foreground/50 transition-opacity duration-200 lg:block ${
+        input.trim() && !canQueueDraft ? 'opacity-0' : 'opacity-100'
+      }`}
+    >
+      {submitHint}
+    </span>
+  );
+
   return (
     <div className="chat-composer-shell relative flex-shrink-0 px-2 pb-2 pt-0 sm:px-4 sm:pb-4 md:px-4 md:pb-6">
-      {!hasPendingPermissions && (
-        <div className="pointer-events-none absolute bottom-full left-1/2 z-10 w-[calc(100%-1rem)] max-w-[50rem] -translate-x-1/2 translate-y-px bg-transparent sm:w-[calc(100%-2rem)]">
-          <ActivityIndicator activity={activity} onAbort={onAbortSession} isInputFocused={isInputFocused} />
-        </div>
-      )}
+
+      {hasQuestionPanel && goalPanel && <div className="mx-auto max-w-[50rem]">{goalPanel}</div>}
 
       {pendingPermissionRequests.length > 0 && (
         <div className="mx-auto mb-3 max-w-[50rem]">
@@ -389,10 +396,10 @@ export default function ChatComposer({
           className={[
             'chat-composer-form',
             isTextareaExpanded ? 'chat-input-expanded' : '',
-            hasActivityIndicator ? 'rounded-t-none' : '',
           ].filter(Boolean).join(' ')}
           {...getRootProps()}
         >
+          {goalPanel}
           {isDragActive && (
             <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/50 bg-primary/15">
               <div className="rounded-xl border border-border/30 bg-card p-4 shadow-lg">
@@ -551,12 +558,10 @@ export default function ChatComposer({
             </PromptInputSubmit>
           </div>
 
-          <div
-            className={`order-last hidden basis-full px-2 text-center text-xs leading-4 text-muted-foreground/50 transition-opacity duration-200 lg:block ${
-              input.trim() && !canQueueDraft ? 'opacity-0' : 'opacity-100'
-            }`}
-          >
-            {submitHint}
+          <div className={`order-last basis-full ${activity && !hasPendingPermissions ? '' : 'hidden lg:block'}`}>
+            {hasPendingPermissions ? submitHintContent : (
+              <ActivityIndicator activity={activity} onAbort={onAbortSession} hint={submitHintContent} />
+            )}
           </div>
         </PromptInputFooter>
       </PromptInput>

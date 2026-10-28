@@ -257,7 +257,6 @@ function ChatInterface({
     handlePermissionDecision,
     handleGrantToolPermission,
     handleInputFocusChange,
-    isInputFocused,
     commandModalPayload,
     closeCommandModal,
     showCostModal,
@@ -453,11 +452,6 @@ function ChatInterface({
     }
   }, [currentSessionId, provider, selectProviderEffort, selectedSession?.id]);
 
-  // Mirrors ChatComposer's own visibility check so the message pane can
-  // reserve enough bottom space to keep the floating status tab from
-  // overlapping the last message.
-  const hasActivityIndicator = Boolean(sessionActivity && !pendingPermissionRequests.some(request => (request.context as { isBlocking?: boolean } | undefined)?.isBlocking !== false));
-
   const selectedProviderLabel =
     provider === 'cursor'
       ? t('messageTypes.cursor')
@@ -499,7 +493,6 @@ function ChatInterface({
               onTouchMove={handleScroll}
               isLoadingSessionMessages={isLoadingSessionMessages}
               isProcessing={isProcessing}
-              hasActivityIndicator={hasActivityIndicator}
               chatMessages={chatMessages}
               selectedSession={selectedSession}
               currentSessionId={currentSessionId}
@@ -552,8 +545,8 @@ function ChatInterface({
             </div>
           )}
 
-          {provider === 'codex' && <CodexGoalPanel sessionId={selectedSession?.id || currentSessionId || null} hasActivityIndicator={hasActivityIndicator} />}
           <ChatComposer
+          goalPanel={provider === 'codex' ? <CodexGoalPanel sessionId={selectedSession?.id || currentSessionId || null} /> : undefined}
           pendingPermissionRequests={pendingPermissionRequests}
           handlePermissionDecision={handlePermissionDecision}
           handleGrantToolPermission={handleGrantToolPermission}
@@ -623,7 +616,6 @@ function ChatInterface({
           onTextareaPaste={handlePaste}
           onTextareaScrollSync={syncInputOverlayScroll}
           onTextareaInput={handleTextareaInput}
-          isInputFocused={isInputFocused}
           onInputFocusChange={handleInputFocusChange}
           placeholder={t('input.placeholder', { provider: selectedProviderLabel })}
           isTextareaExpanded={isTextareaExpanded}
