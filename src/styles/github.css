@@ -313,20 +313,6 @@
   border-radius: 6px;
 }
 
-/* Session work and unread markers keep their established terracotta meaning. */
-:root[data-appearance="github"] .chat-activity-row .bg-primary,
-:root[data-appearance="github"] [data-session-status="running"] {
-  background: var(--brand-terracotta);
-}
-
-:root[data-appearance="github"] [data-session-status="completed"] {
-  color: var(--brand-terracotta);
-}
-
-:root[data-appearance="github"] [data-session-status="attention"] {
-  --tw-ring-color: var(--brand-terracotta);
-}
-
 /* Small theme previews stay recognizable inside either active appearance. */
 .appearance-style-preview {
   display: flex;
