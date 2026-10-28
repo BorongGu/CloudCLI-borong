@@ -54,14 +54,20 @@ type ChatInterfaceProps = {
 
 const BTW_WINDOW_STORAGE_KEY = 'cloudcli-btw-window';
 
-function readSavedBtwRequest(): BtwRequest | null {
+function readSavedBtwRequests(): BtwRequest[] {
   try {
     const value = JSON.parse(sessionStorage.getItem(BTW_WINDOW_STORAGE_KEY) || 'null');
-    if (value && (value.provider === 'codex' || value.provider === 'opencode')
-      && ['key', 'sessionId', 'question', 'model', 'effort'].every(field => typeof value[field] === 'string')
-      && value.key && value.sessionId) return value;
+    // Migrate the previous single-window checkpoint into the per-session collection.
+    const candidates = Array.isArray(value) ? value : value ? [value] : [];
+    const requests = new Map<string, BtwRequest>();
+    for (const request of candidates) {
+      if (request && (request.provider === 'codex' || request.provider === 'opencode')
+        && ['key', 'sessionId', 'question', 'model', 'effort'].every(field => typeof request[field] === 'string')
+        && request.key && request.sessionId) requests.set(`${request.provider}:${request.sessionId}`, request);
+    }
+    return [...requests.values()];
   } catch { /* A new window remains available when browser storage is restricted. */ }
-  return null;
+  return [];
 }
 
 /**
@@ -192,15 +198,15 @@ function ChatInterface({
     onNavigateToSession?.(sessionId);
   }, [setCurrentSessionId, onSessionEstablished, onNavigateToSession]);
 
-  // Capture the source across sidebar navigation and restore this tab's window after refresh.
-  const [btwRequest, setBtwRequest] = useState<BtwRequest | null>(readSavedBtwRequest);
+  // Each source retains its own native connection, transcript, draft and bounds across navigation.
+  const [btwRequests, setBtwRequests] = useState<BtwRequest[]>(readSavedBtwRequests);
   useEffect(() => {
     try {
-      if (btwRequest) sessionStorage.setItem(BTW_WINDOW_STORAGE_KEY, JSON.stringify(btwRequest));
+      if (btwRequests.length) sessionStorage.setItem(BTW_WINDOW_STORAGE_KEY, JSON.stringify(btwRequests));
       else sessionStorage.removeItem(BTW_WINDOW_STORAGE_KEY);
     } catch { /* The live window continues when browser storage is restricted. */ }
-  }, [btwRequest]);
-  const closeBtw = useCallback(() => setBtwRequest(null), []);
+  }, [btwRequests]);
+  const closeBtw = useCallback((key: string) => setBtwRequests(requests => requests.filter(request => request.key !== key)), []);
   const openBtw = useCallback((question: string) => {
     if (provider !== 'codex' && provider !== 'opencode') return;
     const sessionId = selectedSession?.id || currentSessionId;
@@ -208,8 +214,9 @@ function ChatInterface({
       addMessage({ type: 'error', content: t('btw.startFirst'), timestamp: new Date() });
       return;
     }
-    setBtwRequest({ key: `${Date.now()}-${Math.random()}`, sessionId, projectId: selectedProject?.projectId ?? null, question,
-      model: currentProviderModel, effort: currentProviderEffort, provider, permissionMode });
+    const request: BtwRequest = { key: `${Date.now()}-${Math.random()}`, sessionId, projectId: selectedProject?.projectId ?? null, question,
+      model: currentProviderModel, effort: currentProviderEffort, provider, permissionMode };
+    setBtwRequests(requests => [...requests.filter(previous => previous.sessionId !== sessionId || previous.provider !== provider), request]);
   }, [selectedSession?.id, selectedProject?.projectId, currentSessionId, currentProviderModel, currentProviderEffort, provider, permissionMode, addMessage, t]);
 
   const {
@@ -624,7 +631,9 @@ function ChatInterface({
         </div>
       </div>
 
-      {btwRequest && <BtwPanel key={btwRequest.key} request={btwRequest} onClose={closeBtw} />}
+      {btwRequests.map(request => <BtwPanel key={request.key} request={request}
+        active={isActive && request.sessionId === (selectedSession?.id || currentSessionId) && request.provider === provider}
+        onClose={() => closeBtw(request.key)} />)}
       <CommandResultModal
         payload={commandModalPayload}
         onClose={closeCommandModal}

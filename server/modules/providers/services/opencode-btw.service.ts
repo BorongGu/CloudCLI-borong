@@ -22,6 +22,7 @@ export function createOpenCodeBtwSession(input: BtwInput, emit: (event: BtwEvent
   let id: string | null = null;let ended = false;let busy = false;let observedRun = false;
   let starting: Promise<any> | null = null;let closing: Promise<void> | null = null;
   const roles = new Map<string, string>();
+  const inheritedMessageIds = new Set<string>();
   const parts = new Map<string, { messageID: string; type: string; text?: string }>();
   const sendEvent = (event: BtwEvent) => { if (!ended) emit(event); };
   const setBusy = (value: boolean, label?: string, phase?: 'waiting' | 'thinking' | 'working' | 'retrying') => {
@@ -37,6 +38,9 @@ export function createOpenCodeBtwSession(input: BtwInput, emit: (event: BtwEvent
   const notification = (event: any) => {
     const p = event.properties || {};
     if (ended || !id || (p.sessionID || p.part?.sessionID || p.info?.sessionID) !== id) return;
+    const messageId = event.type === 'message.updated' ? p.info?.id : p.part?.messageID || p.messageID;
+    // Fork-copy events can arrive after the HTTP response and even after the first side prompt.
+    if (inheritedMessageIds.has(messageId)) return;
     if (event.type === 'message.updated') {
       roles.set(p.info.id, p.info.role);
       if (p.info.role === 'assistant') observedRun = true;
@@ -73,7 +77,7 @@ export function createOpenCodeBtwSession(input: BtwInput, emit: (event: BtwEvent
   function close(): Promise<void> {
     if (closing) return closing;
     ended = true;client.off('notification', notification);client.off('disconnect', disconnected);
-    closing = client.close().finally(() => { roles.clear();parts.clear();emit({ kind: 'btw_closed' }); });
+    closing = client.close().finally(() => { roles.clear();parts.clear();inheritedMessageIds.clear();emit({ kind: 'btw_closed' }); });
     return closing;
   }
   async function send(content: string): Promise<void> {
@@ -99,6 +103,10 @@ export function createOpenCodeBtwSession(input: BtwInput, emit: (event: BtwEvent
     async start() {
       try {
         setBusy(true);const fork = await client.initialize();if (ended) return;
+        const history = await client.request('GET', `/session/${encodeURIComponent(fork.id)}/message`);
+        if (ended) return;
+        if (!Array.isArray(history)) throw new Error('OpenCode could not identify the inherited side-conversation messages.');
+        for (const message of history) if (typeof message?.info?.id === 'string') inheritedMessageIds.add(message.info.id);
         id = fork.id;sendEvent({ kind: 'btw_ready', threadId: id, model: input.model || '' });setBusy(false);
         if (input.question?.trim()) await send(input.question);
       } catch (error) { reportError(error);await close(); }

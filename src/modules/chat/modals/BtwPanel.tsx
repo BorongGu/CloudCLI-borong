@@ -9,7 +9,7 @@ import { MarkdownWorkspaceContext } from '@/modules/chat/context/MarkdownWorkspa
 import { Markdown } from '@/modules/chat/transcript/Markdown';
 import type { BtwRequest } from '@/shared/types';
 
-type BtwPanelProps = { request: BtwRequest; onClose(): void };
+type BtwPanelProps = { request: BtwRequest; active?: boolean; onClose(): void };
 
 const RESIZE_HANDLES = [
   { direction: 'n', className: 'inset-x-4 top-0 h-2 cursor-ns-resize' },
@@ -22,8 +22,8 @@ const RESIZE_HANDLES = [
   { direction: 'se', className: 'bottom-0 right-0 h-4 w-4 cursor-nwse-resize' },
 ] as const;
 
-/** ChatInterface opens this resizable side window, retaining its captured context during session navigation. */
-export function BtwPanel({ request, onClose }: BtwPanelProps) {
+/** ChatInterface keeps one panel per source session, showing the current session's window. */
+export function BtwPanel({ request, active = true, onClose }: BtwPanelProps) {
   const { t } = useTranslation('chat');
   const titleId = useId();
   const { messages, ready, busy, busySince, closed, error, label, phase, draft, setDraft, send, stop } = useBtwConversation(request);
@@ -37,7 +37,7 @@ export function BtwPanel({ request, onClose }: BtwPanelProps) {
   const followRef = useRef(true);
   const compositionEndRef = useRef(0);
   const close = () => { clearSavedBounds();onClose(); };
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => { if (active) inputRef.current?.focus(); }, [active]);
   useEffect(() => {
     if (!busy) return;
     const timer = setInterval(() => setClock(Date.now()), 1000);
@@ -45,11 +45,13 @@ export function BtwPanel({ request, onClose }: BtwPanelProps) {
   }, [busy]);
   useEffect(() => {
     if (followRef.current && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, busy, error]);
+  }, [messages, busy, error, active]);
   const submit = () => {
     if (!draft.trim() || !ready || busy || closed) return;
     if (send(draft.trim())) { setDraft(''); followRef.current = true; }
   };
+  // Keeping the component mounted preserves the source's socket while its window is hidden.
+  if (!active) return null;
   return createPortal(<MarkdownWorkspaceContext.Provider value={markdownWorkspaceValue}><section ref={panelRef} role="dialog" aria-modal="false" aria-labelledby={titleId} data-btw-panel
     className="fixed right-3 z-[60] flex w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-xl sm:right-6 sm:w-[30rem]"
     style={{ bottom: 'calc(var(--keyboard-height, 0px) + 12px + env(safe-area-inset-bottom, 0px))',
@@ -67,9 +69,9 @@ export function BtwPanel({ request, onClose }: BtwPanelProps) {
       onScroll={event => { const node = event.currentTarget; followRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 48; }}>
       {messages.length === 0 && <p className="text-sm leading-relaxed text-muted-foreground">{ready ? t('btw.empty') : t('btw.connecting')}</p>}
       {messages.map(message => <div key={message.id} data-btw-message={message.role} className={message.role === 'user'
-        ? 'ml-8 whitespace-pre-wrap break-words rounded-xl bg-muted/60 px-3 py-2 text-sm'
+        ? 'ml-8 break-words rounded-xl bg-muted/60 px-3 py-2 text-sm'
         : 'prose prose-sm max-w-none break-words font-serif text-foreground dark:prose-invert'}>
-        {message.role === 'assistant' ? <Markdown>{message.content}</Markdown> : message.content}
+        <Markdown breaks={message.role === 'user'} className={message.role === 'user' ? 'prose prose-sm max-w-none text-foreground dark:prose-invert' : undefined}>{message.content}</Markdown>
       </div>)}
       {busy && <p role="status" title={label} className="flex gap-2 text-xs text-muted-foreground">
         <span className="min-w-0 truncate">{phase ? t(`btw.phase.${phase}`) : label || t(ready ? 'btw.working' : 'btw.connecting')}</span>

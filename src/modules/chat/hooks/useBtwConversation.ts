@@ -18,7 +18,7 @@ function readConversation(key: string): SavedConversation | null {
   return null;
 }
 
-/** BtwPanel reconnects its native conversation and restores this tab's transcript and draft after refresh. */
+/** Each mounted BtwPanel retains its source's native conversation, transcript and draft across navigation and refresh. */
 export function useBtwConversation(request: BtwRequest) {
   const storageKey = `cloudcli-btw-conversation:${request.key}`;
   // A single checkpoint restores the transcript, draft and attachment identity together.

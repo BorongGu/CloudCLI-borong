@@ -177,7 +177,7 @@ test('keyboard resizing fits a smaller visual viewport and restores the preferre
   assert.deepEqual(panelBounds(panel), [490, 140, 490, 584]);
 });
 
-test('sidebar session/provider/project navigation retains the BTW socket, source, draft, stream and size', async () => {
+test('sidebar navigation shows each source session’s own BTW window, draft, stream and size', () => {
   const props = { isActive: true, selectedProject: { projectId: 'source-project', displayName: 'Source', fullPath: '/source' },
     selectedSession: { id: 'parent', provider: 'codex' as const }, ws: null, sendMessage() {} };
   const view = render(<ChatInterface {...props} />);
@@ -189,16 +189,34 @@ test('sidebar session/provider/project navigation retains the BTW socket, source
   fireEvent.change(view.getByRole('textbox'), { target: { value: 'Keep this draft' } });
   fireEvent.keyDown(panel.querySelector('[data-btw-resize="nw"]')!, { key: 'ArrowLeft' });
   const bounds = panelBounds(panel);
-  view.rerender(<ChatInterface {...props} selectedProject={{ projectId: 'another-project', displayName: 'Other', fullPath: '/other' }}
-    selectedSession={{ id: 'other', provider: 'opencode' }} />);
-  assert.equal(view.getByRole('dialog'), panel);assert.equal(instances.length, 1);assert.equal(socket.readyState, FakeSocket.OPEN);
-  assert.equal((view.getByRole('textbox') as HTMLTextAreaElement).value, 'Keep this draft');
-  assert.deepEqual(panelBounds(panel), bounds);assert.equal(socket.sent[0].sessionId, 'parent');
+  const otherProps = { ...props, selectedProject: { projectId: 'another-project', displayName: 'Other', fullPath: '/other' },
+    selectedSession: { id: 'other', provider: 'opencode' as const } };
+  view.rerender(<ChatInterface {...otherProps} />);
+  assert.equal(Boolean(view.queryByRole('dialog')), false);assert.equal(instances.length, 1);assert.equal(socket.readyState, FakeSocket.OPEN);
+  assert.equal(socket.sent[0].sessionId, 'parent');
   assert.equal(socket.sent[0].model, 'gpt-6.1-sol');assert.equal(socket.sent.some(message => message.type === 'finish'), false);
   act(() => { socket.frame({ kind: 'btw_message', id: 'answer', role: 'assistant', content: 'The reply continues after navigation' });
     socket.frame({ kind: 'btw_status', busy: false }); });
+  act(() => { composer.openBtw('Question in the other session'); });
+  const otherSocket = instances[1];act(() => { otherSocket.open();otherSocket.frame({ kind: 'btw_ready' });
+    otherSocket.frame({ kind: 'btw_message', id: 'answer', role: 'assistant', content: 'Independent OpenCode reply' });
+    otherSocket.frame({ kind: 'btw_status', busy: false }); });
+  fireEvent.change(view.getByRole('textbox'), { target: { value: 'Independent OpenCode draft' } });
+  assert.equal(otherSocket.sent[0].sessionId, 'other');assert.equal(otherSocket.sent[0].model, 'opencode-go/glm-5.3-flash');
+  assert.equal(view.getByText('Independent OpenCode reply').dataset.markdownProject, 'another-project');
+  assert.equal(Boolean(view.queryByText('The reply continues after navigation')), false);
+  view.rerender(<ChatInterface {...props} />);
+  assert.equal((view.getByRole('textbox') as HTMLTextAreaElement).value, 'Keep this draft');
+  assert.deepEqual(panelBounds(view.getByRole('dialog')), bounds);assert.equal(instances.length, 2);
   assert.equal(view.getByText('The reply continues after navigation').dataset.markdownProject, 'source-project');
-  fireEvent.submit(panel.querySelector('form')!);assert.deepEqual(socket.sent.at(-1), { type: 'send', content: 'Keep this draft' });
+  fireEvent.submit(view.getByRole('dialog').querySelector('form')!);assert.deepEqual(socket.sent.at(-1), { type: 'send', content: 'Keep this draft' });
+  view.rerender(<ChatInterface {...otherProps} />);
+  assert.equal((view.getByRole('textbox') as HTMLTextAreaElement).value, 'Independent OpenCode draft');
+  fireEvent.click(view.getByRole('button', { name: /Close side conversation|关闭临时对话/ }));
+  assert.equal(otherSocket.sent.at(-1).type, 'finish');assert.equal(otherSocket.readyState, FakeSocket.CLOSED);
+  assert.equal(socket.readyState, FakeSocket.OPEN);assert.equal(socket.sent.some(message => message.type === 'finish'), false);
+  view.rerender(<ChatInterface {...props} />);
+  assert.ok(view.getByText('The reply continues after navigation'));
   fireEvent.click(view.getByRole('button', { name: /Close side conversation|关闭临时对话/ }));
   assert.equal(view.queryByRole('dialog'), null);assert.equal(socket.sent.at(-1).type, 'finish');assert.equal(socket.readyState, FakeSocket.CLOSED);
 });
@@ -220,6 +238,8 @@ test.each(['codex', 'opencode'] as const)('refresh restores the %s BTW window, o
   assert.equal(socket.sent.some(message => message.type === 'finish'), false);
   const restored = render(<ChatInterface {...props} selectedProject={{ projectId: 'different-project', displayName: 'Other', fullPath: '/other' }}
     selectedSession={{ id: 'different-session', provider: 'codex' }} />);
+  assert.equal(Boolean(restored.queryByRole('dialog')), false);
+  restored.rerender(<ChatInterface {...props} />);
   assert.ok(restored.getByText('Answer before refresh'));
   assert.equal((restored.getByRole('textbox') as HTMLTextAreaElement).value, 'Draft across refresh');
   assert.deepEqual(panelBounds(restored.getByRole('dialog')), bounds);
@@ -234,6 +254,43 @@ test.each(['codex', 'opencode'] as const)('refresh restores the %s BTW window, o
   fireEvent.click(restored.getByRole('button', { name: /Close side conversation|关闭临时对话/ }));
   assert.equal(resumed.sent.at(-1).type, 'finish');assert.equal(sessionStorage.getItem('cloudcli-btw-window'), null);
   restored.unmount();const closed = render(<ChatInterface {...props} />);assert.equal(closed.queryByRole('dialog'), null);
+});
+
+test('refresh resumes both sessions while showing only the selected source and its draft', () => {
+  const props = { isActive: true, selectedProject: { projectId: 'source-project', displayName: 'Source', fullPath: '/source' },
+    selectedSession: { id: 'parent', provider: 'codex' as const }, ws: null, sendMessage() {} };
+  const otherProps = { ...props, selectedSession: { id: 'other', provider: 'opencode' as const } };
+  const first = render(<ChatInterface {...props} />);
+  act(() => { composer.openBtw('Codex question'); });
+  act(() => { instances[0].open();instances[0].frame({ kind: 'btw_ready' }); });
+  fireEvent.change(first.getByRole('textbox'), { target: { value: 'Codex draft' } });
+  first.rerender(<ChatInterface {...otherProps} />);
+  act(() => { composer.openBtw('OpenCode question'); });
+  act(() => { instances[1].open();instances[1].frame({ kind: 'btw_ready' }); });
+  fireEvent.change(first.getByRole('textbox'), { target: { value: 'OpenCode draft' } });
+  const conversationIds = instances.map(socket => socket.sent[0].conversationId);
+  act(() => { window.dispatchEvent(new Event('pagehide')); });first.unmount();
+  const restored = render(<ChatInterface {...props} />);
+  assert.equal((restored.getByRole('textbox') as HTMLTextAreaElement).value, 'Codex draft');
+  act(() => { instances[2].open();instances[3].open(); });
+  assert.deepEqual(instances.slice(2).map(socket => socket.sent[0]), conversationIds.map(conversationId => ({ type: 'resume', conversationId })));
+  restored.rerender(<ChatInterface {...otherProps} />);
+  assert.equal((restored.getByRole('textbox') as HTMLTextAreaElement).value, 'OpenCode draft');
+  restored.rerender(<ChatInterface {...otherProps} isActive={false} />);
+  assert.equal(Boolean(restored.queryByRole('dialog')), false);
+  assert.ok(instances.every(socket => socket.sent.every(message => message.type !== 'finish')));
+});
+
+test('the previous single-window checkpoint migrates to its source session', () => {
+  sessionStorage.setItem('cloudcli-btw-window', JSON.stringify(REQUEST));
+  const props = { isActive: true, selectedProject: { projectId: 'source-project', displayName: 'Source', fullPath: '/source' },
+    selectedSession: { id: 'other', provider: 'codex' as const }, ws: null, sendMessage() {} };
+  const view = render(<ChatInterface {...props} />);
+  assert.equal(Boolean(view.queryByRole('dialog')), false);
+  assert.deepEqual(JSON.parse(sessionStorage.getItem('cloudcli-btw-window')!), [REQUEST]);
+  view.rerender(<ChatInterface {...props} selectedSession={{ id: REQUEST.sessionId, provider: 'codex' }} />);
+  assert.ok(view.getByRole('dialog'));assert.equal(instances.length, 1);
+  act(() => { instances[0].open(); });assert.equal(instances[0].sent[0].sessionId, REQUEST.sessionId);
 });
 
 test('a server-expired fork displays its saved answer and error without replaying the question', () => {

@@ -26,6 +26,7 @@ const files = [
   'server/modules/providers/list/codex/codex-sessions.provider.ts',
   'server/modules/providers/services/codex-goals.service.ts',
   'server/modules/providers/services/codex-btw.service.ts',
+  'server/modules/providers/services/opencode-btw.service.ts',
   'server/modules/providers/services/provider-usage.service.ts',
   'server/modules/providers/services/provider-token-usage.service.ts',
   'server/modules/providers/index.ts',
