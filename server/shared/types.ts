@@ -664,6 +664,16 @@ export type ProviderRuntimeWriter = {
   isWebSocketWriter?: boolean;
 };
 
+/**
+ * A turn still running in a provider's persistent native service. The native
+ * id is mapped to an app session by the sessions service; startedAt is Unix
+ * milliseconds. Reporting this activity only reads status and submits no input.
+ */
+export type NativeSessionActivity = {
+  providerSessionId: string;
+  startedAt: number;
+};
+
 export type ProviderPermissionDecision = {
   allow: boolean;
   updatedInput?: unknown;
@@ -674,6 +684,8 @@ export type ProviderPermissionDecision = {
 export type ProviderRuntimePermissionGateway = {
   resolve(requestId: string, decision: ProviderPermissionDecision): void;
   listPending(sessionId: string): unknown[];
+  /** Restores persisted pending cards for a viewed native session, including after its turn has finished. */
+  restorePending?(sessionId: string, providerSessionId: string, writer: ProviderRuntimeWriter): Promise<void>;
 };
 
 /**

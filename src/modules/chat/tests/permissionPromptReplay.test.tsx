@@ -4,7 +4,7 @@ import { renderHook } from '@testing-library/react';
 import { test } from 'vitest';
 
 import { useChatRealtimeHandlers } from '@/modules/chat/hooks/useChatRealtimeHandlers';
-import type { ServerEvent, ProjectSession, PendingPermissionRequest } from '@/shared/types';
+import type { ServerEvent, ProjectSession, PendingPermissionRequest, MarkSessionProcessing } from '@/shared/types';
 import type { SessionStore } from '@/modules/chat/hooks/useSessionStore';
 
 /**
@@ -15,7 +15,7 @@ import type { SessionStore } from '@/modules/chat/hooks/useSessionStore';
  * refresh (and lingered forever in a second tab watching the same run).
  */
 
-const renderHandlers = () => {
+const renderHandlers = (onSessionProcessing?: MarkSessionProcessing) => {
   let listener: ((event: ServerEvent) => void) | null = null;
   let pending: PendingPermissionRequest[] = [];
 
@@ -38,6 +38,7 @@ const renderHandlers = () => {
     lastSeqRef: { current: new Map() },
     statusCheckSentAtRef: { current: new Map() },
     requestLatestMessages: async () => {},
+    onSessionProcessing,
     sessionStore: { appendRealtime: () => {} } as unknown as SessionStore,
   }));
 
@@ -87,4 +88,11 @@ test('an unanswered request stays pending through a resolution for another id', 
   const pending = getPending();
   assert.equal(pending.length, 1);
   assert.equal(pending[0].requestId, 'req-open');
+});
+
+test('a reattached run restores interrupt availability after status-only native detection', () => {
+  const observed: unknown[] = [];
+  const { dispatch } = renderHandlers((sessionId, activity) => observed.push({ sessionId, activity }));
+  dispatch({ kind: 'chat_subscribed', sessionId: 'viewed-session', isProcessing: true, pendingPermissions: [] } as unknown as ServerEvent);
+  assert.deepEqual(observed, [{ sessionId: 'viewed-session', activity: { canInterrupt: true } }]);
 });

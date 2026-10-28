@@ -98,6 +98,23 @@ test('native goals stream successive automatic turns until goal completion', asy
   assert.equal(client.listenerCount('notification'), 0);
 });
 
+test('a recovered ordinary turn observes native output without sending or steering input', async () => {
+  const client = new GoalConnection();client.active = true;
+  const thread = new SharedCodex(client).resumeThread('native');
+  const { events } = await thread.runStreamed('', { observeGoal: true });
+  const seen = [];
+  for await (const event of events) {
+    seen.push(event);
+    if (event.type === 'thread.started') setTimeout(() => {
+      client.notify('item/completed', { turnId: 'existing-turn', item: { id: 'answer', type: 'agentMessage', text: 'Continued native output' } });
+      client.notify('turn/completed', { turn: { id: 'existing-turn', status: 'completed' } });
+    }, 5);
+  }
+  assert.ok(seen.some(event => event.type === 'item.completed' && event.item.text === 'Continued native output'));
+  assert.equal(client.calls.some(call => ['turn/start', 'turn/steer', 'turn/interrupt'].includes(call.method)), false);
+  assert.equal(client.listenerCount('notification'), 0);
+});
+
 test('pausing a goal between turns releases the observer without starting another turn', async () => {
   const client = new GoalConnection();client.rounds = 0;
   // Only the first round is emitted; the goal remains active until paused.

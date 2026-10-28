@@ -34,6 +34,18 @@ export class CodexQuestions {
     for (const request of this.client.pendingRequests?.(threadId) || []) this.receiveRequest(request);
   }
 
+  /** Session subscriptions recover persisted cards even after the native turn has completed. */
+  async restorePending(sessionId: string, threadId: string, writer: ProviderRuntimeWriter): Promise<void> {
+    let observed: Binding | undefined;
+    if (!this.bindings.has(threadId)) {
+      observed = { sessionId, writer };this.bindings.set(threadId, observed);
+    }
+    await this.restore(threadId);
+    for (const request of this.client.pendingRequests?.(threadId) || []) this.receiveRequest(request);
+    // A live runtime may bind while history is being read and then owns this thread's writer.
+    if (observed && this.bindings.get(threadId) === observed) this.release(threadId);
+  }
+
   private async restore(threadId: string): Promise<void> {
     const epoch = this.connectionEpoch;
     try {

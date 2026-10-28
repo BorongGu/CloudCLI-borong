@@ -9,7 +9,7 @@ import { closeConnection, initializeDatabase, sessionsDb } from '@/modules/datab
 import { handleChatConnection } from '@/modules/websocket/services/chat-websocket.service.js';
 import { chatRunRegistry } from '@/modules/websocket/services/chat-run-registry.service.js';
 import { connectedClients } from '@/modules/websocket/services/websocket-state.service.js';
-import { codexGoalsService } from '@/modules/providers/index.js';
+import { codexGoalsService, sessionsService } from '@/modules/providers/index.js';
 
 /**
  * A session's turn ends while its agents, workflow or backgrounded command are
@@ -95,6 +95,50 @@ test('reconnect reattaches an active native goal once without submitting another
       assert.equal(calls.length, 1);assert.equal(calls[0].command, '');assert.equal(calls[0].options.codexGoalObserve, true);
       assert.ok(socket.frames.some(f => f.kind === 'chat_subscribed' && f.isProcessing === true));
     } finally { finish();await settle();mocked.mock.restore(); }
+  });
+});
+
+test('reconnect reattaches a non-goal native turn once and delivers restored question cards', async () => {
+  await withIsolatedDatabase(async () => {
+    const id = 'native-turn-app';sessionsDb.createAppSession(id, 'codex', '/workspace');
+    sessionsDb.assignProviderSessionId(id, 'native-turn');
+    const native = mock.method(sessionsService, 'getNativeSessionActivity', async () => ({ providerSessionId: 'native-turn', startedAt: 1000 }));
+    let finish!: () => void;const held = new Promise<void>(resolve => { finish = resolve; });const calls: any[] = [];
+    const runtime = { hasBackgroundWork: () => false, getPendingApprovalsForSession: () => [],
+      async run(provider: string, command: string, options: any, writer: any) {
+        calls.push({ provider, command, options });
+        writer.send({ kind: 'permission_request', sessionId: id, provider: 'codex', requestId: 'restored-question', toolName: 'AskUserQuestion', input: { questions: [{ question: 'Keep the preview running?' }] } });
+        await held;writer.send({ kind: 'complete', provider: 'codex', sessionId: 'native-turn', exitCode: 0 });
+      },
+    };
+    try {
+      const socket = createFakeSocket();handleChatConnection(socket as never, { user: { id: 1 } } as never, { runtime: runtime as never });
+      const frame = JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: id, watchNative: true }] });
+      socket.emit('message', frame);await settle();socket.emit('message', frame);await settle();
+      assert.equal(calls.length, 1);assert.equal(calls[0].command, '');assert.equal(calls[0].options.codexGoalObserve, true);
+      assert.ok(socket.frames.some(event => event.kind === 'chat_subscribed' && event.isProcessing === true));
+      assert.ok(socket.frames.some(event => event.kind === 'permission_request' && event.requestId === 'restored-question'));
+    } finally { finish();await settle();native.mock.restore(); }
+  });
+});
+
+test('subscribing to an idle native session restores questions while leaving the runtime idle', async () => {
+  await withIsolatedDatabase(async () => {
+    const id = 'idle-native-app';sessionsDb.createAppSession(id, 'codex', '/workspace');
+    sessionsDb.assignProviderSessionId(id, 'native-idle');
+    const native = mock.method(sessionsService, 'getNativeSessionActivity', async () => undefined);
+    let starts = 0;
+    const question = { requestId: 'idle-question', toolName: 'AskUserQuestion', input: { questions: [{ question: 'Keep the preview running?' }] } };
+    try {
+      const socket = createFakeSocket();handleChatConnection(socket as never, { user: { id: 1 } } as never, { runtime: {
+        hasBackgroundWork: () => false, getPendingApprovalsForSession: () => [question], run: async () => { starts++; },
+        restorePendingApprovals: async (_provider: string, sessionId: string, writer: any) => { writer.send({ kind: 'permission_request', sessionId, provider: 'codex', ...question }); },
+      } as never });
+      socket.emit('message', JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: id, watchNative: true }] }));await settle();
+      assert.equal(starts, 0);assert.equal(socket.frames.find(event => event.kind === 'chat_subscribed')?.isProcessing, false);
+      assert.ok(socket.frames.some(event => event.kind === 'permission_request' && event.requestId === 'idle-question'));
+      assert.deepEqual(socket.frames.find(event => event.kind === 'chat_subscribed')?.pendingPermissions, [question]);
+    } finally { native.mock.restore(); }
   });
 });
 

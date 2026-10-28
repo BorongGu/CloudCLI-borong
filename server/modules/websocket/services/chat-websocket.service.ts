@@ -45,6 +45,7 @@ export type ProviderRuntimeGateway = {
   hasBackgroundWork(sessionId: string): boolean;
   resolveToolApproval(requestId: string, payload: ProviderPermissionDecision): void;
   getPendingApprovalsForSession(sessionId: string): unknown[];
+  restorePendingApprovals?(provider: LLMProvider, sessionId: string, writer: ProviderRuntimeWriter): Promise<void>;
 };
 
 type ChatWebSocketDependencies = {
@@ -485,18 +486,27 @@ async function handleChatSubscribe(
       ? Math.max(0, Math.floor(lastSeqRaw))
       : 0;
 
-    // A service restart can leave a native goal running on the shared daemon.
-    // Reattach an observer without submitting a new prompt or changing its goal.
+    // Reattach native turns as well as goals after the web registry is lost.
+    // The observer restores pending question cards and submits no new prompt.
     const session = sessionsDb.getSessionById(sessionId);
-    if ((target as AnyRecord).watchGoal === true && session?.provider === 'codex'
+    if (((target as AnyRecord).watchGoal === true || (target as AnyRecord).watchNative === true) && session?.provider === 'codex'
       && !chatRunRegistry.isProcessing(sessionId)) {
       try {
-        const { goal } = await codexGoalsService.execute(sessionId, { action: 'get' });
-        if (goal?.status === 'active' && !chatRunRegistry.isProcessing(sessionId)) {
+        let active = (target as AnyRecord).watchNative === true && Boolean(await sessionsService.getNativeSessionActivity(sessionId));
+        if (!active && (target as AnyRecord).watchGoal === true) {
+          const { goal } = await codexGoalsService.execute(sessionId, { action: 'get' });
+          active = goal?.status === 'active';
+        }
+        if (active && !chatRunRegistry.isProcessing(sessionId)) {
           void dispatchRun(ws, null, sessionId, session, { content: '' }, dependencies,
             { codexGoalObserve: true });
         }
-      } catch (error) { console.warn('[Chat] Goal reattachment failed:', String(error)); }
+      } catch (error) { console.warn('[Chat] Native session reattachment failed:', String(error)); }
+    }
+    if ((target as AnyRecord).watchNative === true && session?.provider === 'codex') {
+      try {
+        await dependencies.runtime.restorePendingApprovals?.('codex', sessionId, { send: event => sendJson(ws, event) });
+      } catch (error) { console.warn('[Chat] Question recovery failed:', String(error)); }
     }
     const run = chatRunRegistry.getRun(sessionId);
     const isProcessing = chatRunRegistry.isProcessing(sessionId);

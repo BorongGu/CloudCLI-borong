@@ -113,6 +113,11 @@ export function createProviderRuntimeService(
         (provider) => provider.runtime.permissions?.listPending(sessionId) ?? [],
       );
     },
+
+    async restorePendingApprovals(providerName: LLMProvider, sessionId: string, writer: ProviderRuntimeWriter): Promise<void> {
+      const providerSessionId = dependencies.resolveProviderSessionId(sessionId);
+      if (providerSessionId) await dependencies.resolveProvider(providerName).runtime.permissions?.restorePending?.(sessionId, providerSessionId, writer);
+    },
   };
 }
 

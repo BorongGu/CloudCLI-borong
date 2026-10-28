@@ -6,6 +6,7 @@ import type {
   LLMProvider,
   McpScope,
   NormalizedMessage,
+  NativeSessionActivity,
   ProviderSkill,
   ProviderSkillListOptions,
   ProviderAuthStatus,
@@ -38,6 +39,8 @@ export interface IProviderRuntime {
   ): Promise<unknown>;
   abort(sessionId: string): boolean | Promise<boolean>;
   permissions?: ProviderRuntimePermissionGateway;
+  /** Native turns that survive a web-service restart or are driven by another client. */
+  listRunningSessions?(): Promise<NativeSessionActivity[]>;
   /**
    * Sessions with background tasks still outstanding, whether or not their
    * turn has ended. Only a runtime that keeps its process open past a turn for

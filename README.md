@@ -70,6 +70,8 @@ The Codex `/btw` window uses native `thread/fork` with `ephemeral: true` in its 
 
 Codex forks through the most recent completed turn, carries subsequent activity as read-only context, and inherits the selected model's context capacity from the local model catalog. While the first main turn is still running, a fresh ephemeral context receives that turn's snapshot. This lets side questions start while tools run in the main conversation and avoids premature compaction caused by a smaller fallback context window.
 
+Running-session markers also read the shared Codex daemon's live status, so native tasks remain visible across web-service restarts. Opening a running session reattaches its output stream; pending asynchronous questions are restored from native history, including questions whose turn has already completed.
+
 OpenCode uses native export/import and session fork in a private temporary data directory served by its own local process. It reuses the installed OpenCode configuration and authentication, including OpenCode Go subscriptions and account routing. Inherited messages remain available as model context; the BTW transcript displays new side-conversation messages. Explicitly finishing the window also removes that private directory. Verified with OpenCode 1.18.32; set `OPENCODE_BTW_BIN` to select an executable or wrapper.
 
 

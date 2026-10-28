@@ -144,7 +144,8 @@ export function useChatRealtimeHandlers({
           if (!sid) return;
 
           if (msg.isProcessing) {
-            onSessionProcessing?.(sid);
+            // An acknowledged run is now owned by the web runtime, including a reattached native observer.
+            onSessionProcessing?.(sid, { canInterrupt: true });
           } else {
             // Idle ack: ignore it if a newer request started after the
             // subscribe was sent — the ack describes the older state.

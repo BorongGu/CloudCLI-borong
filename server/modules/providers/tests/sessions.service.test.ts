@@ -206,12 +206,19 @@ async function withProviders(
   runTest: () => void | Promise<void>,
 ): Promise<void> {
   const realListProviders = providerRegistry.listProviders;
+  const realResolveProvider = providerRegistry.resolveProvider;
   providerRegistry.listProviders = () =>
     Object.entries(runtimes).map(([id, runtime]) => ({ id, runtime }) as IProvider);
+  providerRegistry.resolveProvider = id => {
+    const provider = providerRegistry.listProviders().find(provider => provider.id === id);
+    if (!provider) throw new Error(`Missing test provider: ${id}`);
+    return provider;
+  };
   try {
     await runTest();
   } finally {
     providerRegistry.listProviders = realListProviders;
+    providerRegistry.resolveProvider = realResolveProvider;
     chatRunRegistry.clearAll();
   }
 }
@@ -331,6 +338,30 @@ test('running sessions with no background work are the chat runs alone', { concu
         }]);
       },
     ));
+  });
+});
+
+test('running sessions recover native work after the web registry is cleared and clear it when native work ends', { concurrency: false }, async () => {
+  await withIsolatedDatabase(async () => {
+    sessionsDb.createAppSession('native-app', 'codex', '/tmp/running-project');
+    sessionsDb.assignProviderSessionId('native-app', 'native-thread');
+    sessionsDb.createAppSession('known-app', 'codex', '/tmp/running-project');
+    sessionsDb.assignProviderSessionId('known-app', 'known-thread');
+    chatRunRegistry.startRun({ appSessionId: 'known-app', provider: 'codex', providerSessionId: 'known-thread', connection: null, userId: null });
+    let active = [{ providerSessionId: 'native-thread', startedAt: 5_000 }, { providerSessionId: 'known-thread', startedAt: 6_000 }];
+    await withClaudeCliRegistry([], async () => await withProviders({ codex: {
+      run: async () => undefined, abort: () => false, listRunningSessions: async () => active,
+    } }, async () => {
+      const entries = await sessionsService.listRunningSessions();
+      assert.equal(entries.length, 2);assert.equal(entries.filter(entry => entry.sessionId === 'known-app').length, 1);
+      assert.deepEqual(entries.find(entry => entry.sessionId === 'native-app'), {
+        sessionId: 'native-app', provider: 'codex', startedAt: 5_000, lastSeq: 0, canInterrupt: false,
+      });
+      assert.deepEqual(await sessionsService.getNativeSessionActivity('native-app'), active[0]);
+      active = [];
+      assert.deepEqual((await sessionsService.listRunningSessions()).map(entry => entry.sessionId), ['known-app']);
+      assert.equal(await sessionsService.getNativeSessionActivity('native-app'), undefined);
+    }));
   });
 });
 

@@ -111,6 +111,31 @@ test('history recovery restores only unanswered asynchronous questions', async (
   assert.deepEqual(bridge.listPending('app').map(request => request.context.itemId), ['unanswered']);
 });
 
+test('a session subscription restores unanswered questions after the native turn has ended', async () => {
+  const client = new Client();client.active = false;
+  client.history = [{ item: { id: 'pending-after-completion', type: 'agentMessage', questions: [{ title: 'Keep the preview running?', options: ['Keep it'] }] } }];
+  const bridge = new CodexQuestions(client);const frames: any[] = [];
+  await bridge.restorePending('app', 'native', { send: frame => frames.push(frame) });
+  assert.equal(bridge.listPending('app')[0].context.itemId, 'pending-after-completion');
+  assert.equal(frames[0].kind, 'permission_request');
+  assert.ok(client.calls.every(call => call.method === 'thread/items/list'));
+  bridge.resolve('codex:async:pending-after-completion', { allow: true });
+  await bridge.restorePending('app', 'native', { send: frame => frames.push(frame) });
+  assert.deepEqual(bridge.listPending('app'), []);
+});
+
+test('history restoration preserves a runtime binding established during the read', async () => {
+  const client = new Client();let release!: () => void;
+  const reading = new Promise<void>(resolve => { release = resolve; });
+  const call = client.call.bind(client);
+  client.call = async (method, params) => { if (method === 'thread/items/list') await reading;return call(method, params); };
+  const bridge = new CodexQuestions(client);const live: any[] = [];
+  const restoring = bridge.restorePending('app', 'native', { send() {} });
+  bridge.bind('app', 'native', { send: event => live.push(event) });release();await restoring;
+  client.notify('item/completed', { item: { id: 'later-question', type: 'agentMessage', questions: [{ title: 'Later question' }] } });
+  assert.equal(live.at(-1)?.requestId, 'codex:async:later-question');
+});
+
 
 test('a transient transport loss leaves an unanswered async question recoverable', async () => {
   const client = new Client();

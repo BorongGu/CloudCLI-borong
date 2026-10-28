@@ -182,6 +182,18 @@ export const sessionsService = {
           canInterrupt: false,
           tasks,
         });
+        runningById.set(sessionId, entries[entries.length - 1]);
+      }
+
+      // Native turns survive this process's run registry and may belong to another client.
+      for (const live of await provider.runtime.listRunningSessions?.() ?? []) {
+        const session = sessionsDb.getSessionByProviderSessionId(live.providerSessionId);
+        if (!session || session.provider !== provider.id || runningById.has(session.session_id)) continue;
+        const entry: RunningSessionEntry = {
+          sessionId: session.session_id, provider: provider.id, startedAt: live.startedAt,
+          lastSeq: chatRunRegistry.getRun(session.session_id)?.lastSeq ?? 0, canInterrupt: false,
+        };
+        entries.push(entry);runningById.set(entry.sessionId, entry);
       }
     }
 
@@ -209,6 +221,15 @@ export const sessionsService = {
     }
 
     return entries;
+  },
+
+  /** The websocket gateway checks native work before reattaching a status/permission observer. */
+  async getNativeSessionActivity(sessionId: string) {
+    const session = sessionsDb.getSessionById(sessionId);
+    if (!session?.provider_session_id) return undefined;
+    const provider = providerRegistry.resolveProvider(session.provider);
+    const active = await provider.runtime.listRunningSessions?.();
+    return active?.find(entry => entry.providerSessionId === session.provider_session_id);
   },
 
   /**

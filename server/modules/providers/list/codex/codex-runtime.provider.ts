@@ -16,6 +16,7 @@ import type { ModelReasoningEffort, ThreadOptions } from '@openai/codex-sdk';
 import { SharedCodex as Codex } from '@/modules/providers/list/codex/codex-shared-sdk.js';
 import { codexQuestions } from '@/modules/providers/list/codex/codex-questions.provider.js';
 import { parseCodexGoalCommand } from '@/modules/providers/list/codex/codex-goals.provider.js';
+import { codexActivityService } from '@/modules/providers/services/codex-activity.service.js';
 import type { SharedCodexThread as Thread } from '@/modules/providers/list/codex/codex-shared-sdk.js';
 import {
   appendFilesInputTag,
@@ -554,6 +555,7 @@ export const codexRuntime = {
   run: queryCodex,
   abort: abortCodexSession,
   permissions: codexQuestions,
+  listRunningSessions: codexActivityService.listRunningSessions,
 };
 
 /**
