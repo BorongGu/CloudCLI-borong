@@ -109,17 +109,13 @@ code, pre, kbd, samp, .font-mono {
 }
 
 .chat-message {
-  margin-top: 18px;
-  margin-bottom: 18px;
+  margin-block: 0;
+  /* Row padding stays inside the lazy wrapper's measured height. */
+  padding-block: 4px;
 }
 
-.chat-message.grouped {
-  margin-top: 6px;
-}
-
-.chat-message.error {
-  margin-top: 8px;
-  margin-bottom: 8px;
+.chat-message.user {
+  padding-block: 12px;
 }
 
 .chat-message .prose {
@@ -159,6 +155,14 @@ code, pre, kbd, samp, .font-mono {
 .chat-message .prose :where(p, ul, ol, blockquote) {
   margin-top: 0.75em;
   margin-bottom: 0.75em;
+}
+
+.chat-message .prose > :first-child {
+  margin-top: 0;
+}
+
+.chat-message .prose > :last-child {
+  margin-bottom: 0;
 }
 
 .chat-user-bubble {
