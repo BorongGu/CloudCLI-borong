@@ -7,7 +7,7 @@
   --card-foreground: var(--foreground);
   --popover: 0 0% 100%;
   --popover-foreground: var(--foreground);
-  --primary: 137.71 62.87% 32.75%;
+  --primary: 225 76% 52%;
   --primary-foreground: 0 0% 100%;
   --secondary: 210 28.57% 97.25%;
   --secondary-foreground: var(--foreground);
@@ -26,8 +26,9 @@
   --surface-code: #f6f8fa;
   --surface-shadow: 0 1px 0 rgb(31 35 40 / 4%);
   --github-link: #0969da;
-  --github-selected: #ddf4ff;
-  --github-tab: #fd8c73;
+  --github-primary-gradient: linear-gradient(120deg, #2563eb, #6155e7 55%, #7c3aed);
+  --github-selected: linear-gradient(110deg, hsl(225 76% 52% / 10%), hsl(263 76% 58% / 8%));
+  --github-tab: var(--github-primary-gradient);
   --github-button-border: rgb(31 35 40 / 15%);
   --nav-glass-bg: 210 28.57% 97.25% / 1;
   --nav-tab-glow: 212.44 92.07% 44.51% / 0.06;
@@ -64,7 +65,7 @@
   --foreground: 210 66.67% 96.47%;
   --card: 214.29 25% 10.98%;
   --popover: 214.29 25% 10.98%;
-  --primary: 131.52 58.58% 33.14%;
+  --primary: 228 94% 76%;
   --secondary: 212 18.52% 15.88%;
   --muted-foreground: 213.75 7.84% 60%;
   --accent: 215.29 18.68% 17.84%;
@@ -76,7 +77,7 @@
   --surface-code: #151b23;
   --surface-shadow: 0 1px 0 rgb(1 4 9 / 15%);
   --github-link: #4493f8;
-  --github-selected: #1a2a3f;
+  --github-selected: linear-gradient(110deg, hsl(225 76% 60% / 16%), hsl(263 76% 65% / 14%));
   --github-button-border: rgb(240 246 252 / 10%);
   --nav-glass-bg: 214.29 25% 10.98% / 1;
   --nav-tab-glow: 213.67 92.78% 61.96% / 0.08;
@@ -93,6 +94,15 @@
 
 :root[data-appearance="github"] .font-sans {
   font-family: var(--font-text);
+}
+
+/* Filled brand surfaces share one gradient: primary actions, the logo and badges. */
+:root[data-appearance="github"] :is(.bg-primary, .bg-primary\/90, .bg-primary\/80) {
+  background-image: var(--github-primary-gradient);
+}
+
+:root[data-appearance="github"] button:is(.bg-primary, .bg-primary\/90, .bg-primary\/80):hover {
+  filter: brightness(1.06);
 }
 
 :root[data-appearance="github"] ::selection {
@@ -129,7 +139,7 @@
   left: 0;
   width: 3px;
   border-radius: 2px;
-  background: var(--github-link);
+  background: var(--github-primary-gradient);
   content: "";
 }
 
@@ -355,7 +365,7 @@
 }
 
 .appearance-preview-sidebar i:first-child {
-  background: #0969da;
+  background: linear-gradient(120deg, #2563eb, #6155e7 55%, #7c3aed);
 }
 
 [data-preview="claude"] .appearance-preview-sidebar i:first-child {
