@@ -49,16 +49,14 @@ const MODE_APPEARANCE: Record<PermissionMode, ModeAppearance> = {
   acceptEdits: {
     icon: Smile,
     label: 'Accept Edits',
-    trigger:
-      'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15',
-    item: 'text-primary',
+    trigger: 'border-border/60 bg-muted/50 text-muted-foreground hover:bg-muted',
+    item: 'text-foreground',
   },
   bypassPermissions: {
     icon: AlertTriangle,
     label: 'Bypass Permissions',
-    trigger:
-      'border-orange-300/60 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-600/40 dark:bg-orange-900/15 dark:text-orange-300 dark:hover:bg-orange-900/25',
-    item: 'text-orange-600 dark:text-orange-400',
+    trigger: 'border-border/60 bg-muted/50 text-muted-foreground hover:bg-muted',
+    item: 'text-foreground',
   },
   plan: {
     icon: ClipboardList,
