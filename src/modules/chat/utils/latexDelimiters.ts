@@ -204,7 +204,7 @@ function findBacktickRun(text: string, from: number, length: number, mask: Uint8
 function planDelimiterEdits(text: string, mask: Uint8Array): DelimiterEdit[] {
   const claimed = new Uint8Array(text.length);
   const edits = planBracketEdits(text, mask, claimed);
-  claimDisplayDollarSpans(text, mask, claimed);
+  claimDisplayDollarSpans(text, mask, claimed, edits);
   const dollarEdits = planInlineDollarEdits(text, mask, claimed);
   return [...edits, ...dollarEdits].sort((a, b) => a.start - b.start);
 }
@@ -290,7 +290,7 @@ function planBracketEdits(text: string, mask: Uint8Array, claimed: Uint8Array): 
  * unclosed `$$` claims the rest of the text: it is a display block still
  * streaming in, and nothing after it should pair either.
  */
-function claimDisplayDollarSpans(text: string, mask: Uint8Array, claimed: Uint8Array): void {
+function claimDisplayDollarSpans(text: string, mask: Uint8Array, claimed: Uint8Array, edits: DelimiterEdit[]): void {
   let index = 0;
   while (index < text.length - 1) {
     if (text[index] === '\\') {
@@ -313,6 +313,19 @@ function claimDisplayDollarSpans(text: string, mask: Uint8Array, claimed: Uint8A
         break;
       }
       cursor += 1;
+    }
+    // Markdown's display-math fences occupy their own lines. Providers also emit
+    // $$\begin{aligned} ... \end{aligned}$$, whose attached closer would otherwise
+    // leave the whole following article inside one unclosed math block.
+    const indent = text.slice(text.lastIndexOf('\n', index - 1) + 1, index);
+    if (startsLine(text, index) && indent.length <= 3 && text[index + 2] !== '$') {
+      if (!restOfLineIsBlank(text, index + 2)) {
+        edits.push({ start: index + 2, end: index + 2, value: '\n' + indent });
+      }
+      if (close >= 0 && text[close + 2] !== '$') {
+        if (!startsLine(text, close)) edits.push({ start: close, end: close, value: '\n' + indent });
+        if (!restOfLineIsBlank(text, close + 2)) edits.push({ start: close + 2, end: close + 2, value: '\n' + indent });
+      }
     }
     if (close < 0) {
       claimed.fill(1, index);

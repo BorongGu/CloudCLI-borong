@@ -185,3 +185,69 @@ for (const [label, content] of STREAMING_FIXTURES) {
 test("the reporter's sample renders the same split as whole", () => {
   assertRendersIdentically(REPORTER_SAMPLE, "reporter's sample");
 });
+
+const ALIGNED_HEADS_SAMPLE = String.raw`我们可以把论文的公式直接拎出来看：
+
+$$\begin{aligned}
+\text{1. 状态转移 (Dynamics):} \quad & \hat{s}_{t+1} = f_\omega(\hat{s}_t, a_t, \xi) \\
+\text{2. 奖励函数 (Reward Head):} \quad & \hat{r}_{t+1} = r_\omega(\hat{s}_t, a_t, g_t) \\
+\text{3. 干净观测 (Observation Head):} \quad & \hat{\bar{o}}_t = g_\omega(\hat{s}_t, \xi) \\
+\text{4. 终止判断 (Termination Head):} \quad & \hat{d}_t = d_\omega(\hat{s}_t, g_t)
+\end{aligned}$$
+
+---
+
+### 1. 为什么包含 Reward Function？
+
+在世界模型里连续往前想象 $H=32$ 步，**梯度源头**来自奖励。
+
+| 方法 | 输出 |
+| --- | --- |
+| SuperMimic | 四个组件 |`;
+
+test('attached display delimiters preserve aligned environments and the following article', () => {
+  const container = renderChatMarkdown(ALIGNED_HEADS_SAMPLE);
+  assert.equal(container.querySelectorAll('.katex-error').length, 0);
+  assert.equal(container.querySelectorAll('.katex-display').length, 1);
+  assert.equal(container.querySelectorAll('.katex').length, 2);
+  assert.ok(container.querySelector('annotation')?.textContent?.includes('\\begin{aligned}'));
+  assert.ok(container.querySelector('annotation')?.textContent?.includes('\\end{aligned}'));
+  assert.equal(container.querySelector('h3')?.textContent, '1. 为什么包含 Reward Function？');
+  assert.equal(container.querySelector('strong')?.textContent, '梯度源头');
+  assert.equal(container.querySelectorAll('table').length, 1);
+});
+
+test('one-line display formulas and list formulas end before subsequent prose', () => {
+  const source = String.raw`$$E = mc^2$$
+
+正文 **加粗**。
+
+- 梯度：
+  $$\frac{d J}{d a_t} = \frac{\partial r}{\partial a_t}$$
+  梯度公式后的列表说明。`;
+  const container = renderChatMarkdown(source);
+  assert.equal(container.querySelectorAll('.katex-error').length, 0);
+  assert.equal(container.querySelectorAll('.katex-display').length, 2);
+  assert.equal(container.querySelector('strong')?.textContent, '加粗');
+  assert.ok(container.querySelector('li')?.textContent?.includes('梯度公式后的列表说明。'));
+});
+
+test('every growing aligned-formula prefix matches whole-message rendering', () => {
+  // Exercise delimiters, the closing environment and subsequent Markdown boundaries.
+  const normalize = (html: string) => html.replace(/>\s+</g, '><').trim();
+  for (let length = 1; length <= ALIGNED_HEADS_SAMPLE.length; length += 3) {
+    const content = ALIGNED_HEADS_SAMPLE.slice(0, length);
+    const { settled, pending } = splitStreamingMarkdown(content);
+    const split = renderToStaticMarkup(<div><MarkdownBody>{settled}</MarkdownBody><MarkdownBody>{pending}</MarkdownBody></div>);
+    const whole = renderToStaticMarkup(<div><MarkdownBody>{content}</MarkdownBody></div>);
+    assert.equal(normalize(split), normalize(whole), `prefix ${length}`);
+  }
+});
+
+test('unfinished math uses the subdued foreground color', () => {
+  const container = renderChatMarkdown(String.raw`$$\begin{aligned}
+a & = \frac{`);
+  const error = container.querySelector<HTMLElement>('.katex-error');
+  assert.ok(error);
+  assert.equal(error.style.color, 'var(--muted-foreground)');
+});

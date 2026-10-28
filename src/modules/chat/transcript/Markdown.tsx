@@ -362,7 +362,7 @@ function MarkdownBodyRenderer({ children, breaks = false, inkFrom }: Omit<Markdo
     if (!hasMath && !hasHtmlBreaks && inkFrom === undefined) return EMPTY_PLUGINS;
     const plugins: PluggableList = [];
     if (hasHtmlBreaks) plugins.push(rehypeHtmlLineBreaks);
-    if (hasMath) plugins.push(rehypeKatex);
+    if (hasMath) plugins.push([rehypeKatex, { errorColor: 'var(--muted-foreground)' }]);
     if (inkFrom !== undefined) plugins.push([rehypeStreamingInk, { from: inkFrom }]);
     return plugins;
   }, [hasMath, hasHtmlBreaks, inkFrom]);

@@ -257,3 +257,33 @@ describe('search jump ownership', () => {
     );
   });
 });
+
+describe('layout changes during live output', () => {
+  it('keeps following when the working indicator reduces the viewport height', async () => {
+    const messages = new Map<string, NormalizedMessage[]>([
+      [SESSION_A, [buildMessage(0, '2026-01-01T00:00:00.000Z')]],
+    ]);
+    const { result } = await renderChatSessionState({ session: { id: SESSION_A } as ProjectSession, store: createStore(messages) });
+    const container = document.createElement('div');
+    let viewportHeight = 500;
+    container.scrollTop = 4500;
+    Object.defineProperties(container, {
+      scrollHeight: { value: 5000 }, clientHeight: { get: () => viewportHeight },
+    });
+    (result.current.scrollContainerRef as { current: HTMLDivElement | null }).current = container;
+    act(() => result.current.handleScroll());
+    expect(result.current.isUserScrolledUp).toBe(false);
+    viewportHeight = 400;
+    act(() => result.current.handleScroll(new Event('scroll')));
+    expect(result.current.isUserScrolledUp).toBe(false);
+    act(() => result.current.handleScroll({ type: 'wheel', deltaY: -200 }));
+    expect(result.current.isUserScrolledUp).toBe(true);
+    act(() => result.current.scrollToBottomAndReset());
+    expect(result.current.isUserScrolledUp).toBe(false);
+    act(() => result.current.handleScroll({ type: 'touchstart', touches: [{ clientY: 200 }] }));
+    act(() => result.current.handleScroll({ type: 'touchmove', touches: [{ clientY: 100 }] }));
+    expect(result.current.isUserScrolledUp).toBe(false);
+    act(() => result.current.handleScroll({ type: 'touchmove', touches: [{ clientY: 300 }] }));
+    expect(result.current.isUserScrolledUp).toBe(true);
+  });
+});

@@ -258,6 +258,7 @@ export function useChatSessionState({
    */
   const isUserScrolledUpRef = useRef(false);
   const followFrameRef = useRef(0);
+  const lastTouchYRef = useRef<number | null>(null);
   const isLoadingMoreRef = useRef(false);
   const allMessagesLoadedRef = useRef(false);
   const olderRequestRef = useRef<symbol | null>(null);
@@ -495,6 +496,13 @@ export function useChatSessionState({
   }, []);
 
   const scrollToBottomAndReset = useCallback(() => {
+    readingRestoreRef.current = null;
+    cancelAnimationFrame(readingRestoreFrameRef.current);
+    readingRestoreFrameRef.current = 0;
+    pendingScrollRestoreRef.current = null;
+    pendingInitialScrollRef.current = false;
+    isUserScrolledUpRef.current = false;
+    setIsUserScrolledUp(false);
     scrollToBottom();
     if (allMessagesLoaded) {
       setVisibleMessageCount(INITIAL_VISIBLE_MESSAGES);
@@ -559,13 +567,17 @@ export function useChatSessionState({
     [hasMoreMessages, isActive, selectedProject, selectedSession, sessionStore],
   );
 
-  const handleScroll = useCallback((event?: { type?: string; deltaY?: number }) => {
+  const handleScroll = useCallback((event?: { type?: string; deltaY?: number; touches?: ArrayLike<{ clientY: number }> }) => {
     if (!isActive) return;
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    const browsingIntent = (event?.type === 'wheel' && (event.deltaY ?? 0) < 0)
-      || event?.type === 'touchmove';
+    const touchY = event?.touches?.[0]?.clientY;
+    if (event?.type === 'touchstart') { lastTouchYRef.current = touchY ?? null; return; }
+    const touchBrowsing = event?.type === 'touchmove' && touchY !== undefined
+      && lastTouchYRef.current !== null && touchY > lastTouchYRef.current;
+    if (touchY !== undefined) lastTouchYRef.current = touchY;
+    const browsingIntent = (event?.type === 'wheel' && (event.deltaY ?? 0) < 0) || touchBrowsing;
     if (browsingIntent) {
       cancelAnimationFrame(followFrameRef.current);
       followFrameRef.current = 0;
@@ -575,7 +587,9 @@ export function useChatSessionState({
       readingRestoreFrameRef.current = 0;
     }
     if (readingRestoreRef.current) return;
-    const nearBottom = !browsingIntent && (followFrameRef.current !== 0 || isNearBottom());
+    const movedUp = container.scrollTop < scrollPositionRef.current.top - 1;
+    const nearBottom = !browsingIntent && (isNearBottom()
+      || (event?.type === 'scroll' && !isUserScrolledUpRef.current && (!movedUp || followFrameRef.current !== 0)));
     // Timers and resize callbacks read this before React's next commit.
     isUserScrolledUpRef.current = !nearBottom;
     setIsUserScrolledUp(!nearBottom);

@@ -96,7 +96,9 @@ export function splitStreamingMarkdown(content: string): StreamingMarkdownSplit 
       continue;
     }
 
-    if (!openFence && !insideLatexDisplay && MATH_DELIMITER_PATTERN.test(line)) {
+    if (!openFence && !insideLatexDisplay && (
+      MATH_DELIMITER_PATTERN.test(line) || (insideMath && line.includes('$$'))
+    )) {
       // A self-contained `$$x$$` line opens and closes in one go; toggling on it
       // would leave the tracker stuck open and suppress every later boundary.
       if (countMathDelimiters(line) % 2 === 1) {
