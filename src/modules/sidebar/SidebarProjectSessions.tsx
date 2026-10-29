@@ -1,13 +1,15 @@
-import { CheckSquare, Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { Button } from '@/shared/ui';
-import { cn } from '@/shared/utils';
-import type { LLMProvider, Project, ProjectSession, SessionWithProvider, SidebarSessionSelection } from '@/shared/types';
+import type { LLMProvider, Project, ProjectSession, SessionWithProvider } from '@/shared/types';
 import SidebarSessionItem from '@/modules/sidebar/SidebarSessionItem';
 import { useCompactSidebar } from '@/modules/sidebar/hooks/useCompactSidebar';
+import { useSessionPins } from '@/modules/sidebar/context/SessionPinsContext';
 
 type SidebarProjectSessionsProps = {
+  /** Ordinary project browsing groups pinned rows in the dedicated top section. */
+  hidePinnedSessions?: boolean;
   project: Project;
   isExpanded: boolean;
   sessions: SessionWithProvider[];
@@ -32,12 +34,6 @@ type SidebarProjectSessionsProps = {
   onForkSession?: (session: SessionWithProvider) => void;
   onLoadMoreSessions: (projectId: string) => void;
   onNewSession: (project: Project) => void;
-  /** The sessions ticked here, or null when this project's list is not in selection mode. */
-  selectedSessionIds: ReadonlySet<string> | null;
-  onSetSessionSelection: (selection: SidebarSessionSelection) => void;
-  onToggleSessionSelected: (projectId: string, sessionId: string) => void;
-  onCancelSessionSelection: () => void;
-  onDeleteSelectedSessions: (sessionIds: string[]) => void;
   t: TFunction;
 };
 
@@ -62,6 +58,7 @@ function SessionListSkeleton() {
 /** Rendered by SidebarProjectItem to show an expanded project's sessions, delegating each row to SidebarSessionItem. */
 export default function SidebarProjectSessions({
   project,
+  hidePinnedSessions = true,
   isExpanded,
   sessions,
   selectedSession,
@@ -84,43 +81,18 @@ export default function SidebarProjectSessions({
   onForkSession,
   onLoadMoreSessions,
   onNewSession,
-  selectedSessionIds,
-  onSetSessionSelection,
-  onToggleSessionSelected,
-  onCancelSessionSelection,
-  onDeleteSelectedSessions,
   t,
 }: SidebarProjectSessionsProps) {
   const isCompact = useCompactSidebar();
+  const pins = useSessionPins();
 
   if (!isExpanded) {
     return null;
   }
 
   const hasSessions = sessions.length > 0;
-  const isSelecting = selectedSessionIds !== null;
-  // A session with a response in flight cannot be deleted — the same rule the
-  // row's options menu applies — so it is not selectable either.
-  const isSessionRunning = (session: SessionWithProvider) =>
-    activeSessions.has(session.id) && !backgroundSessionIds.has(session.id);
-  const selectableSessionIds = sessions.filter((session) => !isSessionRunning(session)).map((session) => session.id);
-  // Re-derived from the selectable rows rather than read straight off the
-  // selection, so a row that started running after it was ticked drops out of
-  // the count, the button and the ids the confirmation is opened with.
-  const effectiveSelectedIds = selectedSessionIds
-    ? selectableSessionIds.filter((sessionId) => selectedSessionIds.has(sessionId))
-    : [];
-  const checkedSessionIds = new Set(effectiveSelectedIds);
-  const allLoadedSelected =
-    selectableSessionIds.length > 0 && effectiveSelectedIds.length === selectableSessionIds.length;
-  // With more sessions on the server than on screen, the button only reaches the
-  // loaded rows, so it offers "Select all loaded" rather than a "Select all" it
-  // could not honour. Once those rows are ticked it flips to "Clear" either way.
-  const selectAllLabel = allLoadedSelected
-    ? t('sessions.clearSelection')
-    : hasMoreSessions
-      ? t('sessions.selectAllLoaded')
-      : t('sessions.selectAll');
+  // Account pins live in the top section; filtering here preserves pagination and original order.
+  const visibleSessions = sessions.filter(session => !hidePinnedSessions || !pins?.pinnedIds.has(session.id));
 
   return (
     <div className="ml-3 space-y-1 border-l border-border pl-3">
@@ -149,65 +121,6 @@ export default function SidebarProjectSessions({
         </Button>
       )}
 
-      {(isSelecting || (initialSessionsLoaded && selectableSessionIds.length > 0)) && (
-        <div className={cn('space-y-1', isCompact && 'px-3')}>
-          {isSelecting ? (
-            <>
-              {/* Wraps rather than clips: at the narrowest sidebar width a long
-                  translated "Select all loaded" leaves no room for Cancel. */}
-              <div className="flex flex-wrap items-center justify-between gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() =>
-                    onSetSessionSelection({
-                      projectId: project.projectId,
-                      sessionIds: new Set(allLoadedSelected ? [] : selectableSessionIds),
-                    })
-                  }
-                  disabled={selectableSessionIds.length === 0}
-                >
-                  {selectAllLabel}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={onCancelSessionSelection}
-                >
-                  {t('actions.cancel')}
-                </Button>
-              </div>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="h-8 w-full justify-center gap-2 bg-red-600 text-xs font-medium text-white hover:bg-red-700"
-                onClick={() => onDeleteSelectedSessions(effectiveSelectedIds)}
-                disabled={effectiveSelectedIds.length === 0}
-              >
-                <Trash2 className="h-3 w-3" />
-                {t('sessions.deleteSelected', { count: effectiveSelectedIds.length })}
-              </Button>
-            </>
-          ) : (
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() =>
-                  onSetSessionSelection({ projectId: project.projectId, sessionIds: new Set() })
-                }
-              >
-                <CheckSquare className="h-3 w-3" />
-                {t('sessions.select')}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* A page emptied by deleting every loaded row still has sessions behind
           it on the server, so it keeps its "Load more" instead of "No sessions". */}
       {!initialSessionsLoaded ? (
@@ -218,13 +131,13 @@ export default function SidebarProjectSessions({
         </div>
       ) : (
         <>
-          {sessions.map((session) => (
+          {visibleSessions.map((session) => (
             <SidebarSessionItem
               key={session.id}
               project={project}
               session={session}
               selectedSession={selectedSession}
-              isProcessing={isSessionRunning(session)}
+              isProcessing={activeSessions.has(session.id) && !backgroundSessionIds.has(session.id)}
               hasBackgroundWork={backgroundSessionIds.has(session.id)}
               needsAttention={attentionSessionIds.has(session.id)}
               currentTime={currentTime}
@@ -238,9 +151,6 @@ export default function SidebarProjectSessions({
               onSessionSelect={onSessionSelect}
               onDeleteSession={onDeleteSession}
               onForkSession={onForkSession}
-              isSelecting={isSelecting}
-              isChecked={checkedSessionIds.has(session.id)}
-              onToggleSessionSelected={onToggleSessionSelected}
               t={t}
             />
           ))}

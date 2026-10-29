@@ -122,12 +122,6 @@ function Sidebar({
     saveProjectName,
     showDeleteSessionConfirmation,
     confirmDeleteSession,
-    sessionSelection,
-    setProjectSessionSelection,
-    toggleSessionSelected,
-    cancelSessionSelection,
-    showDeleteSelectedSessionsConfirmation,
-    confirmDeleteSessions,
     requestProjectDelete,
     confirmDeleteProject,
     handleProjectSelect,
@@ -190,6 +184,7 @@ function Sidebar({
   );
 
   const projectListProps: SidebarProjectListProps = {
+    hidePinnedSessions: searchMode === 'projects' && !searchFilter.trim(),
     projects,
     filteredProjects,
     selectedProject,
@@ -225,11 +220,6 @@ function Sidebar({
     onStartEditingSession: startEditingSession,
     onCancelEditingSession: cancelRename,
     onSaveEditingSession: handleSaveSessionName,
-    sessionSelection,
-    onSetSessionSelection: setProjectSessionSelection,
-    onToggleSessionSelected: toggleSessionSelected,
-    onCancelSessionSelection: cancelSessionSelection,
-    onDeleteSelectedSessions: showDeleteSelectedSessionsConfirmation,
     t,
   };
 
@@ -247,7 +237,6 @@ function Sidebar({
         onCancelDeletion={() => setPendingDeletion(null)}
         onConfirmDeleteProject={confirmDeleteProject}
         onConfirmDeleteSession={confirmDeleteSession}
-        onConfirmDeleteSessions={confirmDeleteSessions}
         t={t}
       />
 

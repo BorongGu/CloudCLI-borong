@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import type { TFunction } from 'i18next';
 import { beforeEach, test, vi } from 'vitest';
 
@@ -66,11 +66,9 @@ const renderController = (initialProjects: Project[]) => renderHook(
   { initialProps: { projects: initialProjects } },
 );
 
-const openConversationsTab = async (initialProjects: Project[]) => {
+const openDefaultConversations = async (initialProjects: Project[]) => {
   const rendered = renderController(initialProjects);
-  act(() => {
-    rendered.result.current.setSearchMode('conversations');
-  });
+  assert.equal(rendered.result.current.searchMode, 'conversations');
   await waitFor(() => {
     assert.equal(rendered.result.current.recentConversations.length, 2);
   });
@@ -93,7 +91,7 @@ beforeEach(() => {
 });
 
 test('a title renamed in `projects` lands on the matching conversation row', async () => {
-  const { result, rerender } = await openConversationsTab([buildProject({ 'session-1': 'Original title', 'session-2': '' })]);
+  const { result, rerender } = await openDefaultConversations([buildProject({ 'session-1': 'Original title', 'session-2': '' })]);
 
   rerender({ projects: [buildProject({ 'session-1': 'Renamed from header', 'session-2': '' })] });
 
@@ -106,7 +104,7 @@ test('a title renamed in `projects` lands on the matching conversation row', asy
 });
 
 test('rows keep their identity, and an unnamed session keeps its id, when nothing was renamed', async () => {
-  const { result, rerender } = await openConversationsTab([buildProject({ 'session-1': 'Original title', 'session-2': '' })]);
+  const { result, rerender } = await openDefaultConversations([buildProject({ 'session-1': 'Original title', 'session-2': '' })]);
   const rowsBefore = result.current.recentConversations;
 
   rerender({ projects: [buildProject({ 'session-1': 'Original title', 'session-2': '' })] });
