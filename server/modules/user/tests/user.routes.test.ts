@@ -14,12 +14,13 @@ type DraftCall = [string, ...unknown[]];
 const USER_ID = 7;
 
 /** Serves the user routes over a service whose drafts store only records what it was asked to do. */
-async function withUserServer(run: (baseUrl: string, calls: DraftCall[]) => Promise<void>): Promise<void> {
+async function withUserServer(run: (baseUrl: string, calls: DraftCall[]) => Promise<void>, overrides: Partial<UserDependencies> = {}): Promise<void> {
   const calls: DraftCall[] = [];
   const unexpected = () => {
     throw new Error('Unexpected user service call');
   };
   const dependencies: UserDependencies = {
+    sessions: { listSessionsByIds: unexpected },
     users: {
       getGitConfig: unexpected,
       updateGitConfig: unexpected,
@@ -44,7 +45,7 @@ async function withUserServer(run: (baseUrl: string, calls: DraftCall[]) => Prom
     logInfo: () => undefined,
     logError: () => undefined,
   };
-  const service = createUserService(dependencies);
+  const service = createUserService({ ...dependencies, ...overrides });
 
   const app = express();
   app.use(express.json());
@@ -73,6 +74,23 @@ const send = (url: string, method: string, body: unknown) => fetch(url, {
   method,
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),
+});
+
+test('session pin routes persist against the authenticated account and validate input', async () => {
+  const saved: Record<number, Record<string, unknown>> = {};
+  await withUserServer(async baseUrl => {
+    const url = `${baseUrl}/api/user/session-pins`;
+    const pinned = await send(url, 'PUT', { sessionId: 'old-session', pinned: true, userId: 999 });
+    assert.equal(pinned.status, 200);assert.deepEqual(saved[USER_ID], { pinnedSessions: ['old-session'] });
+    assert.equal(saved[999], undefined);
+    const listing = await (await fetch(url)).json() as { sessions: Array<{ sessionId: string }> };assert.equal(listing.sessions[0].sessionId, 'old-session');
+    assert.equal((await send(url, 'PUT', { sessionId: 'old-session', pinned: 'yes' })).status, 400);
+    const unpinned = await send(url, 'PUT', { sessionId: 'old-session', pinned: false });
+    assert.deepEqual((await unpinned.json() as { sessions: unknown[] }).sessions, []);
+  }, {
+    preferences: { getPreferences: userId => saved[userId] || {}, savePreferences: (userId, update) => { saved[userId] = { ...saved[userId], ...update }; } },
+    sessions: { listSessionsByIds: ids => ids.map(sessionId => ({ sessionId, provider: 'codex', projectId: 'project', projectDisplayName: 'Project', sessionTitle: 'Old session', lastActivity: null })) },
+  });
 });
 
 test('POST /drafts/queued-message appends the message for the signed-in user', async () => {

@@ -130,6 +130,19 @@ test('recent sessions map project metadata and preserve database pagination', { 
   });
 });
 
+test('pinned metadata reads older sessions directly and excludes archived or deleted entries', { concurrency: false }, async () => {
+  await withIsolatedDatabase(() => {
+    sessionsDb.createSession('old-pin', 'opencode', '/tmp/pin-project', 'Older session', '2020-01-01T00:00:00Z', '2020-01-01T00:00:00Z');
+    sessionsDb.createSession('new-session', 'codex', '/tmp/pin-project', 'Newer session', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+    assert.equal(sessionsService.listRecentSessions(1, 0).conversations[0].sessionId, 'new-session');
+    assert.deepEqual(sessionsService.listSessionsByIds(['old-pin', 'missing', 'old-pin']).map(row => row.sessionId), ['old-pin']);
+    sessionsDb.updateSessionCustomName('old-pin', 'Renamed pin');
+    assert.equal(sessionsService.listSessionsByIds(['old-pin'])[0].sessionTitle, 'Renamed pin');
+    projectsDb.updateProjectIsArchived('/tmp/pin-project', true);
+    assert.deepEqual(sessionsService.listSessionsByIds(['old-pin']), []);
+  });
+});
+
 /** One Claude transcript row of user or assistant text, linked by uuid chain. */
 function claudeTextRow(
   sessionId: string,

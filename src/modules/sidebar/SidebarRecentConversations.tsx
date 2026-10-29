@@ -1,4 +1,4 @@
-import { Loader2, MessageSquare } from 'lucide-react';
+import { Loader2, MessageSquare, Pin } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import type { TFunction } from 'i18next';
 
@@ -8,8 +8,11 @@ import type { ProjectSession, RecentConversationListItem, SessionRowActions } fr
 import { formatCompactAge } from '@/modules/sidebar/utils/sidebarProjectFormatting';
 import SessionOptions from '@/modules/sidebar/SessionOptions';
 import { SidebarSessionStatus } from '@/modules/sidebar/SidebarSessionStatus';
+import { useSessionPins } from '@/modules/sidebar/context/SessionPinsContext';
 
 type SidebarRecentConversationsProps = {
+  /** Reuse the same row actions for the sidebar's persistent top section. */
+  pinnedSection?: boolean;
   conversations: RecentConversationListItem[];
   total: number;
   hasMore: boolean;
@@ -51,6 +54,7 @@ function RecentConversationSkeleton() {
 
 /** Rendered by SidebarContent in the recents search mode to list recently active sessions across all projects. */
 export default function SidebarRecentConversations({
+  pinnedSection = false,
   conversations,
   total,
   hasMore,
@@ -65,6 +69,8 @@ export default function SidebarRecentConversations({
   onRetry,
   t,
 }: SidebarRecentConversationsProps) {
+  const pins = useSessionPins();
+  if (!pinnedSection && conversations.length > 0 && !hasMore && conversations.every(row => pins?.pinnedIds.has(row.sessionId))) return null;
   if (isLoading && conversations.length === 0) {
     return <RecentConversationSkeleton />;
   }
@@ -98,16 +104,16 @@ export default function SidebarRecentConversations({
   }
 
   return (
-    <div className="px-1" data-testid="recent-conversations-list">
+    <div className="px-1" data-testid={pinnedSection ? 'pinned-conversations-list' : 'recent-conversations-list'}>
       <div className="flex items-center justify-between px-2 pb-1.5 pt-0.5">
         <span className="text-[11px] font-medium text-muted-foreground">
-          {t('recent.title', 'Recent conversations')}
+          {pinnedSection ? t('pins.title') : t('recent.title', 'Recent conversations')}
         </span>
         <span className="text-[10px] tabular-nums text-muted-foreground/70">{total}</span>
       </div>
 
       <div className="space-y-0.5">
-        {conversations.map((conversation) => {
+        {conversations.filter(conversation => pinnedSection || !pins?.pinnedIds.has(conversation.sessionId)).map((conversation) => {
           const isSelected = String(selectedSession?.id ?? '') === conversation.sessionId;
           const age = formatCompactAge(conversation.lastActivity, currentTime);
           const hasBackgroundWork = sessionActions.backgroundSessionIds.has(conversation.sessionId);
@@ -154,8 +160,9 @@ export default function SidebarRecentConversations({
                 </span>
 
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-normal leading-4">
-                    {conversation.sessionTitle}
+                  <span className="flex items-center gap-1.5 text-[13px] font-normal leading-4">
+                    <span className="truncate">{conversation.sessionTitle}</span>
+                    {pinnedSection && <Pin aria-label={t('pins.pinned')} className="h-3 w-3 shrink-0 text-muted-foreground/70" />}
                   </span>
                   <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] leading-3 text-muted-foreground">
                     <span className="truncate">{conversation.projectDisplayName}</span>

@@ -1,5 +1,6 @@
 import type { QueuedChatMessage } from '@/shared/types.js';
 import { AppError } from '@/shared/utils.js';
+import type { sessionsService } from '@/modules/providers/index.js';
 
 type GitConfig = {
   git_name: string | null;
@@ -15,6 +16,7 @@ type DraftRecord = {
 };
 
 type UserDependencies = {
+  sessions: Pick<typeof sessionsService, 'listSessionsByIds'>;
   users: {
     getGitConfig(userId: number): GitConfig | undefined;
     updateGitConfig(userId: number, gitName: string | null, gitEmail: string | null): void;
@@ -111,7 +113,28 @@ const readPreferenceUpdates = (body: unknown): Record<string, unknown> => {
 
 /** Creates user-profile workflows with explicit repository and Git adapters. */
 export function createUserService(dependencies: UserDependencies) {
+  const readPins = (userId: number): string[] => {
+    const saved = dependencies.preferences.getPreferences(userId).pinnedSessions;
+    return Array.isArray(saved) ? [...new Set(saved.filter((id): id is string => typeof id === 'string' && Boolean(id) && id.length <= MAX_KEY_LENGTH))] : [];
+  };
+  const getSessionPins = (userId: number) => ({ success: true, sessions: dependencies.sessions.listSessionsByIds(readPins(userId)) });
   return {
+    getSessionPins,
+
+    /** Apply one pin against the latest account state so separate devices retain each other's pins. */
+    setSessionPin(userId: number, sessionIdInput: unknown, pinned: unknown) {
+      const sessionId = typeof sessionIdInput === 'string' ? sessionIdInput.trim() : '';
+      if (!sessionId || sessionId.length > MAX_KEY_LENGTH || typeof pinned !== 'boolean') {
+        throw new AppError('A session id and boolean pinned value are required', { code: 'INVALID_SESSION_PIN', statusCode: 400 });
+      }
+      if (pinned && dependencies.sessions.listSessionsByIds([sessionId]).length === 0) {
+        throw new AppError('Session was not found', { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+      }
+      const pins = readPins(userId);
+      const next = pinned ? pins.includes(sessionId) ? pins : [sessionId, ...pins] : pins.filter(id => id !== sessionId);
+      dependencies.preferences.savePreferences(userId, { pinnedSessions: next });
+      return getSessionPins(userId);
+    },
     async getGitConfig(userId: number) {
       let gitConfig = dependencies.users.getGitConfig(userId);
       if (!gitConfig || (!gitConfig.git_name && !gitConfig.git_email)) {

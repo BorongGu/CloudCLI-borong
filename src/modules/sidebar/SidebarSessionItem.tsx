@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Check, CheckSquare, Edit2, Loader2, MoreHorizontal, Square, Trash2, X } from 'lucide-react';
+import { Check, CheckSquare, Edit2, Loader2, MoreHorizontal, Pin, PinOff, Square, Trash2, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { Badge, Dialog, DialogContent, DialogTitle, LLMProviderLogo, Tooltip, buttonVariants } from '@/shared/ui';
@@ -10,6 +10,7 @@ import { PROVIDER_LABELS, createSessionViewModel, formatCompactAge } from '@/mod
 import { useCompactSidebar } from '@/modules/sidebar/hooks/useCompactSidebar';
 import { useProviderSessionIdCopy } from '@/modules/sidebar/hooks/useProviderSessionIdCopy';
 import SessionOptions from '@/modules/sidebar/SessionOptions';
+import { useSessionPins } from '@/modules/sidebar/context/SessionPinsContext';
 import { SidebarSessionStatus } from '@/modules/sidebar/SidebarSessionStatus';
 
 type SidebarSessionItemProps = {
@@ -71,6 +72,8 @@ function SidebarSessionItem({
   const isSelected = selectedSession?.id === session.id;
   const compactSessionAge = formatCompactAge(sessionView.sessionTime, currentTime);
   const [isMobileOptionsOpen, setIsMobileOptionsOpen] = useState(false);
+  const pins = useSessionPins();
+  const isPinned = pins?.pinnedIds.has(session.id) ?? false;
   const providerLabel = PROVIDER_LABELS[session.__provider];
 
   // The desktop controls live in SessionOptions, which owns the rename panel and
@@ -286,6 +289,12 @@ function SidebarSessionItem({
               </div>
             ) : (
               <div className="space-y-2">
+                {pins && <button type="button" disabled={pins.pendingIds.has(session.id)}
+                  onClick={() => { pins.setPinned(session.id, !isPinned);setMobileOptionsOpen(false); }}
+                  className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-border bg-muted/35 px-4 py-3 text-left text-foreground transition-colors active:bg-muted disabled:opacity-50">
+                  {isPinned ? <PinOff className="h-5 w-5 shrink-0" /> : <Pin className="h-5 w-5 shrink-0" />}
+                  <span className="text-sm font-medium">{t(isPinned ? 'pins.unpin' : 'pins.pin')}</span>
+                </button>}
                 <button
                   type="button"
                   onClick={startMobileRename}

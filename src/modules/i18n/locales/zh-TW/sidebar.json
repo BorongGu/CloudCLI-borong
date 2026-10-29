@@ -166,5 +166,13 @@
     "archiveSessions_other": "封存 {{count}} 個工作階段",
     "archiveSessionsNotice_one": "封存會將所選工作階段移出使用中清單，但保留其歷史記錄。",
     "archiveSessionsNotice_other": "封存會將所選工作階段移出使用中清單，但保留其歷史記錄。"
+  },
+  "pins": {
+    "title": "置頂",
+    "pin": "置頂會話",
+    "unpin": "取消置頂",
+    "pinned": "已置頂",
+    "loadFailed": "置頂清單載入失敗。",
+    "saveFailed": "置頂儲存失敗，請重試。"
   }
 }

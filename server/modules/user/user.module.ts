@@ -1,6 +1,7 @@
 import spawn from 'cross-spawn';
 
 import { sessionDraftsDb, userDb, userPreferencesDb } from '@/modules/database/index.js';
+import { sessionsService } from '@/modules/providers/index.js';
 
 import { createUserRouter } from './user.routes.js';
 import { createUserService } from './user.service.js';
@@ -35,6 +36,7 @@ async function readSystemGitConfig() {
 }
 
 const userService = createUserService({
+  sessions: sessionsService,
   users: {
     getGitConfig: (userId) => userDb.getGitConfig(userId),
     updateGitConfig: (userId, gitName, gitEmail) => userDb.updateGitConfig(

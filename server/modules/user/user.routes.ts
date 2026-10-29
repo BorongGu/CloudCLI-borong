@@ -13,6 +13,16 @@ function readUserId(request: express.Request): number {
 export function createUserRouter(service: ReturnType<typeof createUserService>): express.Router {
   const router = express.Router();
 
+  router.get('/session-pins', (req, res, next) => {
+    try { res.json(service.getSessionPins(readUserId(req))); } catch (error) { next(error); }
+  });
+  router.put('/session-pins', (req, res, next) => {
+    try {
+      const body = req.body as { sessionId?: unknown; pinned?: unknown } | undefined;
+      res.json(service.setSessionPin(readUserId(req), body?.sessionId, body?.pinned));
+    } catch (error) { next(error); }
+  });
+
   router.get('/git-config', async (req, res, next) => {
     try {
       res.json(await service.getGitConfig(readUserId(req)));

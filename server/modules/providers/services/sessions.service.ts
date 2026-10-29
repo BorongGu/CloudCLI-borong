@@ -266,6 +266,21 @@ export const sessionsService = {
     };
   },
 
+  /** User pins resolve directly by id so old sessions remain available beyond the recent pages. */
+  listSessionsByIds(sessionIds: string[]): RecentSessionListItem[] {
+    return [...new Set(sessionIds)].flatMap(sessionId => {
+      const session = sessionsDb.getSessionById(sessionId);
+      if (!session || session.isArchived) return [];
+      const project = session.project_path ? projectsDb.getProjectPath(session.project_path) : null;
+      if (project?.isArchived) return [];
+      return [{ sessionId: session.session_id, provider: session.provider as LLMProvider,
+        projectId: project?.project_id ?? null,
+        projectDisplayName: resolveProjectDisplayName(session.project_path, project?.custom_project_name),
+        sessionTitle: session.custom_name?.trim() || session.session_id,
+        lastActivity: session.updated_at ?? session.created_at ?? null }];
+    });
+  },
+
   /**
    * Resolves the provider-native session id a runtime needs for resume.
    *

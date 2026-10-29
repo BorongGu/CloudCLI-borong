@@ -528,6 +528,8 @@ export const api = {
 
   // User endpoints
   user: {
+    sessionPins: () => get('/api/user/session-pins'),
+    setSessionPin: (sessionId: string, pinned: boolean) => put('/api/user/session-pins', { sessionId, pinned }),
     gitConfig: () => get('/api/user/git-config'),
     updateGitConfig: (gitName: string, gitEmail: string) =>
       post('/api/user/git-config', { gitName, gitEmail }),

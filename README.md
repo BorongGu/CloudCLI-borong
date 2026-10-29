@@ -61,6 +61,7 @@
 - **Git Explorer** - View, stage and commit your changes. You can also switch branches 
 - **Browser Use** - Open browser sessions for web research, testing, and agent-driven browser tasks
 - **Session Management** - Resume conversations, manage multiple sessions, and track history
+- **Pinned Sessions** - Pin a session from its options menu for quick access at the top of the sidebar. Pins follow your account across devices and remain available when older sessions fall outside the loaded history pages.
 - **Codex and OpenCode side questions** - Use `/btw <question>` to open a smaller temporary chat with the main conversation's context, including while the main task runs. Each main session retains its own BTW window, conversation, draft and size across navigation and refresh. Hidden windows continue receiving replies. Questions and answers support inline and display math. Use **Finish**, **×**, or **Esc** to clear the current window's temporary context. The window shows provider progress and elapsed time.
 - **Plugin System** - Extend CloudCLI with custom plugins — add new tabs, backend services, and integrations. [Build your own →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)
 - **TaskMaster AI Integration** *(Optional)* - Advanced project management with AI-powered task planning, PRD parsing, and workflow automation

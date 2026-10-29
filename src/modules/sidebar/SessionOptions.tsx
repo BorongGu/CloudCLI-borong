@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Check, Edit2, GitBranch, MoreHorizontal, Trash2, X } from 'lucide-react';
+import { Check, Edit2, GitBranch, MoreHorizontal, Pin, PinOff, Trash2, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { ActionMenu } from '@/shared/ui';
@@ -8,6 +8,7 @@ import type { LLMProvider } from '@/shared/types';
 import { useSessionForkingProviders } from '@/shared/hooks/useProviderCapabilities';
 import { useProviderSessionIdCopy } from '@/modules/sidebar/hooks/useProviderSessionIdCopy';
 import { PROVIDER_LABELS } from '@/modules/sidebar/utils/sidebarProjectFormatting';
+import { useSessionPins } from '@/modules/sidebar/context/SessionPinsContext';
 
 type SessionOptionsProps = {
   sessionId: string;
@@ -62,6 +63,8 @@ export default function SessionOptions({
   className,
   t,
 }: SessionOptionsProps) {
+  const pins = useSessionPins();
+  const isPinned = pins?.pinnedIds.has(sessionId) ?? false;
   const containerRef = useRef<HTMLDivElement>(null);
   const providerLabel = PROVIDER_LABELS[provider];
   const { copyState, copyLabel, setOptionsOpen, handleCopyAction, isCopyPending, CopyStateIcon } =
@@ -160,6 +163,11 @@ export default function SessionOptions({
             </div>
           )}
           items={[
+            ...(pins ? [{
+              key: 'pin', label: t(isPinned ? 'pins.unpin' : 'pins.pin'), icon: isPinned ? PinOff : Pin,
+              loading: pins.pendingIds.has(sessionId), disabled: pins.pendingIds.has(sessionId),
+              onSelect: () => pins.setPinned(sessionId, !isPinned),
+            }] : []),
             ...(projectId !== null ? [{
               key: 'rename',
               label: 'Rename session',

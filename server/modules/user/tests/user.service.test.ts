@@ -16,6 +16,7 @@ const noDrafts: UserDependencies['drafts'] = {
 
 function createDependencies(overrides: Partial<UserDependencies> = {}): UserDependencies {
   return {
+    sessions: { listSessionsByIds: () => [] },
     users: {
       getGitConfig: () => undefined,
       updateGitConfig: () => undefined,
@@ -51,6 +52,25 @@ test('getGitConfig imports system configuration when the repository is empty', a
 
   assert.equal(result.gitName, 'Alice');
   assert.deepEqual(updates, [[7, 'Alice', 'alice@example.com']]);
+});
+
+test('session pins merge per-user edits, preserve ordering and survive another service instance', () => {
+  const stored = new Map<number, Record<string, unknown>>();
+  const metadata = (sessionId: string) => ({ sessionId, provider: 'codex' as const, sessionTitle: sessionId,
+    projectId: 'project', projectDisplayName: 'Project', lastActivity: null });
+  const dependencies = createDependencies({
+    preferences: { getPreferences: userId => stored.get(userId) || {}, savePreferences: (userId, update) => stored.set(userId, { ...stored.get(userId), ...update }) },
+    sessions: { listSessionsByIds: ids => ids.filter(id => id !== 'missing').map(metadata) },
+  });
+  const phone = createUserService(dependencies);const desktop = createUserService(dependencies);
+  phone.setSessionPin(7, 'first', true);desktop.setSessionPin(7, 'second', true);
+  phone.setSessionPin(7, 'first', true);
+  assert.deepEqual(desktop.getSessionPins(7).sessions.map(row => row.sessionId), ['second', 'first']);
+  assert.deepEqual(desktop.getSessionPins(8).sessions, []);
+  phone.setSessionPin(7, 'second', false);
+  assert.deepEqual(createUserService(dependencies).getSessionPins(7).sessions, [metadata('first')]);
+  assert.throws(() => phone.setSessionPin(7, 'missing', true), (error: any) => error.statusCode === 404);
+  assert.throws(() => phone.setSessionPin(7, 'first', 'yes'), (error: any) => error.statusCode === 400);
 });
 
 test('updateGitConfig persists valid input and invokes the Git adapter', async () => {

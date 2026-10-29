@@ -9,6 +9,7 @@ import SidebarFooter from '@/modules/sidebar/SidebarFooter';
 import SidebarHeader from '@/modules/sidebar/SidebarHeader';
 import SidebarProjectList from '@/modules/sidebar/SidebarProjectList';
 import SidebarRecentConversations from '@/modules/sidebar/SidebarRecentConversations';
+import { useSessionPins } from '@/modules/sidebar/context/SessionPinsContext';
 
 function HighlightedSnippet({ snippet, highlights }: { snippet: string; highlights: { start: number; end: number }[] }) {
   const parts: ReactNode[] = [];
@@ -166,6 +167,7 @@ export default function SidebarContent({
   t,
 }: SidebarContentProps) {
   const showConversationSearch = searchMode === 'conversations' && searchFilter.trim().length >= 2;
+  const pins = useSessionPins();
   const hasSearchResults = Boolean(
     conversationResults
     && (conversationResults.titleResults.length > 0 || conversationResults.results.length > 0),
@@ -200,6 +202,19 @@ export default function SidebarContent({
       />
 
       <ScrollArea className="flex-1 overflow-y-auto overscroll-contain md:px-1.5 md:py-2">
+        {pins?.error && <p role="alert" className="px-3 py-2 text-[11px] text-muted-foreground">
+          {t(pins.error === 'load' ? 'pins.loadFailed' : 'pins.saveFailed')}
+          {pins.error === 'load' && <button type="button" onClick={() => { void pins.refresh(); }} className="ml-2 underline">{t('buttons.retry', { ns: 'common', defaultValue: 'Retry' })}</button>}
+        </p>}
+        {pins && pins.conversations.length > 0 && !searchFilter.trim() && (searchMode === 'projects' || searchMode === 'conversations') && (
+          <div className="mb-3 border-b border-border/40 pb-2" data-session-pins>
+            <SidebarRecentConversations pinnedSection conversations={pins.conversations} total={pins.conversations.length}
+              hasMore={false} isLoading={false} isLoadingMore={false} hasError={false}
+              selectedSession={projectListProps.selectedSession} currentTime={projectListProps.currentTime}
+              sessionActions={projectListProps} onConversationSelect={onConversationResultClick}
+              onLoadMore={() => {}} onRetry={() => { void pins.refresh(); }} t={t} />
+          </div>
+        )}
         {showConversationSearch ? (
           isSearching && !conversationResults ? (
             <div className="px-4 py-12 text-center md:py-8">
