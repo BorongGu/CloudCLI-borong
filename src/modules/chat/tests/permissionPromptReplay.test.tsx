@@ -90,6 +90,21 @@ test('an unanswered request stays pending through a resolution for another id', 
   assert.equal(pending[0].requestId, 'req-open');
 });
 
+test('an idempotent answer acknowledgement clears a stale phone card even without a replay sequence', () => {
+  const { dispatch, getPending } = renderHandlers();
+  dispatch(requestEvent('answered-on-mac', 1));
+  dispatch({ kind: 'permission_resolved', requestId: 'answered-on-mac', sessionId: 'viewed-session' } as ServerEvent);
+  assert.deepEqual(getPending(), []);
+});
+
+test('a recovered nonblocking question remains actionable while its completed session stays idle', () => {
+  const processing: unknown[] = [];
+  const { dispatch, getPending } = renderHandlers((sessionId) => processing.push(sessionId));
+  dispatch({ ...requestEvent('idle-async-question', 1), context: { provider: 'codex', isBlocking: false } } as ServerEvent);
+  assert.equal(getPending()[0]?.requestId, 'idle-async-question');
+  assert.deepEqual(processing, []);
+});
+
 test('a reattached run restores interrupt availability after status-only native detection', () => {
   const observed: unknown[] = [];
   const { dispatch } = renderHandlers((sessionId, activity) => observed.push({ sessionId, activity }));

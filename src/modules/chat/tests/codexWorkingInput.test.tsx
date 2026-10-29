@@ -102,6 +102,7 @@ test('answering an asynchronous question steers a structured native reply and re
   const replies = JSON.parse(text.split('<send_user_message_question_reply>')[1].split('</send_user_message_question_reply>')[0]);
   assert.deepEqual(JSON.parse(replies[0].questionItemId), ['request_user_input_async', 'call-123', 0]);
   assert.equal(replies[0].answer, 'Mac');assert.equal(view.result.current.input, 'my separate follow-up');
+  assert.equal(view.sent.find(message => message.type === 'chat.permission-response')?.sessionId, 'app');
   assert.equal(view.sent.some(message => message.type === 'chat.abort'), false);
 });
 

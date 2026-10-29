@@ -770,15 +770,29 @@ export function useChatSessionState({
   useEffect(() => {
     if (!selectedSession || !selectedProject || !ws) return;
 
-    statusCheckSentAtRef.current.set(selectedSession.id, Date.now());
-    sendMessage({
-      type: 'chat.subscribe',
-      sessions: [{
-        sessionId: selectedSession.id,
-        lastSeq: lastSeqRef.current.get(selectedSession.id) ?? 0,
-        watchNative: selectedSession.provider === 'codex',
-      }],
-    });
+    const reconcile = () => {
+      statusCheckSentAtRef.current.set(selectedSession.id, Date.now());
+      sendMessage({
+        type: 'chat.subscribe',
+        sessions: [{
+          sessionId: selectedSession.id,
+          lastSeq: lastSeqRef.current.get(selectedSession.id) ?? 0,
+          watchNative: selectedSession.provider === 'codex',
+        }],
+      });
+    };
+    reconcile();
+    // Foregrounding can retain the same OPEN socket while another device has
+    // answered a question. Reconcile its authoritative pending list on return.
+    const onResume = () => { if (document.visibilityState !== 'hidden') reconcile(); };
+    window.addEventListener('focus', onResume);
+    window.addEventListener('pageshow', onResume);
+    document.addEventListener('visibilitychange', onResume);
+    return () => {
+      window.removeEventListener('focus', onResume);
+      window.removeEventListener('pageshow', onResume);
+      document.removeEventListener('visibilitychange', onResume);
+    };
   }, [isProcessing, lastSeqRef, selectedProject, selectedSession, sendMessage, statusCheckSentAtRef, ws]);
 
   // Main session loading effect — store-based.

@@ -1584,6 +1584,7 @@ export function useChatComposerState({
             if (sent !== true) continue;
           }
           const sent = sendMessage({ type: 'chat.permission-response', requestId,
+            sessionId: request?.sessionId || selectedSession?.id || currentSessionId,
             allow: Boolean(decision?.allow), updatedInput: decision?.updatedInput,
             message: decision?.message, rememberEntry: decision?.rememberEntry });
           if (sent === false) {
@@ -1595,7 +1596,7 @@ export function useChatComposerState({
         } finally { answeringQuestionsRef.current.delete(requestId); }
       }
     },
-    [sendMessage, setPendingPermissionRequests, pendingPermissionRequests, handleSubmit, addMessage, t],
+    [sendMessage, setPendingPermissionRequests, pendingPermissionRequests, handleSubmit, addMessage, t, selectedSession?.id, currentSessionId],
   );
 
   const [isInputFocused, setIsInputFocused] = useState(false);

@@ -334,7 +334,9 @@ export function useChatRealtimeHandlers({
               setPendingPermissionRequests(nextPendingPermissionRequests);
             }
           }
-          if (sid) {
+          // Async cards can remain after the turn ends; their presence alone
+          // does not start a new run or change how the next answer is sent.
+          if (sid && (msg.context as { isBlocking?: boolean } | undefined)?.isBlocking !== false) {
             onSessionProcessing?.(sid);
           }
           break;

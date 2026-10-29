@@ -3,7 +3,7 @@ import type { WebSocket } from 'ws';
 import { sessionsDb } from '@/modules/database/index.js';
 import { codexGoalsService, providerModelsService, sessionsService } from '@/modules/providers/index.js';
 import { chatRunRegistry } from '@/modules/websocket/services/chat-run-registry.service.js';
-import { connectedClients, WS_OPEN_STATE } from '@/modules/websocket/services/websocket-state.service.js';
+import { broadcastSessionPermission, connectedClients, subscribeToSession, WS_OPEN_STATE } from '@/modules/websocket/services/websocket-state.service.js';
 import {
   filterAttachmentsToUploadStore,
   isImageAttachmentDescriptor,
@@ -480,6 +480,7 @@ async function handleChatSubscribe(
     if (!sessionId) {
       continue;
     }
+    subscribeToSession(ws, sessionId);
 
     const lastSeqRaw = (target as AnyRecord).lastSeq;
     const lastSeq = typeof lastSeqRaw === 'number' && Number.isFinite(lastSeqRaw)
@@ -505,7 +506,9 @@ async function handleChatSubscribe(
     }
     if ((target as AnyRecord).watchNative === true && session?.provider === 'codex') {
       try {
-        await dependencies.runtime.restorePendingApprovals?.('codex', sessionId, { send: event => sendJson(ws, event) });
+        await dependencies.runtime.restorePendingApprovals?.('codex', sessionId, {
+          send: event => broadcastSessionPermission(sessionId, event, [ws]),
+        });
       } catch (error) { console.warn('[Chat] Question recovery failed:', String(error)); }
     }
     const run = chatRunRegistry.getRun(sessionId);
@@ -538,6 +541,9 @@ async function handleChatSubscribe(
     // acknowledgement while its transcript continues to load through REST.
     if ((target as AnyRecord).replay !== false) {
       for (const event of chatRunRegistry.replayEvents(sessionId, lastSeq)) {
+        // The pending snapshot above is authoritative. Replaying older question
+        // events can resurrect a card answered on another device or an earlier turn.
+        if (['permission_request', 'permission_resolved', 'permission_cancelled'].includes(event.kind)) continue;
         if (!isProcessing && event.kind !== 'error') continue;
         // Goal state comes from the current native snapshot and live updates.
         // Historical statuses would overwrite a newer pause or usage counter.
@@ -552,7 +558,7 @@ async function handleChatSubscribe(
  * Handles `chat.permission-response`: forwards a tool-approval decision to the
  * provider runtime that owns the pending native question or approval.
  */
-function handlePermissionResponse(data: AnyRecord, dependencies: ChatWebSocketDependencies): void {
+function handlePermissionResponse(ws: WebSocket, data: AnyRecord, dependencies: ChatWebSocketDependencies): void {
   if (typeof data.requestId !== 'string' || data.requestId.length === 0) {
     return;
   }
@@ -562,6 +568,13 @@ function handlePermissionResponse(data: AnyRecord, dependencies: ChatWebSocketDe
     updatedInput: data.updatedInput,
     message: typeof data.message === 'string' ? data.message : undefined,
     rememberEntry: data.rememberEntry,
+  });
+  // An already-resolved card can survive on a suspended device. Acknowledge
+  // repeated answers/skips too, even when the provider has discarded the request.
+  sendJson(ws, {
+    kind: 'permission_resolved',
+    requestId: data.requestId,
+    ...(typeof data.sessionId === 'string' ? { sessionId: data.sessionId } : {}),
   });
 }
 
@@ -682,7 +695,7 @@ export function handleChatConnection(
           await handleChatSubscribe(ws, data, dependencies);
           return;
         case 'chat.permission-response':
-          handlePermissionResponse(data, dependencies);
+          handlePermissionResponse(ws, data, dependencies);
           return;
         default:
           sendProtocolError(ws, 'UNKNOWN_MESSAGE_TYPE', `Unknown message type "${messageType}".`);

@@ -1,4 +1,4 @@
-import { WS_OPEN_STATE } from '@/modules/websocket/services/websocket-state.service.js';
+import { broadcastSessionPermission, WS_OPEN_STATE } from '@/modules/websocket/services/websocket-state.service.js';
 import type {
   LLMProvider,
   NormalizedMessage,
@@ -165,6 +165,13 @@ export class ChatSessionWriter {
   }
 
   private forward(message: NormalizedMessage): void {
+    if (message.sessionId && ['permission_request', 'permission_resolved', 'permission_cancelled'].includes(message.kind)) {
+      broadcastSessionPermission(message.sessionId, message, this.connections);
+      for (const connection of this.connections) {
+        if (connection.readyState !== WS_OPEN_STATE) this.connections.delete(connection);
+      }
+      return;
+    }
     const payload = JSON.stringify(message);
 
     // Sending is also when dead sockets get collected: a refreshed tab leaves

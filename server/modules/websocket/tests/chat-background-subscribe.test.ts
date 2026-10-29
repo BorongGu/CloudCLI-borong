@@ -142,6 +142,92 @@ test('subscribing to an idle native session restores questions while leaving the
   });
 });
 
+test('idle native question recovery broadcasts answers to every subscribed device and acknowledges stale skips', async () => {
+  await withIsolatedDatabase(async () => {
+    const id = 'shared-idle-question';
+    sessionsDb.createAppSession(id, 'codex', '/workspace');
+    sessionsDb.assignProviderSessionId(id, 'idle-question-native');
+    const native = mock.method(sessionsService, 'getNativeSessionActivity', async () => undefined);
+    const question = { requestId: 'codex:async:shared', toolName: 'AskUserQuestion', sessionId: id,
+      input: { questions: [{ question: 'Which host?' }] }, context: { provider: 'codex', isBlocking: false } };
+    let pending: unknown[] = [question];
+    let recoveryWriter: { send(event: unknown): void } | undefined;
+    const decisions: unknown[] = [];
+    const runtime = {
+      hasBackgroundWork: () => false,
+      getPendingApprovalsForSession: (sessionId: string) => sessionId === id ? pending : [],
+      restorePendingApprovals: async (_provider: string, _sessionId: string, writer: typeof recoveryWriter) => {
+        recoveryWriter ??= writer;
+        if (pending.length) writer!.send({ kind: 'permission_request', provider: 'codex', ...question });
+      },
+      resolveToolApproval(requestId: string, decision: unknown) {
+        decisions.push(decision);
+        if (!pending.length) return;
+        pending = [];
+        recoveryWriter!.send({ kind: 'permission_resolved', provider: 'codex', sessionId: id, requestId });
+      },
+    };
+    try {
+      const mac = createFakeSocket(), phone = createFakeSocket(), other = createFakeSocket();
+      for (const socket of [mac, phone, other]) {
+        handleChatConnection(socket as never, { user: { id: 1 } } as never, { runtime: runtime as never });
+        socket.emit('message', JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: socket === other ? SESSION_ID : id, watchNative: true }] }));
+        await settle();
+      }
+      assert.equal(chatRunRegistry.getRun(id), undefined, 'the question remains independent of a live run');
+      assert.equal(phone.frames.find(event => event.kind === 'chat_subscribed')?.pendingPermissions instanceof Array, true);
+      mac.emit('message', JSON.stringify({ type: 'chat.permission-response', sessionId: id, requestId: question.requestId, allow: true }));
+      await settle();
+      assert.ok(phone.frames.some(event => event.kind === 'permission_resolved' && event.requestId === question.requestId));
+      assert.equal(other.frames.some(event => event.kind === 'permission_resolved'), false);
+      phone.frames.length = 0;
+      // A second device may still submit the card it rendered before the first answer arrived.
+      phone.emit('message', JSON.stringify({ type: 'chat.permission-response', sessionId: id, requestId: question.requestId, allow: true, updatedInput: { answers: {} } }));
+      await settle();
+      assert.equal(phone.frames.at(-1)?.kind, 'permission_resolved');
+      assert.equal(phone.frames.at(-1)?.sessionId, id);
+      phone.emit('message', JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: id, watchNative: true }] }));
+      await settle();
+      assert.deepEqual(phone.frames.at(-1)?.pendingPermissions, []);
+      assert.equal(decisions.length, 2);
+    } finally { native.mock.restore(); }
+  });
+});
+
+test('a device subscribing after completion receives subsequent question resolutions from the retained run writer', async () => {
+  await withIsolatedDatabase(async () => {
+    const run = startAndCompleteRun(createFakeSocket());
+    const question = { requestId: 'after-completion', toolName: 'AskUserQuestion', sessionId: SESSION_ID };
+    const phone = createFakeSocket();
+    handleChatConnection(phone as never, { user: { id: 1 } } as never, { runtime: {
+      hasBackgroundWork: () => false, getPendingApprovalsForSession: () => [question],
+    } as never });
+    phone.emit('message', JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: SESSION_ID }] }));
+    await settle();
+    run.writer.send({ kind: 'permission_resolved', provider: 'claude', sessionId: 'native-1', requestId: question.requestId });
+    assert.equal(phone.frames.at(-1)?.kind, 'permission_resolved');
+    assert.equal(phone.frames.at(-1)?.sessionId, SESSION_ID);
+  });
+});
+
+test('subscription snapshots replace historical question events during active-run replay', async () => {
+  await withIsolatedDatabase(async () => {
+    const run = chatRunRegistry.startRun({ appSessionId: SESSION_ID, provider: 'claude', providerSessionId: 'native-1', connection: null, userId: 1 });
+    assert.ok(run);
+    run.writer.send({ kind: 'permission_request', provider: 'claude', sessionId: 'native-1', requestId: 'already-answered' });
+    run.writer.send({ kind: 'text', provider: 'claude', sessionId: 'native-1', content: 'Continuing the task' });
+    const phone = createFakeSocket();
+    handleChatConnection(phone as never, { user: { id: 1 } } as never, { runtime: {
+      hasBackgroundWork: () => false, getPendingApprovalsForSession: () => [],
+    } as never });
+    phone.emit('message', JSON.stringify({ type: 'chat.subscribe', sessions: [{ sessionId: SESSION_ID, lastSeq: 0 }] }));
+    await settle();
+    assert.deepEqual(phone.frames.find(event => event.kind === 'chat_subscribed')?.pendingPermissions, []);
+    assert.equal(phone.frames.some(event => event.kind === 'permission_request'), false);
+    assert.ok(phone.frames.some(event => event.kind === 'text'));
+  });
+});
+
 test('a tab that subscribes during background work receives the run\'s later events', async () => {
   await withIsolatedDatabase(async () => {
     const run = startAndCompleteRun(createFakeSocket());

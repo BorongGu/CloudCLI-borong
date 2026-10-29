@@ -7,6 +7,7 @@ import ts from 'typescript';
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const output = process.env.CLOUDCLI_PATCH_DIR || path.join(os.homedir(), '.config/cloudcli/backend-patch');
 const files = [
+  'server/modules/websocket/services/websocket-state.service.ts',
   'server/modules/websocket/services/chat-session-writer.service.ts',
   'server/modules/websocket/services/chat-run-registry.service.ts',
   'server/modules/scheduled-messages/services/scheduled-message-dispatcher.service.ts',

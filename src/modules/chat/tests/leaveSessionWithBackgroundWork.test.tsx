@@ -97,3 +97,25 @@ test('a session mid-response keeps its view while the selection catches up', asy
   assert.equal(hook.result.current.currentSessionId, 'session-a');
   assert.equal(resetStreamingState.mock.calls.length, 0);
 });
+
+test('returning to an idle session reconciles questions through the existing socket and detaches resume listeners on unmount', async () => {
+  const { useChatSessionState } = await import('@/modules/chat/hooks/useChatSessionState');
+  const sendMessage = vi.fn();
+  const options = {
+    isActive: false, selectedProject: project, selectedSession: { ...session, provider: 'codex' as const },
+    ws: { readyState: 1 } as WebSocket, sendMessage, resetStreamingState: vi.fn(),
+    statusCheckSentAtRef: { current: new Map<string, number>() },
+    lastSeqRef: { current: new Map([[session.id, 9]]) }, sessionStore: store as never,
+  };
+  const hook = renderHook(() => useChatSessionState(options));
+  sendMessage.mockClear();
+  for (const event of ['focus', 'pageshow']) act(() => { window.dispatchEvent(new Event(event)); });
+  act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+  assert.equal(sendMessage.mock.calls.length, 3);
+  assert.deepEqual(sendMessage.mock.calls[0][0], {
+    type: 'chat.subscribe', sessions: [{ sessionId: session.id, lastSeq: 9, watchNative: true }],
+  });
+  hook.unmount();
+  act(() => { window.dispatchEvent(new Event('focus')); });
+  assert.equal(sendMessage.mock.calls.length, 3);
+});
