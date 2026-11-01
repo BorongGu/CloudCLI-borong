@@ -108,6 +108,12 @@ code, pre, kbd, samp, .font-mono {
   padding-bottom: 0;
 }
 
+/* Share the wider reading column with composer cards and the input on large displays. */
+.chat-content-width {
+  width: 100%;
+  max-width: 1000px;
+}
+
 .chat-message {
   margin-block: 0;
   /* Row padding stays inside the lazy wrapper's measured height. */
@@ -120,7 +126,7 @@ code, pre, kbd, samp, .font-mono {
 
 .chat-message .prose {
   font-family: var(--font-text);
-  font-size: 15px;
+  font-size: var(--chat-font-size, 15px);
   font-weight: 500;
   line-height: 1.85;
   color: hsl(var(--foreground));
@@ -174,7 +180,7 @@ code, pre, kbd, samp, .font-mono {
 }
 
 .chat-user-bubble .prose {
-  font-size: 14px;
+  font-size: var(--chat-font-size, 14px);
   line-height: 1.75;
 }
 
@@ -188,7 +194,7 @@ code, pre, kbd, samp, .font-mono {
 .chat-message pre code,
 .chat-message pre code span {
   font-family: var(--font-code) !important;
-  font-size: 12px;
+  font-size: var(--chat-font-size, 12px);
   line-height: 1.7;
   font-variant-ligatures: none;
 }
@@ -360,7 +366,7 @@ code, pre, kbd, samp, .font-mono {
 
   .chat-message .prose,
   .chat-user-bubble .prose {
-    font-size: 15px;
+    font-size: var(--chat-font-size, 15px);
   }
 
   .chat-user-bubble {

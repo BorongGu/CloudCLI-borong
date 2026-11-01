@@ -14,6 +14,8 @@ type ThemeContextValue = {
   toggleDarkMode: () => void;
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  chatFontSize: string;
+  setChatFontSize: (size: string) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -29,6 +31,14 @@ const readStoredThemeMode = (): ThemeMode => {
   const savedTheme = readUserPreference<string | null>('theme', null);
   return savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : 'system';
 };
+
+/** A saved chat size is an integer pixel value; `theme` uses the current appearance's type scale. */
+const normalizeChatFontSize = (value: unknown): string => {
+  const size = Number(value);
+  return Number.isInteger(size) && size >= 8 && size <= 24 ? String(size) : 'theme';
+};
+
+const readStoredChatFontSize = (): string => normalizeChatFontSize(readUserPreference('chatFontSize', 'theme'));
 
 /** Whether the OS currently asks for a dark appearance; false when unknown. */
 const prefersDarkAppearance = (): boolean =>
@@ -46,7 +56,7 @@ export const useTheme = () => {
   return context;
 };
 
-/** Mounted once by App so every module can read and switch the colour theme through useTheme. */
+/** Mounted once by App; Settings uses useTheme to choose the appearance and account-synced chat type size. */
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // The mode the user chose, not the colour it currently resolves to: only the
   // mode is persisted, and `system` has to keep tracking the OS afterwards.
@@ -58,6 +68,8 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => resolveIsDarkMode(readStoredThemeMode()));
   // The saved interface style travels with the account and applies before the first workspace paint.
   const [githubAppearance, setGithubAppearance] = useState(() => readStoredUiPreferences().githubAppearance);
+  // Apply the account's chat type size before painting, then follow local and remote preference changes.
+  const [chatFontSize, setChatFontSizeState] = useState(readStoredChatFontSize);
 
   // The theme now lives in auth.db, so a change made on another device (or in
   // another tab) arrives through the preference store rather than a re-render.
@@ -66,6 +78,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     setThemeModeState(storedMode);
     setIsDarkMode(resolveIsDarkMode(storedMode));
     setGithubAppearance(readStoredUiPreferences().githubAppearance);
+    setChatFontSizeState(readStoredChatFontSize());
   }), []);
 
   // Applying the theme to the document and persisting it are deliberately
@@ -82,6 +95,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
       : isDarkMode ? '#1c1b19' : '#faf9f5';
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', canvas);
   }, [githubAppearance, isDarkMode]);
+
+  useLayoutEffect(() => {
+    if (chatFontSize === 'theme') document.documentElement.style.removeProperty('--chat-font-size');
+    else document.documentElement.style.setProperty('--chat-font-size', `${chatFontSize}px`);
+  }, [chatFontSize]);
 
   // Listen for system theme changes
   useEffect(() => {
@@ -108,6 +126,12 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     setIsDarkMode(resolveIsDarkMode(mode));
   }, []);
 
+  const setChatFontSize = useCallback((size: string) => {
+    const value = normalizeChatFontSize(size);
+    writeUserPreference('chatFontSize', value);
+    setChatFontSizeState(value);
+  }, []);
+
   // Kept for the callers that only offer a light/dark switch: choosing either
   // one is an explicit choice, so it leaves `system` behind exactly as before.
   const toggleDarkMode = useCallback(() => {
@@ -122,8 +146,8 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // A fresh object here would re-render every consumer in the app on any
   // render of this provider, theme change or not.
   const value = useMemo<ThemeContextValue>(
-    () => ({ isDarkMode, toggleDarkMode, themeMode, setThemeMode }),
-    [isDarkMode, toggleDarkMode, themeMode, setThemeMode],
+    () => ({ isDarkMode, toggleDarkMode, themeMode, setThemeMode, chatFontSize, setChatFontSize }),
+    [isDarkMode, toggleDarkMode, themeMode, setThemeMode, chatFontSize, setChatFontSize],
   );
 
   return (

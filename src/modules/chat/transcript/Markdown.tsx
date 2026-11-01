@@ -241,7 +241,7 @@ const CodeBlock = ({ node: _node, className, children, forceBlock, ...props }: C
         customStyle={{
           margin: 0,
           borderRadius: 0,
-          fontSize: '0.8125rem',
+          fontSize: 'var(--chat-font-size, 0.8125rem)',
           lineHeight: 1.6,
           padding: '0.5rem 1rem 1rem',
           // The container owns the background so the label row and code read as one panel.

@@ -193,7 +193,7 @@ function ChatMessagesPane({
           </div>
         </div>
       )}
-      <div className="chat-transcript-content mx-auto w-full max-w-[50rem] px-4">
+      <div className="chat-transcript-content mx-auto w-full chat-content-width px-4">
       {(isLoadingSessionMessages || isProcessing) && chatMessages.length === 0 ? (
         <div className="mt-8 text-center text-gray-500 dark:text-gray-400">
           <div className="flex items-center justify-center space-x-2">

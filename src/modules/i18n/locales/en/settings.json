@@ -184,6 +184,14 @@
       "dark": "Dark",
       "system": "Follow the system appearance"
     },
+    "chat": {
+      "title": "Chat",
+      "fontSize": {
+        "label": "Chat font size",
+        "description": "Text size for chat messages (px)",
+        "theme": "Theme default"
+      }
+    },
     "projectSorting": {
       "label": "Project Sorting",
       "description": "How projects are ordered in the sidebar",

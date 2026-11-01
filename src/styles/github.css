@@ -181,7 +181,7 @@
 
 :root[data-appearance="github"] .chat-message .prose {
   --tw-prose-links: var(--github-link);
-  font-size: 14px;
+  font-size: var(--chat-font-size, 14px);
   font-weight: 400;
   line-height: 1.65;
 }
@@ -205,7 +205,7 @@
 }
 
 :root[data-appearance="github"] .chat-user-bubble .prose {
-  font-size: 14px;
+  font-size: var(--chat-font-size, 14px);
 }
 
 :root[data-appearance="github"] .chat-message pre {

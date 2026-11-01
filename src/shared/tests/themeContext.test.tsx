@@ -64,6 +64,7 @@ beforeEach(() => {
   resetUserPreferences();
   document.documentElement.classList.remove('dark');
   delete document.documentElement.dataset.appearance;
+  document.documentElement.style.removeProperty('--chat-font-size');
   emulateSystemDarkAppearance(false);
 });
 
@@ -80,6 +81,38 @@ test('mounting stores no theme for a user who has never chosen one', () => {
     null,
     'a device must not record the theme it happened to start on',
   );
+  assert.equal(readUserPreference('chatFontSize', null), null);
+  assert.equal(document.documentElement.style.getPropertyValue('--chat-font-size'), '');
+});
+
+test('choosing 9px persists chat size separately from the code editor and survives remounting', () => {
+  writeUserPreference('codeEditorSettings', { fontSize: '12' });
+  const first = renderHook(() => useTheme(), { wrapper });
+  act(() => { first.result.current.setChatFontSize('9'); });
+  assert.equal(readUserPreference('chatFontSize', null), '9');
+  assert.deepEqual(readUserPreference('codeEditorSettings', null), { fontSize: '12' });
+  assert.equal(document.documentElement.style.getPropertyValue('--chat-font-size'), '9px');
+  first.unmount();
+  const restored = renderHook(() => useTheme(), { wrapper });
+  assert.equal(restored.result.current.chatFontSize, '9');
+  assert.equal(document.documentElement.style.getPropertyValue('--chat-font-size'), '9px');
+});
+
+test('8px arriving from another device applies immediately and the theme option restores its own type scale', () => {
+  const { result } = renderHook(() => useTheme(), { wrapper });
+  act(() => { writeUserPreference('chatFontSize', '8'); });
+  assert.equal(result.current.chatFontSize, '8');
+  assert.equal(document.documentElement.style.getPropertyValue('--chat-font-size'), '8px');
+  act(() => { result.current.setChatFontSize('theme'); });
+  assert.equal(document.documentElement.style.getPropertyValue('--chat-font-size'), '');
+  assert.equal(readUserPreference('chatFontSize', null), 'theme');
+});
+
+test('a malformed stored chat size falls back to the theme default', () => {
+  writeUserPreference('chatFontSize', '5000');
+  const { result } = renderHook(() => useTheme(), { wrapper });
+  assert.equal(result.current.chatFontSize, 'theme');
+  assert.equal(document.documentElement.style.getPropertyValue('--chat-font-size'), '');
 });
 
 test('mounting does not overwrite the stored theme', () => {

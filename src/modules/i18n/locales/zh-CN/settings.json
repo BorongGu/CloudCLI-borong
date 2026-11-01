@@ -189,6 +189,14 @@
       "label": "保持项目展开",
       "description": "同时展开多个项目，并在刷新后保留。"
     },
+    "chat": {
+      "title": "聊天",
+      "fontSize": {
+        "label": "聊天字号",
+        "description": "聊天正文的显示字号（px）",
+        "theme": "跟随主题"
+      }
+    },
     "projectSorting": {
       "label": "项目排序",
       "description": "项目在侧边栏中的排列方式",

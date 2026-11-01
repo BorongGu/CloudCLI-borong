@@ -154,6 +154,14 @@
       "dark": "深色",
       "system": "跟隨系統外觀"
     },
+    "chat": {
+      "title": "聊天",
+      "fontSize": {
+        "label": "聊天字級",
+        "description": "聊天內文的顯示字級（px）",
+        "theme": "跟隨主題"
+      }
+    },
     "projectSorting": {
       "label": "專案排序",
       "description": "專案在側邊欄中的排列方式",

@@ -297,10 +297,10 @@ export default function ChatComposer({
   return (
     <div className="chat-composer-shell relative flex-shrink-0 px-2 pb-2 pt-0 sm:px-4 sm:pb-4 md:px-4 md:pb-6">
 
-      {hasQuestionPanel && goalPanel && <div className="mx-auto max-w-[50rem]">{goalPanel}</div>}
+      {hasQuestionPanel && goalPanel && <div className="mx-auto chat-content-width">{goalPanel}</div>}
 
       {pendingPermissionRequests.length > 0 && (
-        <div className="mx-auto mb-3 max-w-[50rem]">
+        <div className="mx-auto mb-3 chat-content-width">
           <PermissionRequestsBanner
             pendingPermissionRequests={pendingPermissionRequests}
             handlePermissionDecision={handlePermissionDecision}
@@ -315,7 +315,7 @@ export default function ChatComposer({
       />
 
       {isEditingSentMessage && (
-        <div className="mx-auto mb-2 flex max-w-[50rem] items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-foreground">
+        <div className="mx-auto mb-2 flex chat-content-width items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-foreground">
           <PencilIcon className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
           <span className="min-w-0 flex-1">
             {t('composer.editing.title')}
@@ -348,7 +348,7 @@ export default function ChatComposer({
         />
       )}
 
-      {!hasQuestionPanel && <div className="relative mx-auto max-w-[50rem]">
+      {!hasQuestionPanel && <div className="relative mx-auto chat-content-width">
         {showFileDropdown && filteredFiles.length > 0 && (
           <div
             ref={fileDropdownRef}

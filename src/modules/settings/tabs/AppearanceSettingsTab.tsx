@@ -30,7 +30,7 @@ export default function AppearanceSettingsTab({
   onCodeEditorFontSizeChange,
 }: AppearanceSettingsTabProps) {
   const { t } = useTranslation('settings');
-  const { themeMode, setThemeMode } = useTheme();
+  const { themeMode, setThemeMode, chatFontSize, setChatFontSize } = useTheme();
   const preferences = useUiPreferences();
   const setPreference = useSetUiPreference();
 
@@ -74,6 +74,25 @@ export default function AppearanceSettingsTab({
               <option value="light">{t('appearanceSettings.theme.light')}</option>
               <option value="dark">{t('appearanceSettings.theme.dark')}</option>
               <option value="system">{t('appearanceSettings.theme.system')}</option>
+            </select>
+          </SettingsRow>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title={t('appearanceSettings.chat.title', { defaultValue: 'Chat' })}>
+        <SettingsCard>
+          <SettingsRow
+            label={t('appearanceSettings.chat.fontSize.label', { defaultValue: 'Chat font size' })}
+            description={t('appearanceSettings.chat.fontSize.description', { defaultValue: 'Text size for chat messages (px)' })}
+          >
+            <select
+              value={chatFontSize}
+              onChange={(event) => setChatFontSize(event.target.value)}
+              aria-label={t('appearanceSettings.chat.fontSize.label', { defaultValue: 'Chat font size' })}
+              className="w-full touch-manipulation rounded-lg border border-input bg-card p-2.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:w-36"
+            >
+              <option value="theme">{t('appearanceSettings.chat.fontSize.theme', { defaultValue: 'Theme default' })}</option>
+              {[8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24].map(size => <option key={size} value={size}>{size}px</option>)}
             </select>
           </SettingsRow>
         </SettingsCard>
@@ -160,8 +179,11 @@ export default function AppearanceSettingsTab({
             <select
               value={codeEditorSettings.fontSize}
               onChange={(event) => onCodeEditorFontSizeChange(event.target.value)}
+              aria-label={t('appearanceSettings.codeEditor.fontSize.label')}
               className="w-full touch-manipulation rounded-lg border border-input bg-card p-2.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:w-28"
             >
+              <option value="8">8px</option>
+              <option value="9">9px</option>
               <option value="10">10px</option>
               <option value="11">11px</option>
               <option value="12">12px</option>
