@@ -1,6 +1,6 @@
 import fsSync from 'node:fs';
 
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 
 import { isOpenCodeSessionActive } from '@/modules/providers/list/opencode/opencode-runtime.provider.js';
 import { parseFilesInputTag, parseImagesInputTag } from '@/shared/image-attachments.js';
@@ -14,6 +14,7 @@ import type {
   SubagentInfo,
 } from '@/shared/types.js';
 import {
+  openOpenCodeReadDatabase,
   createNormalizedMessage,
   generateMessageId,
   getOpenCodeDatabasePath,
@@ -57,7 +58,7 @@ const openOpenCodeDatabase = (): Database.Database | null => {
     return null;
   }
 
-  return new Database(dbPath, { readonly: true, fileMustExist: true });
+  return openOpenCodeReadDatabase(dbPath);
 };
 
 const formatToolContent = (value: unknown): string => {
@@ -392,10 +393,26 @@ export class OpenCodeSessionsProvider implements IProviderSessions {
     const type = readOptionalString(raw.type) ?? readOptionalString(raw.event);
     const eventSessionId = readOptionalString(raw.sessionID) ?? readOptionalString(raw.sessionId) ?? sessionId;
     const timestamp = normalizeProviderTimestamp(raw.time ?? raw.timestamp);
-    const part = readEventPart(raw);
+    const nativePart = readEventPart(raw);
+    // V2 CLI tools separate their projection ID from the model's call ID.
+    const part = nativePart.type === 'tool' && nativePart.partID
+      ? { ...nativePart, id: nativePart.partID, callID: nativePart.id } : nativePart;
     const toolState = readObjectRecord(part.state) ?? {};
     const partMessageId = readOptionalString(part.messageID);
-    const partId = readOptionalString(part.id);
+    let partId = readOptionalString(part.id);
+    if (partMessageId && partId) {
+      // V2 CLI events carry event-derived IDs; projected history uses ordinals.
+      // Resolve the persisted part so live output and history share one row ID.
+      const db = openOpenCodeDatabaseForLiveEvent();
+      try {
+        if (db?.prepare("SELECT 1 FROM sqlite_master WHERE name = 'session_part'").get()) {
+          const row = db.prepare(`SELECT id FROM part WHERE message_id = ? AND json_extract(data, '$.type') = ?
+            AND (json_extract(data, '$.callID') = ? OR json_extract(data, '$.text') = ?) ORDER BY time_created, id LIMIT 1`)
+            .get(partMessageId, part.type, part.callID ?? null, part.text ?? null) as { id: string } | undefined;
+          if (row) partId = row.id;
+        }
+      } finally { db?.close(); }
+    }
     // Same id the history reader gives this part, so a reload does not duplicate it.
     const baseId = (partMessageId && partId ? `${partMessageId}_${partId}` : undefined)
       ?? readOptionalString(raw.id)

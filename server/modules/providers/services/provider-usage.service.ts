@@ -7,7 +7,7 @@ import Database from 'better-sqlite3';
 import { sessionsDb } from '@/modules/database/index.js';
 import { sharedCodexConnection } from '@/modules/providers/list/codex/codex-shared-connection.js';
 import type { AnyRecord, ProviderUsageAccount, ProviderUsageSnapshot, ProviderUsageWindow, SessionContextUsage } from '@/shared/types.js';
-import { AppError, getCodexContextDefaults, getOpenCodeDatabasePath, readObjectRecord } from '@/shared/utils.js';
+import { openOpenCodeReadDatabase, AppError, getCodexContextDefaults, getOpenCodeDatabasePath, readObjectRecord } from '@/shared/utils.js';
 
 const readUsageNumber = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 const object = (value: unknown): AnyRecord => readObjectRecord(value) ?? {};
@@ -30,7 +30,7 @@ async function readTail(filename: string): Promise<string> {
 }
 
 function readOpenCodeContext(sessionId: string): AnyRecord | null {
-  const db = new Database(getOpenCodeDatabasePath(), { readonly: true, fileMustExist: true });
+  const db = openOpenCodeReadDatabase();
   try {
     const rows = db.prepare("SELECT data, time_created FROM message WHERE session_id = ? AND json_extract(data, '$.role') = 'assistant' ORDER BY time_created DESC LIMIT 40").all(sessionId) as Array<{ data: string; time_created: number }>;
     for (const row of rows) {
@@ -44,6 +44,36 @@ function readOpenCodeContext(sessionId: string): AnyRecord | null {
   } finally { db.close(); }
 }
 
+// V2 keeps active integration keys in SQLite. Only the Go quota request consumes this value.
+function readOpenCodeGoKey(): string | null {
+  let db: Database.Database | undefined;
+  try {
+    db = new Database(getOpenCodeDatabasePath(), { readonly: true, fileMustExist: true });
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'credential'").get()) return null;
+    const row = db.prepare("SELECT value FROM credential WHERE integration_id = 'opencode-go' AND active = 1 LIMIT 1").get() as { value: string } | undefined;
+    const credential = row ? JSON.parse(row.value) : null;
+    return credential?.type === 'key' && typeof credential.key === 'string' ? credential.key : null;
+  } catch { return null; }
+  finally { db?.close(); }
+}
+
+function readOpenCodeModelLimit(model: string): number | null {
+  const slash = model.indexOf('/');
+  const provider = model.slice(0, slash);
+  const modelId = model.slice(slash + 1);
+  let db: Database.Database | undefined;
+  try {
+    // V2 moves its downloaded model catalog from models.json into the native KV table.
+    db = new Database(getOpenCodeDatabasePath(), { readonly: true, fileMustExist: true });
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'kv'").get()) return null;
+    const row = db.prepare("SELECT value FROM kv WHERE key = 'models-dev:v2:catalog'").get() as { value: string } | undefined;
+    const cached = row ? JSON.parse(row.value) : null;
+    const catalog = typeof cached?.body === 'string' ? JSON.parse(cached.body) : cached?.body;
+    return readUsageNumber(catalog?.[provider]?.models?.[modelId]?.limit?.context);
+  } catch { return null; }
+  finally { db?.close(); }
+}
+
 type Dependencies = {
   now: () => number;
   home: () => string;
@@ -51,6 +81,8 @@ type Dependencies = {
   readJson: typeof readJson;
   readTail: typeof readTail;
   readOpenCodeContext: typeof readOpenCodeContext;
+  readOpenCodeGoKey: typeof readOpenCodeGoKey;
+  readOpenCodeModelLimit: typeof readOpenCodeModelLimit;
   codexCall: (method: string, params: unknown) => Promise<AnyRecord>;
   fetch: typeof fetch;
 };
@@ -59,7 +91,7 @@ type UsageOptions = { sessionId?: string; provider?: string; model?: string; ref
 
 /** Provider routes use this service for bounded context reads and sanitized, cached subscription quotas. */
 export function createProviderUsageService(overrides: Partial<Dependencies> = {}) {
-  const d: Dependencies = { now: Date.now, home: os.homedir, getSession: id => sessionsDb.getSessionById(id), readJson, readTail, readOpenCodeContext,
+  const d: Dependencies = { now: Date.now, home: os.homedir, getSession: id => sessionsDb.getSessionById(id), readJson, readTail, readOpenCodeContext, readOpenCodeGoKey, readOpenCodeModelLimit,
     codexCall: (method, params) => sharedCodexConnection.call(method, params), fetch: globalThis.fetch, ...overrides };
   // A shared in-flight read and short cache bound upstream requests across tabs and phones.
   let cached: { expiresAt: number; accounts: ProviderUsageAccount[] } | null = null;
@@ -110,7 +142,7 @@ export function createProviderUsageService(overrides: Partial<Dependencies> = {}
     let accounts = Array.isArray(state.accounts) ? state.accounts.slice().sort((a, b) => a.priority - b.priority) : [];
     if (!accounts.length) {
       const auth = await d.readJson(path.join(process.env.XDG_DATA_HOME || path.join(d.home(), '.local', 'share'), 'opencode', 'auth.json'));
-      const key = auth['opencode-go']?.key;
+      const key = d.readOpenCodeGoKey() || auth['opencode-go']?.key;
       if (typeof key === 'string' && key !== 'go-account-router') accounts = [{ id: 'go', label: 'OpenCode Go', apiKey: key, enabled: true }];
     }
     if (!accounts.length) return [unavailable('go', 'opencode', 'OpenCode Go', 'not_configured')];
@@ -173,7 +205,7 @@ export function createProviderUsageService(overrides: Partial<Dependencies> = {}
       if (model) {
         const catalog = await d.readJson(path.join(process.env.XDG_CACHE_HOME || path.join(d.home(), '.cache'), 'opencode', 'models.json'));
         const slash = model.indexOf('/');
-        limit = readUsageNumber(catalog[model.slice(0, slash)]?.models?.[model.slice(slash + 1)]?.limit?.context);
+        limit = d.readOpenCodeModelLimit(model) ?? readUsageNumber(catalog[model.slice(0, slash)]?.models?.[model.slice(slash + 1)]?.limit?.context);
       }
     }
     return { used, limit, model, updatedAt };

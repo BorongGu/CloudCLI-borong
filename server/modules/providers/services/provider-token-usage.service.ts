@@ -3,11 +3,9 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import Database from 'better-sqlite3';
-
 import { sessionsDb } from '@/modules/database/index.js';
 import type { AnyRecord } from '@/shared/types.js';
-import { AppError, getCodexContextDefaults, getOpenCodeDatabasePath } from '@/shared/utils.js';
+import { openOpenCodeReadDatabase, AppError, getCodexContextDefaults, getOpenCodeDatabasePath } from '@/shared/utils.js';
 
 type SessionRow = NonNullable<ReturnType<typeof sessionsDb.getSessionById>>;
 
@@ -332,7 +330,7 @@ function claudeEntriesHaveUsage(entries: AnyRecord[]): boolean {
 }
 
 function readOpenCodeTokenUsage(databasePath: string, providerSessionId: string): TokenUsageResult {
-  const database = new Database(databasePath, { readonly: true, fileMustExist: true });
+  const database = openOpenCodeReadDatabase(databasePath);
   try {
     const columns = database.prepare('PRAGMA table_info(session)').all() as Array<{ name: string }>;
     const columnNames = new Set(columns.map((column) => column.name));

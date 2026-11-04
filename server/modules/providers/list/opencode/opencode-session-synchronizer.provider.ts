@@ -1,11 +1,12 @@
 import fsSync from 'node:fs';
 import path from 'node:path';
 
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 
 import { sessionsDb } from '@/modules/database/index.js';
 import type { IProviderSessionSynchronizer } from '@/shared/interfaces.js';
 import {
+  openOpenCodeReadDatabase,
   getOpenCodeDatabasePath,
   normalizeProviderTimestamp,
   normalizeSessionName,
@@ -52,7 +53,7 @@ export class OpenCodeSessionSynchronizer implements IProviderSessionSynchronizer
    * Handles watcher changes for opencode.db.
    */
   async synchronizeFile(filePath: string): Promise<string | null> {
-    if (path.basename(filePath) !== 'opencode.db') {
+    if (path.resolve(filePath) !== path.resolve(getOpenCodeDatabasePath())) {
       return null;
     }
 
@@ -70,7 +71,7 @@ export class OpenCodeSessionSynchronizer implements IProviderSessionSynchronizer
       return { processed: 0, firstSessionId: null };
     }
 
-    const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    const db = openOpenCodeReadDatabase(dbPath);
     try {
       if (pruneChildSessions) {
         this.pruneChildSessions(db);

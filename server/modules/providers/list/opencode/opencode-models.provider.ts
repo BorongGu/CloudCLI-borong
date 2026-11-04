@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import Database from 'better-sqlite3';
 import spawn from 'cross-spawn';
 
 import { sessionsDb } from '@/modules/database/index.js';
@@ -12,6 +11,10 @@ import type {
   ProviderModelsDefinition,
 } from '@/shared/types.js';
 import {
+  getOpenCodeDataDirectory,
+  getOpenCodeCredentialProviders,
+  getOpenCodeMajorVersion,
+  openOpenCodeReadDatabase,
   buildDefaultProviderCurrentActiveModel,
   getOpenCodeDatabasePath,
   readObjectRecord,
@@ -337,7 +340,7 @@ const readInstalledOpenCodeModels = async (): Promise<string[]> => new Promise((
     }
     resolve([...models]);
   };
-  const child = spawn('opencode', ['models'], {
+  const child = spawn('opencode', getOpenCodeMajorVersion() >= 2 ? ['models', '--standalone'] : ['models'], {
     stdio: ['ignore', 'pipe', 'ignore'],
     shell: false,
   });
@@ -400,11 +403,12 @@ const readOpenCodeJsonFile = async (filePath: string): Promise<Record<string, un
  * unfiltered catalog in that case.
  */
 const readConnectedOpenCodeProviderIds = async (): Promise<Set<string> | null> => {
-  const providerIds = new Set<string>();
+  if (getOpenCodeMajorVersion() >= 2) return null;
+  const providerIds = new Set<string>(getOpenCodeCredentialProviders());
   const configDir = path.join(os.homedir(), '.config', 'opencode');
 
   const auth = await readOpenCodeJsonFile(
-    path.join(os.homedir(), '.local', 'share', 'opencode', 'auth.json'),
+    path.join(getOpenCodeDataDirectory(), 'auth.json'),
   );
   for (const [providerId, credential] of Object.entries(auth ?? {})) {
     if (readObjectRecord(credential)) {
@@ -618,7 +622,7 @@ export class OpenCodeProviderModels implements IProviderModels {
 
     try {
       const dbPath = getOpenCodeDatabasePath();
-      const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+      const db = openOpenCodeReadDatabase(dbPath);
 
       try {
         const row = db.prepare(`

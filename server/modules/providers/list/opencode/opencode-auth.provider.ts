@@ -1,12 +1,11 @@
 import { readFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
 import spawn from 'cross-spawn';
 
 import type { IProviderAuth } from '@/shared/interfaces.js';
 import type { ProviderAuthStatus } from '@/shared/types.js';
-import { readObjectRecord, readOptionalString } from '@/shared/utils.js';
+import { getOpenCodeDataDirectory, getOpenCodeCredentialProviders, readObjectRecord, readOptionalString } from '@/shared/utils.js';
 
 type OpenCodeCredentialsStatus = {
   authenticated: boolean;
@@ -57,8 +56,10 @@ export class OpenCodeProviderAuth implements IProviderAuth {
    * Reads OpenCode's auth store or falls back to provider API key environment variables.
    */
   private async checkCredentials(): Promise<OpenCodeCredentialsStatus> {
+    const providers = getOpenCodeCredentialProviders();
+    if (providers.length) return { authenticated: true, email: null, method: providers.join(', ') };
     try {
-      const authPath = path.join(os.homedir(), '.local', 'share', 'opencode', 'auth.json');
+      const authPath = path.join(getOpenCodeDataDirectory(), 'auth.json');
       const content = await readFile(authPath, 'utf8');
       const auth = readObjectRecord(JSON.parse(content)) ?? {};
 

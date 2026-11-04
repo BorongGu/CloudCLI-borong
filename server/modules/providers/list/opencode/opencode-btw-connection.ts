@@ -6,7 +6,9 @@ import { copyFile, mkdir, mkdtemp, open, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { getOpenCodeDatabasePath } from '@/shared/utils.js';
+import Database from 'better-sqlite3';
+
+import { getOpenCodeDatabasePath, getOpenCodeMajorVersion } from '@/shared/utils.js';
 
 type OwnedProcess = { child: ChildProcess; done: Promise<{ code: number | null; error: Error | null }> };
 
@@ -20,6 +22,9 @@ export class OpenCodeBtwConnection extends EventEmitter {
   private preparing: Promise<{ id: string }> | null = null;
   private closing: Promise<void> | null = null;
   private stopped = false;
+  private major = 1;
+  private v2Requests = new Map<string, string>();
+  private v2Texts = new Map<string, string>();
 
   constructor(private readonly sourceId: string, private readonly cwd: string,
     private readonly binary = process.env.OPENCODE_BTW_BIN || 'opencode') { super(); }
@@ -97,8 +102,72 @@ export class OpenCodeBtwConnection extends EventEmitter {
   }
 
   async request(method: string, pathname: string, body?: unknown): Promise<any> {
+    if (this.major >= 2) return this.requestV2(method, pathname, body);
     const response = await this.response(method, pathname, body);
     return response.status === 204 ? null : response.json();
+  }
+
+  private translateV2Event(event: any): void {
+    if (typeof event?.type !== 'string') return;
+    const p = event.data || {};
+    const sessionID = p.sessionID || p.form?.sessionID;
+    const emit = (type: string, properties: any) => this.emit('notification', { type, properties });
+    if (event.type === 'permission.asked' || event.type === 'form.created') {
+      const request = p.form || p;
+      this.v2Requests.set(request.id, sessionID);
+      emit(event.type === 'permission.asked' ? 'permission.asked' : 'question.asked', { ...request, sessionID });
+    }
+    if (event.type.startsWith('session.execution.')) {
+      if (event.type === 'session.execution.failed') emit('session.error', { sessionID, error: p.error });
+      emit('session.status', { sessionID, status: { type: event.type.endsWith('.started') ? 'busy' : 'idle' } });
+    }
+    const messageID = p.assistantMessageID;
+    if (!sessionID || !messageID) return;
+    emit('message.updated', { info: { id: messageID, role: 'assistant', sessionID } });
+    if (/^session\.(text|reasoning)\.(started|delta|ended)$/.test(event.type)) {
+      const type = event.type.split('.')[1];
+      const id = `${messageID}_${type}_${p.ordinal}`;
+      const text = event.type.endsWith('.ended') ? p.text || '' : (this.v2Texts.get(id) || '') + (p.delta || '');
+      this.v2Texts.set(id, text);
+      emit('message.part.updated', { part: { id, sessionID, messageID, type, text } });
+    }
+    if (event.type.startsWith('session.tool.')) {
+      emit('message.part.updated', { part: { id: p.id, sessionID, messageID, type: 'tool', tool: p.name || 'Tool',
+        state: { status: event.type.endsWith('.success') || event.type.endsWith('.failed') ? 'completed' : 'running' } } });
+    }
+    if (event.type === 'session.step.failed') emit('session.error', { sessionID, error: p.error });
+  }
+
+  private async requestV2(method: string, pathname: string, body?: any): Promise<any> {
+    const session = pathname.match(/^\/session\/([^/]+)\/(.+)$/);
+    if (session) {
+      const [, id, action] = session;
+      if (action === 'message' && method === 'GET') {
+        const exported: any = await (await this.response('GET', `/api/experimental/session/${id}/export`)).json();
+        return (exported.messages || []).map((message: any) => ({ info: { id: message.id, role: message.type } }));
+      }
+      if (action === 'prompt_async') {
+        if (body?.model) await this.response('POST', `/api/session/${id}/model`, { model: {
+          id: body.model.modelID, providerID: body.model.providerID, ...(body.variant ? { variant: body.variant } : {}),
+        } });
+        if (body?.agent) await this.response('POST', `/api/session/${id}/agent`, { agent: body.agent });
+        pathname = `/session/${id}/prompt`;
+        body = { text: [body?.system, ...(body?.parts || []).map((part: any) => part.text || '')].filter(Boolean).join('\n\n') };
+      }
+      if (action === 'abort') { pathname = `/session/${id}/interrupt`;body = {}; }
+    }
+    const permission = pathname.match(/^\/(permission|question)\/([^/]+)\/(reply|reject)$/);
+    if (permission) {
+      const [, kind, id] = permission;
+      const sessionId = this.v2Requests.get(decodeURIComponent(id));
+      if (!sessionId) return null;
+      pathname = `/session/${encodeURIComponent(sessionId)}/${kind === 'permission' ? 'permission' : 'form'}/${id}${kind === 'permission' ? '/reply' : ''}`;
+      method = kind === 'permission' ? 'POST' : 'DELETE';
+      body = kind === 'permission' ? { decision: body.reply } : undefined;
+    }
+    const response = await this.response(method, `/api${pathname}`, body);
+    if (response.status === 204) return null;
+    const value: any = await response.json();return value.data ?? value;
   }
 
   private async readEvents(response: Response): Promise<void> {
@@ -115,7 +184,8 @@ export class OpenCodeBtwConnection extends EventEmitter {
           if (data) {
             let event: unknown;
             try { event = JSON.parse(data); } catch { continue; }
-            this.emit('notification', event);
+            if (this.major >= 2) this.translateV2Event(event);
+            else this.emit('notification', event);
           }
         }
       }
@@ -133,20 +203,28 @@ export class OpenCodeBtwConnection extends EventEmitter {
     this.checkOpen();
     this.directory = await mkdtemp(path.join(os.tmpdir(), 'cloudcli-btw-opencode-'));
     this.checkOpen();
-    const exportPath = path.join(this.directory, 'source.json');
-    const file = await open(exportPath, 'w', 0o600);
-    try { await this.run(['export', this.sourceId], process.env, file.fd); }
-    finally { await file.close(); }
+    this.major = getOpenCodeMajorVersion(this.binary);
     const dataDir = path.join(this.directory, 'data');
     await mkdir(path.join(dataDir, 'opencode'), { recursive: true });
-    try {
-      await copyFile(path.join(path.dirname(getOpenCodeDatabasePath()), 'auth.json'), path.join(dataDir, 'opencode', 'auth.json'));
-    } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    const env = { ...process.env, XDG_DATA_HOME: dataDir, XDG_STATE_HOME: path.join(this.directory, 'state'),
-      OPENCODE_SERVER_USERNAME: 'opencode', OPENCODE_SERVER_PASSWORD: this.password, OPENCODE_DISABLE_AUTOUPDATE: '1' };
-    await this.run(['import', exportPath], env);
+    const env = { ...process.env, PWD: this.cwd, XDG_DATA_HOME: dataDir, XDG_STATE_HOME: path.join(this.directory, 'state'),
+      OPENCODE_DB: path.join(dataDir, 'opencode', 'opencode.db'),
+      OPENCODE_SERVER_USERNAME: 'opencode', OPENCODE_SERVER_PASSWORD: this.password, OPENCODE_PASSWORD: this.password,
+      OPENCODE_DISABLE_AUTOUPDATE: '1' };
+    if (this.major >= 2) {
+      // V2 stores credentials alongside its projected history. A consistent private
+      // SQLite backup preserves both while the native fork stays disposable.
+      const source = new Database(getOpenCodeDatabasePath(), { readonly: true, fileMustExist: true });
+      try { await source.backup(env.OPENCODE_DB); } finally { source.close(); }
+    } else {
+      const exportPath = path.join(this.directory, 'source.json');
+      const file = await open(exportPath, 'w', 0o600);
+      try { await this.run(['export', this.sourceId], process.env, file.fd); } finally { await file.close(); }
+      try { await copyFile(path.join(path.dirname(getOpenCodeDatabasePath()), 'auth.json'), path.join(dataDir, 'opencode', 'auth.json')); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      await this.run(['import', exportPath], env);
+    }
     await this.startServer(env);
-    const stream = await this.response('GET', '/event', undefined, true);void this.readEvents(stream);
+    const stream = await this.response('GET', this.major >= 2 ? '/api/event' : '/event', undefined, true);void this.readEvents(stream);
     // Both the copied source and its native fork live only in the private store.
     const fork = await this.request('POST', `/session/${encodeURIComponent(this.sourceId)}/fork`, {});
     if (typeof fork?.id !== 'string' || fork.id === this.sourceId) throw new Error('OpenCode returned an invalid side fork.');

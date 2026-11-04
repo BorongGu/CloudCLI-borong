@@ -11,7 +11,7 @@ function fixture(provider = 'codex') {
   let failed = false;
   let requests = 0;
   const session = { session_id: 'chat', provider, provider_session_id: 'native', jsonl_path: '/transcript', model: 'gpt-6.1-sol' } as ReturnType<typeof sessionsDb.getSessionById>;
-  const service = createProviderUsageService({
+  const service = createProviderUsageService({ readOpenCodeGoKey: () => null, readOpenCodeModelLimit: () => null,
     now: () => now, home: () => '/test', getSession: id => id === 'chat' ? session : null,
     readTail: async () => JSON.stringify({ timestamp: '2026-10-26T03:00:00Z', type: 'event_msg', payload: { type: 'token_count', info: {
       total_token_usage: { total_tokens: 286_000_000 }, last_token_usage: { total_tokens: 96_000 }, model_context_window: 475_000,
@@ -81,7 +81,7 @@ test('a quota outage retains the last successful snapshot and exposes a sanitize
 });
 
 test('missing usage stays unknown with the Codex default window and an absent session returns 404', async () => {
-  const service = createProviderUsageService({ home: () => '/test', getSession: () => null,
+  const service = createProviderUsageService({ readOpenCodeGoKey: () => null, readOpenCodeModelLimit: () => null, home: () => '/test', getSession: () => null,
     readJson: async () => ({}), codexCall: async () => ({ account: { type: 'apiKey' } }),
   });
   const result = await service.getUsage({});
@@ -103,7 +103,7 @@ test('an OpenCode model from another provider leaves the Go accounts available w
 test('all Codex models use 475K with old usage snapshots and with empty histories', async () => {
   for (const model of ['gpt-6.1-sol', 'gpt-6-astra', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna', 'custom-codex-model']) {
     for (const hasHistory of [false, true]) {
-      const service = createProviderUsageService({
+      const service = createProviderUsageService({ readOpenCodeGoKey: () => null, readOpenCodeModelLimit: () => null,
         getSession: () => ({ provider: 'codex', model, jsonl_path: '/old-session' }) as never,
         readJson: async () => ({}), codexCall: async () => ({ account: { type: 'apiKey' } }),
         readTail: async () => hasHistory ? JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: {

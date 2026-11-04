@@ -378,3 +378,31 @@ alongside the implementation.
 - Assuming one provider's MCP config file format works for the others.
 
 
+
+
+## OpenCode version compatibility
+
+The adapter selects the CLI and HTTP protocol from `opencode --version`. Verified
+versions are **1.18.32** and **2.2.5**. Both support new/resumed chats, native history,
+model selection, tool results, token usage, interruption and disposable BTW forks.
+
+- 1.x uses `--dir`, `--variant`, the legacy session/message/part tables and the
+  original HTTP routes.
+- 2.x uses `--standalone`, the child process's `cwd`/`PWD`, `provider/model#variant`,
+  `session_v2`/`session_message`/`session_part`, and `/api` routes. Completed assistant
+  content is read from the message record; live parts retain their ordinal order.
+- MCP settings use the 1.x server map or the 2.x `mcp.servers` map and `disabled`
+  flag, retaining shared MCP options.
+- The read adapter creates connection-local TEMP views over the native database.
+  Native credentials and the downloaded model catalog supply Go quota and context
+  information. History/live IDs are normalized for transcript reconciliation.
+- BTW uses a private SQLite backup on 2.x and native export/import on 1.x. Its native
+  server, fork, credentials and temporary files are removed when the side chat ends.
+- `XDG_DATA_HOME` and `OPENCODE_DB` select the data directory/database; the session
+  watcher follows that database and its WAL. The default is
+  `~/.local/share/opencode/opencode.db`.
+
+For another machine, update this branch, build CloudCLI, and restart its web
+service with the installed `opencode` on `PATH`. Protocol selection is automatic.
+Regression coverage lives in `tests/opencode-v2-compatibility.test.ts` and
+`tests/opencode-btw-connection.test.ts` alongside the existing 1.x suites.

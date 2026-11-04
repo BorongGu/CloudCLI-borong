@@ -6,6 +6,7 @@ import { McpProvider } from '@/modules/providers/shared/mcp/mcp.provider.js';
 import type { McpScope, ProviderMcpServer, UpsertProviderMcpServerInput } from '@/shared/types.js';
 import {
   AppError,
+  getOpenCodeMajorVersion,
   readObjectRecord,
   readOptionalString,
   readStringArray,
@@ -107,7 +108,7 @@ const writeOpenCodeConfig = async (filePath: string, data: Record<string, unknow
 
 const resolveOpenCodeConfigPath = async (scope: McpScope, workspacePath: string): Promise<OpenCodeConfigPath> => {
   const root = scope === 'user'
-    ? path.join(os.homedir(), '.config', 'opencode')
+    ? process.env.OPENCODE_CONFIG_DIR || path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'opencode')
     : workspacePath;
   const jsonPath = path.join(root, 'opencode.json');
   const jsoncPath = path.join(root, 'opencode.jsonc');
@@ -123,6 +124,7 @@ const resolveOpenCodeConfigPath = async (scope: McpScope, workspacePath: string)
   return { filePath: jsonPath, exists: false };
 };
 
+/** Provider registry exposes version-aware OpenCode MCP configuration to the settings service. */
 export class OpenCodeMcpProvider extends McpProvider {
   constructor() {
     super('opencode', ['user', 'project'], ['stdio', 'http']);
@@ -131,7 +133,8 @@ export class OpenCodeMcpProvider extends McpProvider {
   protected async readScopedServers(scope: McpScope, workspacePath: string): Promise<Record<string, unknown>> {
     const { filePath } = await resolveOpenCodeConfigPath(scope, workspacePath);
     const config = await readOpenCodeConfig(filePath);
-    return readObjectRecord(config.mcp) ?? {};
+    const mcp = readObjectRecord(config.mcp) ?? {};
+    return getOpenCodeMajorVersion() >= 2 ? readObjectRecord(mcp.servers) ?? {} : mcp;
   }
 
   protected async writeScopedServers(
@@ -141,11 +144,13 @@ export class OpenCodeMcpProvider extends McpProvider {
   ): Promise<void> {
     const { filePath } = await resolveOpenCodeConfigPath(scope, workspacePath);
     const config = await readOpenCodeConfig(filePath);
-    config.mcp = servers;
+    config.mcp = getOpenCodeMajorVersion() >= 2
+      ? { ...readObjectRecord(config.mcp), servers } : servers;
     await writeOpenCodeConfig(filePath, config);
   }
 
   protected buildServerConfig(input: UpsertProviderMcpServerInput): Record<string, unknown> {
+    const enabled = getOpenCodeMajorVersion() >= 2 ? { disabled: false } : { enabled: true };
     if (input.transport === 'stdio') {
       if (!input.command?.trim()) {
         throw new AppError('command is required for stdio MCP servers.', {
@@ -157,7 +162,7 @@ export class OpenCodeMcpProvider extends McpProvider {
       return {
         type: 'local',
         command: [input.command, ...(input.args ?? [])],
-        enabled: true,
+        ...enabled,
         environment: input.env ?? {},
       };
     }
@@ -172,7 +177,7 @@ export class OpenCodeMcpProvider extends McpProvider {
     return {
       type: 'remote',
       url: input.url,
-      enabled: true,
+      ...enabled,
       headers: input.headers ?? {},
     };
   }

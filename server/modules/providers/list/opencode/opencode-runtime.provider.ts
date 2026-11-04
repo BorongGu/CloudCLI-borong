@@ -1,53 +1,46 @@
 import fsSync from 'node:fs';
 
 import crossSpawn from 'cross-spawn';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 
+import type { AnyRecord, ProviderRuntimeContext, ProviderRuntimeWriter, ProviderModelsDefinition } from '@/shared/types.js';
 import {
   appendFilesInputTag,
   appendImagesInputTag,
   normalizeAttachmentDescriptors
 } from '@/shared/image-attachments.js';
 import { notifyRunFailed, notifyRunStopped } from '@/modules/notifications/index.js';
-import { createCompleteMessage, createNormalizedMessage, flattenPromptForWindowsShell, getOpenCodeDatabasePath, stripAnsiSequences } from '@/shared/utils.js';
+import { createCompleteMessage, createNormalizedMessage, flattenPromptForWindowsShell, getOpenCodeDatabasePath, getOpenCodeMajorVersion, openOpenCodeReadDatabase, stripAnsiSequences } from '@/shared/utils.js';
 
 // cross-spawn resolves .cmd shims/PATHEXT on Windows and delegates to
 // child_process.spawn everywhere else.
 const spawnFunction = crossSpawn;
 
-const activeOpenCodeProcesses = new Map();
+type OpenCodeProcess = ReturnType<typeof crossSpawn> & { sessionId?: string; aborted?: boolean };
+const activeOpenCodeProcesses = new Map<string, OpenCodeProcess>();
 
-/**
- * Maps the UI permission mode onto OpenCode's non-interactive controls.
- *
- * OpenCode has no single "permission mode" flag; each mode uses a different
- * lever of the `opencode run` CLI (verified against v1.17.13):
- * - plan              → the built-in read-only `plan` agent (`--agent plan`).
- * - bypassPermissions → `--auto`, which auto-approves every permission that
- *                       is not explicitly denied in the user's config.
- * - acceptEdits       → the OPENCODE_PERMISSION env var, whose JSON body the
- *                       CLI merges into its permission config. Forcing
- *                       `edit: allow` guarantees file edits go through while
- *                       every other rule stays under the user's own config.
- * - default           → nothing; the user's opencode.json governs. In
- *                       non-interactive `run` mode any `ask` rule is denied.
- *
- * Exported for tests only.
+/** Provider runtime and its regression tests map UI permissions to the installed CLI generation.
+ * Plan selects the native plan agent; unrestricted selects --auto. Edit mode augments
+ * V1's permission environment or V2's ruleset while retaining the surrounding config.
  */
-export function resolveOpenCodePermissionOptions(permissionMode) {
+export function resolveOpenCodePermissionOptions(permissionMode: string | undefined, major = 1): { args: string[]; env: NodeJS.ProcessEnv } {
   switch (permissionMode) {
     case 'plan':
       return { args: ['--agent', 'plan'], env: {} };
     case 'bypassPermissions':
       return { args: ['--auto'], env: {} };
     case 'acceptEdits':
+      if (major >= 2) {
+        const config = JSON.parse(process.env.OPENCODE_CONFIG_CONTENT || '{}');
+        return { args: [], env: { OPENCODE_CONFIG_CONTENT: JSON.stringify({ ...config, permissions: [...(config.permissions || []), { action: 'edit', resource: '*', effect: 'allow' }] }) } };
+      }
       return { args: [], env: { OPENCODE_PERMISSION: JSON.stringify({ edit: 'allow' }) } };
     default:
       return { args: [], env: {} };
   }
 }
 
-function resolveOpenCodeEffort(model, effort, modelsDefinition) {
+function resolveOpenCodeEffort(model: string | undefined, effort: string | undefined, modelsDefinition: ProviderModelsDefinition | null) {
   const selectedModel = modelsDefinition?.OPTIONS?.find((option) => option.value === model);
   const allowedEfforts = selectedModel?.effort?.values?.map((value) => value.value) || [];
   return typeof effort === 'string' && effort !== 'default' && allowedEfforts.includes(effort)
@@ -55,7 +48,7 @@ function resolveOpenCodeEffort(model, effort, modelsDefinition) {
     : undefined;
 }
 
-function readOpenCodeSessionId(event) {
+function readOpenCodeSessionId(event: AnyRecord) {
   if (!event || typeof event !== 'object') {
     return null;
   }
@@ -63,16 +56,16 @@ function readOpenCodeSessionId(event) {
   return event.sessionID || event.sessionId || null;
 }
 
-function readOpenCodeTokenUsage(sessionId) {
+function readOpenCodeTokenUsage(sessionId: string | null) {
   const dbPath = getOpenCodeDatabasePath();
   if (!sessionId || !fsSync.existsSync(dbPath)) {
     return null;
   }
 
-  let db = null;
+  let db: Database.Database | null = null;
   try {
-    db = new Database(dbPath, { readonly: true, fileMustExist: true });
-    const columns = db.prepare('PRAGMA table_info(session)').all();
+    db = openOpenCodeReadDatabase(dbPath);
+    const columns = db.prepare('PRAGMA table_info(session)').all() as Array<{ name: string }>;
     const columnNames = new Set(columns.map((column) => column.name));
     const requiredColumns = ['tokens_input', 'tokens_output', 'tokens_reasoning', 'tokens_cache_read', 'tokens_cache_write'];
     if (!requiredColumns.every((column) => columnNames.has(column))) {
@@ -88,7 +81,7 @@ function readOpenCodeTokenUsage(sessionId) {
         tokens_cache_write AS cacheWriteTokens
       FROM session
       WHERE id = ?
-    `).get(sessionId);
+    `).get(sessionId) as AnyRecord | undefined;
 
     if (!row) {
       return null;
@@ -123,8 +116,9 @@ function readOpenCodeTokenUsage(sessionId) {
   }
 }
 
-async function spawnOpenCode(command, options = {}, ws, context) {
-  return new Promise((resolve, reject) => {
+/** Provider runtime service starts an owned CLI run and normalizes its lifecycle and output. */
+async function spawnOpenCode(command: string, options: AnyRecord, ws: ProviderRuntimeWriter, context: ProviderRuntimeContext) {
+  return new Promise<void>((resolve, reject) => {
     const {
       sessionId,
       projectPath,
@@ -147,12 +141,12 @@ async function spawnOpenCode(command, options = {}, ws, context) {
     let sessionCreatedSent = false;
     let stdoutLineBuffer = '';
     let terminalNotificationSent = false;
-    let opencodeProcess = null;
+    let opencodeProcess: OpenCodeProcess | null = null;
     // Unified lifecycle contract: exactly one terminal `complete` per run
     // (close and error handlers can both fire for spawn failures).
     let completeSent = false;
 
-    const notifyTerminalState = ({ code = null, error = null } = {}) => {
+    const notifyTerminalState = ({ code = null, error = null }: { code?: number | null; error?: unknown } = {}) => {
       if (terminalNotificationSent) {
         return;
       }
@@ -180,7 +174,7 @@ async function spawnOpenCode(command, options = {}, ws, context) {
       });
     };
 
-    const registerSession = (nextSessionId) => {
+    const registerSession = (nextSessionId: string | null) => {
       if (!nextSessionId || capturedSessionId === nextSessionId) {
         return;
       }
@@ -211,7 +205,7 @@ async function spawnOpenCode(command, options = {}, ws, context) {
       }
     };
 
-    const processOpenCodeOutputLine = (line) => {
+    const processOpenCodeOutputLine = (line: string) => {
       if (!line || !line.trim()) {
         return;
       }
@@ -248,7 +242,7 @@ async function spawnOpenCode(command, options = {}, ws, context) {
     };
 
     void context.resolveResumeModel(sessionId, model).then(async (resolvedModel) => {
-      let effortModels = null;
+      let effortModels: ProviderModelsDefinition | null = null;
       try {
         effortModels = await context.getProviderModels();
       } catch (error) {
@@ -256,21 +250,21 @@ async function spawnOpenCode(command, options = {}, ws, context) {
       }
 
       const resolvedEffort = resolveOpenCodeEffort(resolvedModel, effort, effortModels);
+      const major = getOpenCodeMajorVersion();
       const args = ['run', '--format', 'json'];
-      // OpenCode's `run` command owns workspace selection through `--dir`.
-      // Relying on the child-process cwd alone is not enough on Linux, where
-      // the CLI can still resolve the session under the server install dir.
-      args.push('--dir', workingDir);
+      if (major >= 2) args.push('--standalone');
+      // V1 requires --dir; V2 resolves the workspace from cwd and PWD.
+      if (major < 2) args.push('--dir', workingDir);
       if (providerSessionId) {
         args.push('--session', providerSessionId);
       }
       if (resolvedModel) {
-        args.push('--model', resolvedModel);
+        args.push('--model', major >= 2 && resolvedEffort ? `${resolvedModel}#${resolvedEffort}` : resolvedModel);
       }
-      if (resolvedEffort) {
+      if (resolvedEffort && major < 2) {
         args.push('--variant', resolvedEffort);
       }
-      const permissionOptions = resolveOpenCodePermissionOptions(permissionMode);
+      const permissionOptions = resolveOpenCodePermissionOptions(permissionMode, major);
       args.push(...permissionOptions.args);
       const hasAttachments =
         normalizeAttachmentDescriptors(images).length > 0
@@ -290,14 +284,14 @@ async function spawnOpenCode(command, options = {}, ws, context) {
       opencodeProcess = spawnFunction('opencode', args, {
         cwd: workingDir,
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, ...permissionOptions.env },
+        env: { ...process.env, PWD: workingDir, ...permissionOptions.env },
       });
 
       activeOpenCodeProcesses.set(processKey, opencodeProcess);
       opencodeProcess.sessionId = processKey;
-      opencodeProcess.stdin.end();
+      opencodeProcess.stdin?.end();
 
-      opencodeProcess.stdout.on('data', (data) => {
+      opencodeProcess.stdout?.on('data', (data) => {
         stdoutLineBuffer += data.toString();
         const completeLines = stdoutLineBuffer.split(/\r?\n/);
         stdoutLineBuffer = completeLines.pop() || '';
@@ -307,7 +301,7 @@ async function spawnOpenCode(command, options = {}, ws, context) {
         });
       });
 
-      opencodeProcess.stderr.on('data', (data) => {
+      opencodeProcess.stderr?.on('data', (data) => {
         // opencode styles its stderr for a terminal; the chat renders plain
         // text, so the escapes have to go before the text is surfaced. A chunk
         // that was styling only cleans down to nothing and is not an error.
@@ -348,7 +342,7 @@ async function spawnOpenCode(command, options = {}, ws, context) {
 
         // Terminal complete — skipped for aborted runs (abort-session
         // already sent the aborted complete on this run's behalf).
-        if (!completeSent && !opencodeProcess.aborted) {
+        if (!completeSent && !opencodeProcess?.aborted) {
           completeSent = true;
           ws.send(createCompleteMessage({ provider: 'opencode', sessionId: finalSessionId, exitCode: code }));
         }
@@ -391,7 +385,7 @@ async function spawnOpenCode(command, options = {}, ws, context) {
           sessionId: finalSessionId,
           provider: 'opencode',
         }));
-        if (!completeSent && !opencodeProcess.aborted) {
+        if (!completeSent && !opencodeProcess?.aborted) {
           completeSent = true;
           ws.send(createCompleteMessage({ provider: 'opencode', sessionId: finalSessionId, exitCode: 1 }));
         }
@@ -402,7 +396,8 @@ async function spawnOpenCode(command, options = {}, ws, context) {
   });
 }
 
-function abortOpenCodeSession(sessionId) {
+/** Provider runtime aborts the child associated with the app session ID. */
+function abortOpenCodeSession(sessionId: string) {
   const process = activeOpenCodeProcesses.get(sessionId);
   if (!process) {
     return false;
@@ -416,22 +411,13 @@ function abortOpenCodeSession(sessionId) {
   return true;
 }
 
-function isOpenCodeSessionActive(sessionId) {
+/** Provider activity service reads process ownership for running indicators. */
+export function isOpenCodeSessionActive(sessionId: string) {
   return activeOpenCodeProcesses.has(sessionId);
 }
 
-function getActiveOpenCodeSessions() {
-  return Array.from(activeOpenCodeProcesses.keys());
-}
-
+/** OpenCode provider module exposes the run/abort contract to the shared runtime service. */
 export const opencodeRuntime = {
   run: spawnOpenCode,
   abort: abortOpenCodeSession,
-};
-
-export {
-  spawnOpenCode,
-  abortOpenCodeSession,
-  isOpenCodeSessionActive,
-  getActiveOpenCodeSessions,
 };

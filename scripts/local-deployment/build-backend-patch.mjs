@@ -7,6 +7,14 @@ import ts from 'typescript';
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const output = process.env.CLOUDCLI_PATCH_DIR || path.join(os.homedir(), '.config/cloudcli/backend-patch');
 const files = [
+  'server/modules/providers/services/sessions-watcher.service.ts',
+  'server/modules/providers/list/opencode/opencode-runtime.provider.ts',
+  'server/modules/providers/list/opencode/opencode-btw-connection.ts',
+  'server/modules/providers/list/opencode/opencode-sessions.provider.ts',
+  'server/modules/providers/list/opencode/opencode-session-synchronizer.provider.ts',
+  'server/modules/providers/list/opencode/opencode-models.provider.ts',
+  'server/modules/providers/list/opencode/opencode-auth.provider.ts',
+  'server/modules/providers/list/opencode/opencode-mcp.provider.ts',
   'server/modules/websocket/services/websocket-state.service.ts',
   'server/modules/websocket/services/chat-session-writer.service.ts',
   'server/modules/websocket/services/chat-run-registry.service.ts',

@@ -16,6 +16,8 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
+import Database from 'better-sqlite3';
+import crossSpawn from 'cross-spawn';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
 import { parseFrontMatter } from '@/shared/frontmatter.js';
@@ -1058,7 +1060,90 @@ export function readJsonRecord(value: unknown): AnyRecord | null {
  * it as a deletable transcript path for an individual app session row.
  */
 export function getOpenCodeDatabasePath(): string {
-  return path.join(os.homedir(), '.local', 'share', 'opencode', 'opencode.db');
+  return path.resolve(getOpenCodeDataDirectory(), process.env.OPENCODE_DB || 'opencode.db');
+}
+
+
+const openCodeVersions = new Map<string, { major: number; expires: number }>();
+/** Runtime, model and BTW adapters detect the CLI generation before building commands.
+ * Successful probes are cached per binary/PATH for one minute; an unavailable CLI uses the legacy argument shape. */
+export function getOpenCodeMajorVersion(binary = 'opencode'): number {
+  const key = `${binary}:${process.env.PATH}`;
+  const cached = openCodeVersions.get(key);
+  if (cached && cached.expires > Date.now()) return cached.major;
+  const result = crossSpawn.sync(binary, ['--version'], { encoding: 'utf8', timeout: 5000 });
+  const match = String(result.stdout || '').trim().match(/^(?:opencode\s+v?)?(\d+)\./i);
+  const major = match ? Number(match[1]) : 1;
+  if (match) openCodeVersions.set(key, { major, expires: Date.now() + 60_000 });
+  return major;
+}
+
+/** Auth, indexing and runtime adapters resolve the same XDG data store used by either OpenCode generation. */
+export function getOpenCodeDataDirectory(): string {
+  return path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'opencode');
+}
+
+/** Converts a V2 projected content part to the V1-shaped read model consumed by transcript and BTW adapters. */
+function normalizeOpenCodeV2Part(part: AnyRecord): AnyRecord {
+  if (part.type !== 'tool') return part;
+  const state = part.state || {};
+  const content = Array.isArray(state.content) ? state.content : [];
+  return { ...part, tool: part.name, callID: part.id, state: { ...state,
+    status: state.status === 'streaming' ? 'pending' : state.status,
+    output: content.map((item: AnyRecord) => item.text ?? item.uri ?? '').filter(Boolean).join('\n'),
+    error: typeof state.error === 'object' ? state.error?.message : state.error,
+    metadata: state.metadata || {}, time: { start: part.time?.ran ?? part.time?.created, end: part.time?.completed },
+  } };
+}
+
+/**
+ * Opens OpenCode read-only and presents V2 projected tables through connection-local compatibility views.
+ * TEMP views leave the native schema and data untouched, while existing history, model, usage and index readers
+ * share one decoder. V1 databases keep their original tables. The caller owns and closes the connection.
+ */
+export function openOpenCodeReadDatabase(filename = getOpenCodeDatabasePath()): Database.Database {
+  const db = new Database(filename, { readonly: true, fileMustExist: true });
+  try {
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='session_v2'").get()) return db;
+    db.function('cloudcli_message', (raw, type) => {
+      const info = JSON.parse(String(raw));
+      return JSON.stringify({ ...info, role: type, providerID: info.model?.providerID, modelID: info.model?.id });
+    });
+    db.function('cloudcli_part', raw => JSON.stringify(normalizeOpenCodeV2Part(JSON.parse(String(raw)))));
+    db.exec(`
+      CREATE TEMP VIEW session AS SELECT * FROM main.session_v2;
+      CREATE TEMP VIEW message AS SELECT id, session_id, time_created, time_updated,
+        cloudcli_message(data, type) AS data FROM main.session_message;
+      CREATE TEMP VIEW part AS
+        SELECT printf('v2_%010d', ordinal) AS id, session_id, message_id, time_created, cloudcli_part(data) AS data FROM main.session_part
+        UNION ALL
+        SELECT printf('v2_%010d', c.key) AS id, m.session_id, m.id AS message_id, m.time_created, cloudcli_part(c.value) AS data
+        FROM main.session_message m, json_each(m.data, '$.content') c
+        WHERE m.type = 'assistant' AND NOT EXISTS
+          (SELECT 1 FROM main.session_part p WHERE p.message_id = m.id AND p.ordinal = c.key)
+        UNION ALL
+        SELECT 'v2_user' AS id, session_id, id AS message_id, time_created,
+          json_object('type', 'text', 'text', json_extract(data, '$.text')) AS data
+        FROM main.session_message WHERE type IN ('user', 'synthetic', 'system')
+        UNION ALL
+        SELECT 'v2_file_' || f.key AS id, m.session_id, m.id AS message_id, m.time_created,
+          json_object('type','file','url',json_extract(f.value,'$.uri'),'filename',json_extract(f.value,'$.name'),'mime',json_extract(f.value,'$.mime')) AS data
+        FROM main.session_message m, json_each(m.data, '$.files') f WHERE m.type = 'user';
+    `);
+    return db;
+  } catch (error) { db.close();throw error; }
+}
+
+/** Auth and model discovery use active V2 credential provider IDs; credential values stay in the native store. */
+export function getOpenCodeCredentialProviders(): string[] {
+  let db: Database.Database | undefined;
+  try {
+    db = new Database(getOpenCodeDatabasePath(), { readonly: true, fileMustExist: true });
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='credential'").get()) return [];
+    return (db.prepare('SELECT DISTINCT integration_id FROM credential WHERE active = 1').all() as Array<{ integration_id: string }>)
+      .map(row => row.integration_id).filter(Boolean);
+  } catch { return []; }
+  finally { db?.close(); }
 }
 
 /**
