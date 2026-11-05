@@ -47,14 +47,13 @@
   --brand-terracotta: #6258cf;
   --linear-gradient: linear-gradient(125deg, #5146c7, #6d52c9);
   --linear-selection: hsl(243 58% 55% / 7%);
-  --linear-atmosphere: radial-gradient(ellipse at 0% 8%, hsl(248 75% 72% / 28%), transparent 48%),
-    radial-gradient(ellipse at 100% 100%, hsl(216 85% 72% / 24%), transparent 52%),
-    radial-gradient(ellipse at 72% 0%, hsl(278 65% 80% / 14%), transparent 42%);
+  --linear-atmosphere: radial-gradient(ellipse at 0% 8%, hsl(240 30% 74% / 7%), transparent 48%),
+    radial-gradient(ellipse at 100% 100%, hsl(220 30% 74% / 6%), transparent 52%);
   --linear-glass-opacity: 0.54;
   --linear-panel-opacity: 0.76;
   --linear-glass-highlight: rgb(255 255 255 / 60%);
   --linear-glass-edge: rgb(255 255 255 / 78%);
-  --linear-glass-shadow: 0 8px 28px rgb(45 43 90 / 7%), inset 0 1px 0 rgb(255 255 255 / 78%);
+  --linear-glass-shadow: 0 8px 28px rgb(30 32 42 / 7%), inset 0 1px 0 rgb(255 255 255 / 78%);
   --linear-glass-filter: blur(22px) saturate(135%);
   --nav-glass-bg: 240 8% 96% / 1;
   --nav-tab-glow: 243 58% 55% / 0.04;
@@ -106,9 +105,8 @@
   --surface-shadow: 0 4px 16px rgb(0 0 0 / 14%);
   --brand-terracotta: #a4a0f4;
   --linear-selection: hsl(244 77% 79% / 9%);
-  --linear-atmosphere: radial-gradient(ellipse at 0% 8%, hsl(250 65% 52% / 25%), transparent 48%),
-    radial-gradient(ellipse at 100% 100%, hsl(218 65% 50% / 19%), transparent 52%),
-    radial-gradient(ellipse at 72% 0%, hsl(278 55% 51% / 10%), transparent 42%);
+  --linear-atmosphere: radial-gradient(ellipse at 0% 8%, hsl(240 26% 48% / 7%), transparent 48%),
+    radial-gradient(ellipse at 100% 100%, hsl(220 28% 46% / 5%), transparent 52%);
   --linear-glass-opacity: 0.56;
   --linear-panel-opacity: 0.78;
   --linear-glass-highlight: rgb(255 255 255 / 5%);
@@ -298,7 +296,7 @@
 :root[data-appearance="linear"] .settings-dialog :is([data-slot="settings-card"], .appearance-style-option) { background-color: hsl(var(--card) / 24%); }
 :root[data-appearance="linear"] [data-quick-settings-panel] [role="tabpanel"] > .bg-background { background: transparent; }
 :root[data-appearance="linear"] :is([data-slot="settings-card"], [role="menu"]) { border-radius: 8px; }
-.appearance-style-preview[data-preview="linear"] { border-color: #555167; border-radius: 6px; background: radial-gradient(ellipse at 0 0, #514176, transparent 80%), linear-gradient(125deg, #191a1d, #29314b); }
+.appearance-style-preview[data-preview="linear"] { border-color: #45464e; border-radius: 6px; background: radial-gradient(ellipse at 0 0, #30313a, transparent 80%), linear-gradient(125deg, #191a1d, #23262c); }
 [data-preview="linear"] .appearance-preview-sidebar { border-color: rgb(255 255 255 / 15%); background: rgb(255 255 255 / 5%); }
 [data-preview="linear"] .appearance-preview-sidebar i { background: #454650; }
 [data-preview="linear"] .appearance-preview-sidebar i:first-child { background: #a4a0f4; }
