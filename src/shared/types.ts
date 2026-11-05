@@ -10,6 +10,11 @@ export type GuestChatSnapshot = { id: string; title: string; busy: boolean; stat
   messages: GuestChatMessage[]; updatedAt: number; revision: number; model: string; effort: string; partial?: boolean };
 /** Guest history picker contains only its dedicated store's conversation summaries. */
 export type GuestChatSummary = Pick<GuestChatSnapshot, 'id' | 'title' | 'updatedAt' | 'busy'>;
+/** One authenticated response supplies the guest history and selected transcript. */
+export type GuestChatBootstrap = { authenticated: boolean; username?: string; chats?: GuestChatSummary[]; chat?: GuestChatSnapshot | null };
+/** A selected guest image stays attached to its draft while preparation, upload or retry runs. */
+export type GuestChatAttachment = { id: string; preview: string; name: string; source: File; blob?: Blob; imageId?: string;
+  status: 'preparing' | 'queued' | 'uploading' | 'ready' | 'error'; progress: number; error?: string };
 // ---------------------------
 
 //----------------- LLM PROVIDER MODEL CATALOG ------------

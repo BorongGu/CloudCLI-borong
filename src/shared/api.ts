@@ -5,38 +5,87 @@ import {
 } from '@/shared/authToken';
 import { IS_PLATFORM } from '@/shared/utils';
 import { readVoiceConfig, voiceConfigHeaders } from '@/shared/voiceConfig';
-import type { GuestChatSnapshot, GuestChatSummary } from '@/shared/types';
+import type { GuestChatBootstrap, GuestChatSnapshot, GuestChatSummary } from '@/shared/types';
 
-async function guestRequest<T>(url: string, payload?: unknown): Promise<T> {
-  const response = await fetch(url, { method: payload === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store',
-    ...(payload === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
-  });
-  const value = await response.json();
-  if (!response.ok) throw Object.assign(new Error(value.error || '连接暂时中断，请重试。'), { status: response.status });
-  return value;
+async function guestRequest<T>(url: string, payload?: unknown, signal?: AbortSignal): Promise<T> {
+  const controller = new AbortController();
+  const abort = () => controller.abort();signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) controller.abort();
+  const timer = setTimeout(abort, 20000);
+  try {
+    const response = await fetch(url, { method: payload === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+      ...(payload === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+    });
+    const value = await response.json().catch(() => ({ error: '连接暂时中断，请重试。' }));
+    if (!response.ok) throw Object.assign(new Error(value.error || '连接暂时中断，请重试。'), { status: response.status });
+    if ('error' in value && !('id' in value) && !('authenticated' in value)) throw new Error(value.error);
+    return value;
+  } catch (error) {
+    if (controller.signal.aborted && !signal?.aborted) throw new Error('连接等待较久，请重试；已保留发送内容。');
+    throw error;
+  } finally { clearTimeout(timer);signal?.removeEventListener('abort', abort); }
 }
 
 /** Guest chat uses cookie authentication and its separate, tightly scoped service. */
 export const guestChatApi = {
-  auth: () => guestRequest<{ authenticated: boolean; username?: string }>('/api/auth'),
-  login: (username: string, password: string) => guestRequest('/api/login', { username, password }),
+  auth: (selected?: string | null, signal?: AbortSignal) => guestRequest<GuestChatBootstrap>('/api/auth' + (selected ? `?chat=${encodeURIComponent(selected)}` : ''), undefined, signal),
+  login: (username: string, password: string) => guestRequest<GuestChatBootstrap>('/api/login', { username, password }),
   logout: () => guestRequest('/api/logout', {}),
   list: () => guestRequest<{ chats: GuestChatSummary[] }>('/api/chats'),
   create: () => guestRequest<GuestChatSnapshot>('/api/chats', {}),
-  read: (id: string) => guestRequest<GuestChatSnapshot>(`/api/chats/${encodeURIComponent(id)}`),
-  send: (id: string, text: string, images: string[], requestId: string) => guestRequest<GuestChatSnapshot>(`/api/chats/${encodeURIComponent(id)}/messages`, { text, images, requestId }),
+  read: (id: string, signal?: AbortSignal) => guestRequest<GuestChatSnapshot>(`/api/chats/${encodeURIComponent(id)}`, undefined, signal),
+  send: (id: string, text: string, images: string[], requestId: string, imageIds: string[] = []) => guestRequest<GuestChatSnapshot>(`/api/chats/${encodeURIComponent(id)}/messages`, { text, images, requestId, imageIds }),
+  upload: (id: string, blob: Blob, onProgress: (percent: number) => void, signal: AbortSignal) => new Promise<{ id: string }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const abort = () => xhr.abort();
+    const done = () => signal.removeEventListener('abort', abort);
+    xhr.open('POST', `/api/uploads/${encodeURIComponent(id)}`);xhr.timeout = 150000;xhr.withCredentials = true;
+    xhr.setRequestHeader('Content-Type', blob.type);
+    xhr.upload.onprogress = event => { if (event.lengthComputable) onProgress(Math.min(99, Math.round(event.loaded / event.total * 100))); };
+    xhr.onload = () => { done();
+      try {
+        const result = JSON.parse(xhr.responseText);
+        if (xhr.status < 200 || xhr.status >= 300 || !result.id) reject(Object.assign(new Error(result.error || '图片上传失败，请重试。'), { status: xhr.status }));
+        else { onProgress(100);resolve(result); }
+      } catch { reject(new Error('图片上传确认失败，请重试。')); }
+    };
+    xhr.onerror = () => { done();reject(new Error('连接中断，点击图片重试上传。')); };
+    xhr.ontimeout = () => { done();reject(new Error('图片上传等待较久，点击重试。')); };
+    xhr.onabort = () => { done();reject(new DOMException('Upload cancelled', 'AbortError')); };
+    if (signal.aborted) { reject(new DOMException('Upload cancelled', 'AbortError'));return; }
+    signal.addEventListener('abort', abort, { once: true });xhr.send(blob);
+  }),
   stop: (id: string) => guestRequest<GuestChatSnapshot>(`/api/chats/${encodeURIComponent(id)}/stop`, {}),
   image: (id: string) => `/api/images/${encodeURIComponent(id)}`,
-  subscribe: (id: string, onSnapshot: (snapshot: GuestChatSnapshot) => void, onConnection: (connected: boolean) => void) => {
+  subscribe: (id: string, onSnapshot: (snapshot: GuestChatSnapshot) => void, onConnection: (connected: boolean) => void, initial?: GuestChatSnapshot) => {
     const url = new URL(`/api/live/${encodeURIComponent(id)}`, window.location.href);url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    url.searchParams.set('delta', '1');if (initial) url.searchParams.set('revision', String(initial.revision));
     const socket = new WebSocket(url);let closed = false;
+    let revision = initial?.revision;
+    const messages = new Map(initial?.messages.map(message => [message.id, message]));
+    let lastActivity = Date.now();
+    const watchdog = setInterval(() => { if (Date.now() - lastActivity > 50000) socket.close(); }, 10000);
     socket.onopen = () => { if (!closed) onConnection(true); };
     socket.onmessage = event => {
-      try { const snapshot = JSON.parse(event.data);if (!closed && snapshot.id === id) onSnapshot(snapshot); } catch { /* A later snapshot reconciles a dropped frame. */ }
+      lastActivity = Date.now();
+      try {
+        const snapshot = JSON.parse(event.data);
+        if (closed || snapshot.id !== id) return;
+        if (snapshot.type === 'patch') {
+          if (snapshot.baseRevision !== revision) { socket.close();return; }
+          snapshot.messages = snapshot.messages.map((patch: { id: string; textAppend?: string; reasoningAppend?: string }) => {
+            const old = messages.get(patch.id);const { textAppend, reasoningAppend, ...fields } = patch;
+            return { ...old, ...fields, ...(textAppend === undefined ? {} : { text: (old?.text || '') + textAppend }), ...(reasoningAppend === undefined ? {} : { reasoning: (old?.reasoning || '') + reasoningAppend }) };
+          });
+        }
+        if (!snapshot.partial) messages.clear();
+        for (const message of snapshot.messages) messages.set(message.id, message);
+        revision = snapshot.revision;onSnapshot(snapshot);
+      } catch { socket.close(); }
     };
-    socket.onclose = () => { if (!closed) onConnection(false); };
+    socket.onclose = () => { clearInterval(watchdog);if (!closed) onConnection(false); };
     socket.onerror = () => socket.close();
-    return () => { closed = true;socket.close(); };
+    return () => { closed = true;clearInterval(watchdog);socket.close(); };
   },
 };
 

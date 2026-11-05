@@ -69,3 +69,22 @@ idempotency, streaming, restart/resume, image validation and egress policy.
 Guest UI and restricted Markdown tests live in their owning frontend modules.
 Before sharing an address, also test the deployed firewall, company-home
 visibility, a real model reply, and desktop/mobile browser login.
+
+## Mobile performance and recovery
+
+- Authentication returns the history and selected transcript together. The page
+  keeps eight recently viewed transcripts in memory, along with each draft and
+  scroll position, and refreshes a cached conversation after displaying it.
+- Selecting an image starts preparation and upload immediately. Larger images
+  are exported as WebP at up to 2560 pixels on the long edge, using the smaller
+  of the original and optimized files. The server retains the 5 MB limit.
+- Binary uploads have progress, cancellation and retry, with two uploads at a
+  time. Stable upload IDs and message request IDs make retries idempotent.
+  Unsent uploads are capped at 100 files; records older than 24 hours are cleaned
+  at startup and before another upload.
+- Live clients negotiate revision-based text patches and compression. A missed
+  revision reconnects to a snapshot; heartbeats, visibility/online events and
+  bounded HTTP requests recover from interrupted mobile connections.
+- Private attachment caching and compressed history responses reduce repeated
+  transfers. Sending, delivery confirmation, image progress and model waiting
+  have separate visible states. The public URL continues to use the same tunnel.

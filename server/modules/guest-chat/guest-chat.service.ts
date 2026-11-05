@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { GuestCodexClient } from '@/modules/guest-chat/guest-codex.client.js';
@@ -21,12 +21,15 @@ export async function createGuestChatService(directory: string, client: Client =
   const loaded = new Set<string>();
   const nativeSessions = new Map<string, Session>();
   const ownedImages = new Set<string>();
+  const uploads = new Map<string, { createdAt: number; hash: string }>();
+  const uploading = new Map<string, Promise<{ id: string }>>();
   const textParts = new Map<string, Map<string, string>>();
   const replies = new Map<string, Message>();
   const summaries = new Map<string, Map<string, string>>();
   const listeners = new Set<(id: string) => void>();
   const preparing = new Map<string, Promise<void>>();
   const starts = new Map<string, Promise<void>>();
+  const accepting = new Map<string, Promise<void>>();
   let persistence = Promise.resolve();
   let saveTimer: NodeJS.Timeout | undefined;
   try {
@@ -37,12 +40,30 @@ export async function createGuestChatService(directory: string, client: Client =
       for (const message of session.messages) for (const image of message.images) ownedImages.add(image);
     }
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+  try {
+    for (const [id, metadata] of JSON.parse(await readFile(path.join(directory, 'uploads.json'), 'utf8'))) {
+      if (/^[a-f0-9-]{36}\.(png|jpeg|webp)$/.test(id)) uploads.set(id, metadata);
+    }
+  } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+
+  async function pruneUploads() {
+    for (const [id, metadata] of uploads) {
+      if (ownedImages.has(id)) uploads.delete(id);
+      else if (metadata.createdAt < Date.now() - 86400_000) {
+        uploads.delete(id);await rm(path.join(directory, 'images', id), { force: true });
+      }
+    }
+  }
+  await pruneUploads();
 
   function persist(): Promise<void> {
     clearTimeout(saveTimer);saveTimer = undefined;
     const snapshot = JSON.stringify([...sessions.values()]);
+    const uploadSnapshot = JSON.stringify([...uploads]);
     persistence = persistence.catch(() => {}).then(async () => {
       await writeFile(filename + '.next', snapshot, { mode: 0o600 });await rename(filename + '.next', filename);
+      const uploadFile = path.join(directory, 'uploads.json');
+      await writeFile(uploadFile + '.next', uploadSnapshot, { mode: 0o600 });await rename(uploadFile + '.next', uploadFile);
     });
     return persistence;
   }
@@ -95,7 +116,7 @@ export async function createGuestChatService(directory: string, client: Client =
     const p = event.params || {};
     const session = nativeSessions.get(p.threadId);
     if (!session?.busy) return;
-    if (event.method === 'turn/started') session.turnId = p.turn.id;
+    if (event.method === 'turn/started') { session.turnId = p.turn.id;session.status = '思考中';changed(session); }
     if (event.method === 'item/agentMessage/delta' || (event.method === 'item/completed' && p.item?.type === 'agentMessage')) {
       const parts = textParts.get(session.id) || new Map<string, string>();textParts.set(session.id, parts);
       const id = p.itemId || p.item?.id;
@@ -128,39 +149,72 @@ export async function createGuestChatService(directory: string, client: Client =
     subscribe: (listener: (id: string) => void) => { listeners.add(listener);return () => { listeners.delete(listener); }; },
     list: () => [...sessions.values()].sort((a, b) => b.updatedAt - a.updatedAt).map(({ id, title, updatedAt, busy }) => ({ id, title, updatedAt, busy })),
     read: (id: string) => view(get(id)),
+    async upload(requestId: string, mime: string, bytes: Buffer): Promise<{ id: string }> {
+      const id = requestId + '.' + mime.slice('image/'.length);
+      const previous = uploading.get(id);if (previous) { await previous; }
+      const pending = (async () => {
+        const hash = createHash('sha256').update(bytes).digest('hex');
+        if (uploads.has(id) || ownedImages.has(id)) {
+          const saved = uploads.get(id)?.hash || createHash('sha256').update(await readFile(path.join(directory, 'images', id))).digest('hex');
+          if (saved !== hash) throw Object.assign(new Error('图片内容已变化，请重新选择图片。'), { status: 409 });
+          return { id };
+        }
+        await pruneUploads();
+        if (uploads.size + uploading.size >= 100) throw Object.assign(new Error('待发送图片较多，请稍后再试。'), { status: 429 });
+        await writeFile(path.join(directory, 'images', id), bytes, { mode: 0o600 });
+        uploads.set(id, { createdAt: Date.now(), hash });await persist();return { id };
+      })();
+      uploading.set(id, pending);
+      try { return await pending; } finally { if (uploading.get(id) === pending) uploading.delete(id); }
+    },
     async create() {
       if (sessions.size >= 100) throw Object.assign(new Error('对话数量已达上限，请继续使用已有对话。'), { status: 409 });
       const session: Session = { id: randomUUID(), title: '新对话', busy: false, status: '', error: null, messages: [], updatedAt: Date.now(), revision: 1, requests: [] };
       sessions.set(session.id, session);await persist();void prepare(session).catch(() => {});return view(session);
     },
-    async send(id: string, text: string, images: string[], requestId: string) {
+    async send(id: string, text: string, images: string[], requestId: string, imageIds: string[] = []) {
       const session = get(id);
+      const acceptanceKey = `${id}/${requestId}`;
+      const inFlight = accepting.get(acceptanceKey);if (inFlight) await inFlight;
       if (session.requests.includes(requestId)) return view(session);
       if (session.busy) throw Object.assign(new Error('请等待当前回答完成，或点击停止。'), { status: 409 });
       if (session.messages.length >= 500) throw Object.assign(new Error('这段对话已很长，请新建对话继续。'), { status: 409 });
+      if (imageIds.some(image => !ownedImages.has(image) && !uploads.has(image))) throw Object.assign(new Error('图片已过期，请重新上传。'), { status: 400 });
+      let release!: () => void;
+      accepting.set(acceptanceKey, new Promise<void>(resolve => { release = resolve; }));
       // Reserve the turn before awaiting disk or model work, so concurrent sends stay serialized.
-      session.busy = true;session.status = '思考中';session.error = null;session.requests.push(requestId);
+      session.busy = true;session.status = '正在连接模型';session.error = null;session.requests.push(requestId);
       textParts.delete(id);replies.delete(id);summaries.delete(id);
+      let accepted = false;
       try {
-        const attachments: string[] = [];
+        const attachments: string[] = [...imageIds];
+        const modelImages = [...images];
+        for (const imageId of imageIds) {
+          const bytes = await readFile(path.join(directory, 'images', imageId));
+          modelImages.push(`data:image/${imageId.split('.').at(-1)};base64,${bytes.toString('base64')}`);
+          ownedImages.add(imageId);uploads.delete(imageId);
+        }
         for (const image of images) {
           const match = image.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/)!;
           const imageId = randomUUID() + '.' + match[1];
           await writeFile(path.join(directory, 'images', imageId), Buffer.from(match[2], 'base64'), { mode: 0o600 });attachments.push(imageId);ownedImages.add(imageId);
         }
-        session.messages.push({ id: randomUUID(), role: 'user', text, images: attachments, createdAt: Date.now() });
+        session.messages.push({ id: requestId, role: 'user', text, images: attachments, createdAt: Date.now() });
         if (session.messages.length === 1) session.title = (text || '图片提问').slice(0, 40);
-        changed(session);await persist();
+        changed(session);await persist();accepted = true;
         const start = (async () => {
           await prepare(session);
           const turn = await client.call('turn/start', { threadId: session.nativeId, model: MODEL, effort: EFFORT,
             summary: 'auto',
-            input: [{ type: 'text', text: text || '请分析这张图片中的题目并作答。' }, ...images.map(url => ({ type: 'image', url }))],
+            input: [{ type: 'text', text: text || '请分析这张图片中的题目并作答。' }, ...modelImages.map(url => ({ type: 'image', url }))],
           });
           if (session.busy) session.turnId = turn.turn.id;
         })().catch(error => fail(session, error)).finally(() => starts.delete(id));
         starts.set(id, start);
-      } catch (error) { fail(session, error);throw error; }
+      } catch (error) {
+        if (!accepted) { session.requests = session.requests.filter(value => value !== requestId);session.messages = session.messages.filter(message => message.id !== requestId); }
+        fail(session, error);throw error;
+      } finally { accepting.delete(acceptanceKey);release(); }
       return view(session);
     },
     async stop(id: string) {
@@ -169,11 +223,11 @@ export async function createGuestChatService(directory: string, client: Client =
       return view(session);
     },
     async image(id: string) {
-      if (!/^[a-f0-9-]{36}\.(png|jpeg|webp)$/.test(id) || !ownedImages.has(id)) {
+      if (!/^[a-f0-9-]{36}\.(png|jpeg|webp)$/.test(id) || (!ownedImages.has(id) && !uploads.has(id))) {
         throw Object.assign(new Error('图片不存在。'), { status: 404 });
       }
       return { bytes: await readFile(path.join(directory, 'images', id)), mime: 'image/' + id.split('.').at(-1) };
     },
-    async close() { client.close();await Promise.allSettled([...starts.values(), ...preparing.values()]);await persist();listeners.clear(); },
+    async close() { client.close();await Promise.allSettled([...starts.values(), ...preparing.values(), ...uploading.values(), ...accepting.values()]);await persist();listeners.clear(); },
   };
 }

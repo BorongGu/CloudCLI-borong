@@ -161,3 +161,60 @@ test('guest login rate limit and exact OpenAI egress allowlist fail closed', asy
   assert.equal(allowedGuestDestination('chatgpt.com:443', '100.64.0.46', pinned), false);
   assert.equal(allowedGuestDestination('auth.openai.com:443', '100.127.148.236', pinned), false);
 });
+
+test('bootstrap combines authenticated history and selected transcript, with compressed JSON', async t => {
+  const f = await setup(t);const first = await f.service.create();const second = await f.service.create();const cookie = await f.login();
+  await f.service.send(first.id, '长题目'.repeat(1000), [], randomUUID());
+  const response = await f.request(`/api/auth?chat=${first.id}`, undefined, cookie);
+  assert.equal(response.headers.get('content-encoding'), 'gzip');
+  const data: any = await response.json();assert.equal(data.chat.id, first.id);assert.equal(data.chats.length, 2);
+  const publicData: any = await (await f.request(`/api/auth?chat=${second.id}`)).json();
+  assert.equal(publicData.authenticated, false);assert.equal('chat' in publicData, false);
+});
+
+test('binary preuploads survive restart, enforce ownership and make lost-ack retries idempotent', async t => {
+  const f = await setup(t);const cookie = await f.login();const chat = await f.service.create();
+  const base = `http://127.0.0.1:${(f.server.address() as { port: number }).port}`;
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6WlIAAAAASUVORK5CYII=', 'base64');
+  const id = randomUUID();
+  const upload = (data: Buffer, auth = cookie) => fetch(`${base}/api/uploads/${id}`, { method: 'POST', headers: { Origin: base, Cookie: auth, 'Content-Type': 'image/png' }, body: data });
+  assert.equal((await upload(png, '')).status, 401);assert.equal((await upload(Buffer.from('invalid'))).status, 400);
+  const response = await upload(png);assert.equal(response.status, 201);const image: any = await response.json();
+  assert.deepEqual(await (await upload(png)).json(), image);
+  assert.equal((await upload(Buffer.concat([png, Buffer.from('different')]))).status, 409);
+  const imageResponse = await f.request(`/api/images/${image.id}`, undefined, cookie);assert.match(imageResponse.headers.get('cache-control')!, /private/);
+  const request = { text: '', images: [], imageIds: [image.id], requestId: randomUUID() };
+  assert.equal((await f.request(`/api/chats/${chat.id}/messages`, { ...request, imageIds: [randomUUID() + '.png'] }, cookie)).status, 400);
+  assert.equal((await f.request(`/api/chats/${chat.id}/messages`, request, cookie)).status, 202);
+  assert.equal((await f.request(`/api/chats/${chat.id}/messages`, request, cookie)).status, 202);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(f.service.read(chat.id).messages[0].id, request.requestId);
+  assert.equal(f.client.calls.filter(call => call.method === 'turn/start').length, 1);
+  assert.match(f.client.calls.find(call => call.method === 'turn/start')!.params.input[1].url, /^data:image\/png;base64,/);
+  const pending = await f.service.upload(randomUUID(), 'image/png', png);
+  await f.service.close();const restored = await createGuestChatService(f.root, new FakeCodex());
+  assert.equal((await restored.image(pending.id)).bytes.length, png.length);await restored.close();
+});
+
+test('incremental streaming sends appended text instead of repeatedly retransmitting the entire answer', async t => {
+  const f = await setup(t);const cookie = await f.login();const chat = await f.service.create();
+  await f.service.send(chat.id, 'question', [], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));
+  const threadId = f.client.calls.find(call => call.method === 'turn/start')!.params.threadId;
+  const emit = (delta: string) => f.client.emit('notification', { method: 'item/agentMessage/delta', params: { threadId, itemId: 'answer', delta } });
+  emit('一段较长的内容'.repeat(1000));
+  const base = `127.0.0.1:${(f.server.address() as { port: number }).port}`;
+  const ws = new WebSocket(`ws://${base}/api/live/${chat.id}?delta=1`, { headers: { Cookie: cookie, Origin: `http://${base}` } });t.after(() => ws.terminate());
+  const initial: any = await new Promise(resolve => ws.once('message', bytes => resolve(JSON.parse(String(bytes)))));
+  const update = new Promise<string>(resolve => ws.once('message', bytes => resolve(String(bytes))));emit('新增文字');
+  const wire = await update;const patch = JSON.parse(wire);
+  assert.equal(patch.baseRevision, initial.revision);assert.equal(patch.type, 'patch');assert.equal(patch.messages[0].textAppend, '新增文字');assert.ok(Buffer.byteLength(wire) < 1000);
+  ws.close();
+});
+
+test('simultaneous retries acknowledge the persisted question and start one model turn', async t => {
+  const f = await setup(t);const chat = await f.service.create();const requestId = randomUUID();
+  const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6WlIAAAAASUVORK5CYII=';
+  const results = await Promise.all([f.service.send(chat.id, 'same question', [image], requestId), f.service.send(chat.id, 'same question', [image], requestId)]);
+  for (const result of results) assert.equal(result.messages[0]?.id, requestId);
+  await new Promise(resolve => setTimeout(resolve, 20));assert.equal(f.client.calls.filter(call => call.method === 'turn/start').length, 1);
+});
