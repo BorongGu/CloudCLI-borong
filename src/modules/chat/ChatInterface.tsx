@@ -240,6 +240,7 @@ function ChatInterface({
     selectFile,
     attachedFiles,
     setAttachedFiles,
+    attachmentProgress, retryAttachment, cancelAttachment, isSubmitting,
     fileErrors,
     getRootProps,
     getInputProps,
@@ -559,6 +560,7 @@ function ChatInterface({
           handleGrantToolPermission={handleGrantToolPermission}
           activity={sessionActivity}
           isLoading={isProcessing}
+          isSubmitting={isSubmitting}
           onAbortSession={handleAbortSession}
           permissionMode={permissionMode}
           availablePermissionModes={availablePermissionModes}
@@ -593,11 +595,14 @@ function ChatInterface({
           onEditQueuedDraft={editQueuedDraft}
           onDeleteQueuedDraft={deleteQueuedDraft}
           attachedFiles={attachedFiles}
-          onRemoveAttachment={(index) =>
+          attachmentProgress={attachmentProgress}
+          onRetryAttachment={retryAttachment}
+          onRemoveAttachment={(index) => {
+            if (attachedFiles[index]) cancelAttachment(attachedFiles[index]);
             setAttachedFiles((previous) =>
               previous.filter((_, currentIndex) => currentIndex !== index),
-            )
-          }
+            );
+          }}
           fileErrors={fileErrors}
           showFileDropdown={showFileDropdown}
           filteredFiles={filteredFiles}

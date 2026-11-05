@@ -6,10 +6,15 @@ import { GuestCodexClient } from '@/modules/guest-chat/guest-codex.client.js';
 
 type Message = { id: string; role: 'user' | 'assistant'; text: string; reasoning?: string; images: string[]; createdAt: number };
 type Session = { id: string; title: string; nativeId?: string; turnId?: string; busy: boolean; status: string;
-  error: string | null; messages: Message[]; updatedAt: number; revision: number; requests: string[] };
+  error: string | null; messages: Message[]; updatedAt: number; revision: number; requests: string[];
+  contextUsed?: number | null; contextLimit?: number;
+  compaction?: { phase: 'running' | 'completed' | 'failed'; startedAt: number; finishedAt?: number } | null };
 type Client = Pick<GuestCodexClient, 'initialize' | 'call' | 'close'> & { on: (event: string, listener: (...args: any[]) => void) => unknown };
 const MODEL = 'gpt-6-astra';
 const EFFORT = 'high';
+// The isolated guest policy matches the workspace's 500K raw / 475K effective window.
+const CONTEXT_WINDOW = 500_000;
+const EFFECTIVE_CONTEXT_WINDOW = CONTEXT_WINDOW * .95;
 const INSTRUCTIONS = '你是中文答疑助手。帮助用户理解题目、分析图片并作答。先给清楚的答案，再给必要的推导；信息不足时在正文中追问。数学公式使用 $...$ 和 $$...$$。你可以使用内置网页搜索获取公开资料；涉及最新信息或用户要求查证时，主动搜索，并在回答中用 Markdown 链接标注来源。结合本对话中的文字、图片和检索结果回答。';
 
 /** Guest HTTP routes use this store, which accepts only locally allocated conversation IDs. */
@@ -30,11 +35,13 @@ export async function createGuestChatService(directory: string, client: Client =
   const preparing = new Map<string, Promise<boolean>>();
   const starts = new Map<string, Promise<void>>();
   const accepting = new Map<string, Promise<void>>();
+  const standaloneCompactions = new Set<string>();
   let persistence = Promise.resolve();
   let saveTimer: NodeJS.Timeout | undefined;
   try {
     for (const session of JSON.parse(await readFile(filename, 'utf8')) as Session[]) {
       if (session.busy) { session.error = '连接已恢复，可以继续提问。';session.revision++; }
+      if (session.compaction?.phase === 'running') session.compaction = { ...session.compaction, phase: 'failed', finishedAt: Date.now() };
       session.busy = false;session.turnId = undefined;session.status = '';sessions.set(session.id, session);
       if (session.nativeId) nativeSessions.set(session.nativeId, session);
       for (const message of session.messages) for (const image of message.images) ownedImages.add(image);
@@ -80,10 +87,16 @@ export async function createGuestChatService(directory: string, client: Client =
   }
   function view(session: Session) {
     return { id: session.id, title: session.title, busy: session.busy, status: session.status, error: session.error,
-      messages: session.messages, updatedAt: session.updatedAt, revision: session.revision, model: MODEL, effort: EFFORT };
+      messages: session.messages, updatedAt: session.updatedAt, revision: session.revision, model: MODEL, effort: EFFORT,
+      context: { used: session.contextUsed ?? (session.messages.length ? null : 0), limit: session.contextLimit || EFFECTIVE_CONTEXT_WINDOW },
+      compaction: session.compaction || null,
+      ...(session.compaction?.phase === 'running' ? { status: '正在压缩上下文' } : {}),
+    };
   }
   function fail(session: Session, error: unknown): void {
     session.busy = false;session.turnId = undefined;session.status = '';
+    if (session.compaction?.phase === 'running') session.compaction = { ...session.compaction, phase: 'failed', finishedAt: Date.now() };
+    standaloneCompactions.delete(session.id);
     session.error = (error instanceof Error ? error.message : '回答中断，请重试。').slice(0, 600)
       .replace(/(?:Bearer\s+|(?:sk-|eyJ))[A-Za-z0-9_.-]+/g, '[credential]');
     changed(session, true);
@@ -100,7 +113,7 @@ export async function createGuestChatService(directory: string, client: Client =
       await client.initialize();
       const parameters = {
         model: MODEL, cwd: '/workspace', approvalPolicy: 'never', sandbox: 'read-only', developerInstructions: INSTRUCTIONS,
-        config: { model_reasoning_effort: EFFORT, web_search: 'live' },
+        config: { model_reasoning_effort: EFFORT, web_search: 'live', model_context_window: CONTEXT_WINDOW },
       };
       let recreated = false;let result;
       try {
@@ -128,7 +141,33 @@ export async function createGuestChatService(directory: string, client: Client =
   client.on('notification', (event: any) => {
     const p = event.params || {};
     const session = nativeSessions.get(p.threadId);
-    if (!session?.busy) return;
+    if (!session) return;
+    if (session.turnId && p.turnId && p.turnId !== session.turnId) return;
+    if (event.method === 'thread/tokenUsage/updated') {
+      const last = p.tokenUsage?.last;
+      // `total` accumulates every model call; the current window is the latest call, including its cached input.
+      if (typeof last?.totalTokens === 'number' && Number.isFinite(last.totalTokens) && last.totalTokens >= 0) session.contextUsed = last.totalTokens;
+      const limit = p.tokenUsage?.modelContextWindow;
+      if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0) session.contextLimit = limit;
+      changed(session);return;
+    }
+    const compactItem = p.item?.type === 'contextCompaction';
+    if (event.method === 'item/started' && compactItem) {
+      if (session.compaction?.phase !== 'running') {
+        if (!session.busy) standaloneCompactions.add(session.id);
+        session.compaction = { phase: 'running', startedAt: Date.now() };session.turnId ||= p.turnId;session.busy = true;changed(session);
+      }
+      return;
+    }
+    if ((event.method === 'item/completed' && compactItem) || event.method === 'thread/compacted') {
+      if (session.compaction?.phase === 'running') {
+        session.compaction = { ...session.compaction, phase: 'completed', finishedAt: Date.now() };
+        if (standaloneCompactions.delete(session.id)) { session.busy = false;session.turnId = undefined; }
+        session.status = session.busy ? '正在继续回答' : '';changed(session, true);
+      }
+      return;
+    }
+    if (!session.busy) return;
     if (event.method === 'turn/started') { session.turnId = p.turn.id;session.status = '思考中';changed(session); }
     if ((event.method === 'item/started' || event.method === 'item/completed') && p.item?.type === 'webSearch') {
       session.status = event.method === 'item/started' ? '正在搜索网页' : '正在整理搜索结果';changed(session);
@@ -152,7 +191,10 @@ export async function createGuestChatService(directory: string, client: Client =
     }
     if (event.method === 'turn/completed') {
       if (p.turn.status === 'failed') fail(session, new Error(p.turn.error?.message || '模型暂时繁忙，请重试。'));
-      else { session.busy = false;session.turnId = undefined;session.status = '';changed(session, true); }
+      else {
+        if (session.compaction?.phase === 'running') session.compaction = { ...session.compaction, phase: p.turn.status === 'completed' ? 'completed' : 'failed', finishedAt: Date.now() };
+        standaloneCompactions.delete(session.id);session.busy = false;session.turnId = undefined;session.status = '';changed(session, true);
+      }
     }
     if (event.method === 'error') {
       if (!p.willRetry) fail(session, new Error(p.error?.message || '模型暂时繁忙，请重试。'));
@@ -201,6 +243,7 @@ export async function createGuestChatService(directory: string, client: Client =
       accepting.set(acceptanceKey, new Promise<void>(resolve => { release = resolve; }));
       // Reserve the turn before awaiting disk or model work, so concurrent sends stay serialized.
       session.busy = true;session.status = '正在连接模型';session.error = null;session.requests.push(requestId);
+      session.compaction = null;standaloneCompactions.delete(id);
       textParts.delete(id);replies.delete(id);summaries.delete(id);
       let accepted = false;
       try {

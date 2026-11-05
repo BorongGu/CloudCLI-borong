@@ -14,7 +14,7 @@ import { PaperclipIcon, MessageSquareIcon, XIcon, Loader2, ArrowUpIcon, PencilIc
 
 import { useVoiceInput } from '@/modules/chat/hooks/useVoiceInput';
 import { useVoiceAvailable } from '@/modules/chat/hooks/useVoiceAvailable';
-import type { LLMProvider, BackgroundSendChoice, BackgroundSendPrompt, QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption } from '@/shared/types';
+import type { ChatAttachmentProgress, LLMProvider, BackgroundSendChoice, BackgroundSendPrompt, QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption } from '@/shared/types';
 import {
   PromptInput,
   PromptInputHeader,
@@ -54,6 +54,8 @@ type ChatComposerProps = {
   handleGrantToolPermission: (suggestion: { entry: string; toolName: string }) => { success: boolean };
   activity: SessionActivity | null;
   isLoading: boolean;
+  /** A submit waiting for uploads or an HTTP acknowledgement, separate from the model's active turn. */
+  isSubmitting?: boolean;
   /** Codex accepts input directly into an active native turn. */
   canSteer?: boolean;
   onQueueMessage?: () => void;
@@ -91,6 +93,8 @@ type ChatComposerProps = {
   onEditQueuedDraft: () => void;
   onDeleteQueuedDraft: () => void;
   attachedFiles: File[];
+  attachmentProgress?: Map<File, ChatAttachmentProgress>;
+  onRetryAttachment?: (file: File) => void;
   onRemoveAttachment: (index: number) => void;
   fileErrors: Map<string, string>;
   showFileDropdown: boolean;
@@ -135,6 +139,7 @@ export default function ChatComposer({
   handleGrantToolPermission,
   activity,
   isLoading,
+  isSubmitting = false,
   canSteer = false,
   onQueueMessage,
   onAbortSession,
@@ -169,6 +174,8 @@ export default function ChatComposer({
   onEditQueuedDraft,
   onDeleteQueuedDraft,
   attachedFiles,
+  attachmentProgress,
+  onRetryAttachment,
   onRemoveAttachment,
   fileErrors,
   showFileDropdown,
@@ -426,6 +433,9 @@ export default function ChatComposer({
                       file={file}
                       onRemove={() => onRemoveAttachment(index)}
                       error={fileErrors.get(file.name)}
+                      progress={attachmentProgress?.get(file)}
+                      onRetry={() => onRetryAttachment?.(file)}
+                      disabled={isSubmitting}
                     />
                   ))}
                 </div>
@@ -538,19 +548,19 @@ export default function ChatComposer({
                       : undefined
               }
               disabled={
-                isLoading
+                isSubmitting || (isLoading
                   ? false
                   : isRecording
                     ? false
                     : isTranscribing
                       ? true
-                      : !input.trim() && attachedFiles.length === 0
+                      : !input.trim() && attachedFiles.length === 0)
               }
               aria-label={submitAriaLabel}
               title={submitAriaLabel}
               className="h-10 w-10 sm:h-10 sm:w-10"
             >
-              {isTranscribing ? (
+              {isTranscribing || isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : canQueueDraft ? (
                 <ArrowUpIcon className="h-4 w-4" />
@@ -558,7 +568,9 @@ export default function ChatComposer({
             </PromptInputSubmit>
           </div>
 
-          <div className={`order-last basis-full ${activity && !hasPendingPermissions ? '' : 'hidden lg:block'}`}>
+          <div className={`order-last basis-full ${(activity || isSubmitting) && !hasPendingPermissions ? '' : 'hidden lg:block'}`}>
+            {isSubmitting && <p role="status" className="px-2 py-1 text-xs text-muted-foreground">{t('input.preparingSend', { defaultValue: 'Preparing to send…' })}</p>}
+            {activity?.statusText === 'Compacting' && <p role="status" className="px-2 py-1 text-xs text-muted-foreground">{t('input.compactionHint', { defaultValue: 'You can open a new conversation to avoid waiting.' })}</p>}
             {hasPendingPermissions ? submitHintContent : (
               <ActivityIndicator activity={activity} onAbort={onAbortSession} hint={submitHintContent} />
             )}

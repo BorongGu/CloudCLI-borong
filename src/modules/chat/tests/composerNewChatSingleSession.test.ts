@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, test, vi } from 'vitest';
 
+import { api } from '@/shared/api';
 import '@/modules/i18n';
 import { useChatComposerState } from '@/modules/chat/hooks/useChatComposerState';
 import type { PermissionMode, Project, ProjectSession } from '@/shared/types';
@@ -92,6 +93,7 @@ const uploadRequests = () => fetchMock.mock.calls
   .filter(([url, init]) => String(url) === '/api/assets/files' && (init as RequestInit | undefined)?.method === 'POST');
 
 beforeEach(() => {
+  vi.spyOn(api.assets, 'uploadFiles').mockImplementation((body) => fetch('/api/assets/files', { method: 'POST', body }));
   pendingCreates = [];
   pendingUploads = [];
   createdCount = 0;
@@ -224,4 +226,30 @@ test('a pending new chat does not hold up a submit in another session', async ()
     [['session-other', 'elsewhere']],
   );
   await releaseCreates();
+});
+
+test('an upload finishing after navigation preserves the other session draft and clears only the sent attachment', async () => {
+  const original = { id: 'session-upload-source' };
+  const other = { id: 'session-upload-other' };
+  const { view, chatSends } = renderComposer(original);
+  const image = new File(['png'], 'source.png', { type: 'image/png' });
+  await act(async () => {
+    view.result.current.setInput('source question');
+    view.result.current.setAttachedFiles([image]);
+  });
+  await act(async () => { void view.result.current.handleSubmit({ preventDefault: () => undefined } as never); });
+  assert.equal(view.result.current.isSubmitting, true);
+  view.rerender({ session: other });
+  await act(async () => { view.result.current.setInput('other draft'); });
+  assert.equal(view.result.current.isSubmitting, false);
+  assert.equal(view.result.current.attachedFiles.length, 0);
+  await act(async () => {
+    for (const pending of pendingUploads) pending.resolve(jsonResponse({ attachments: [{ name: 'source.png', mimeType: 'image/png' }] }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  assert.equal(view.result.current.input, 'other draft');
+  assert.deepEqual(chatSends().map(message => [message.sessionId, message.content]), [[original.id, 'source question']]);
+  view.rerender({ session: original });
+  assert.equal(view.result.current.input, '');
+  assert.equal(view.result.current.attachedFiles.length, 0);
 });

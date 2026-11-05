@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, test, vi } from 'vitest';
 
+import { api } from '@/shared/api';
 import { i18n } from '@/modules/i18n';
 import { useChatComposerState } from '@/modules/chat/hooks/useChatComposerState';
 import { readDraftText, resetChatDrafts, writeDraftText } from '@/shared/chatDrafts';
@@ -206,6 +207,7 @@ const startSubmit = (view: View) => {
 };
 
 beforeEach(() => {
+  vi.spyOn(api.assets, 'uploadFiles').mockImplementation((body) => fetch('/api/assets/files', { method: 'POST', body }));
   server = new Map();
   refuseQueueing = false;
   uploadGate = null;
@@ -406,6 +408,8 @@ test('switching sessions during the upload still queues the follow-up behind the
   assert.equal(queuedOnServer('session-1')?.content, 'follow-up A\n\nfollow-up B');
   assert.equal(view.result.current.queuedDraft, null, 'the session now open has no card of its own');
   assert.equal(readDraftText('session-1'), '', 'and going back will not offer B to be queued again');
+  view.rerender({ session: SESSION_1, isLoading: true, model: 'model-1' });
+  assert.equal(view.result.current.attachedFiles.length, 0, 'the queued file belongs to the durable message');
 });
 
 test('what the user types while a follow-up is being queued stays in the composer', async () => {
@@ -636,6 +640,8 @@ test('a refused follow-up goes back to the session it was typed in, after a swit
   assert.equal(errors.length, 1);
   assert.equal(readDraftText('session-1'), 'follow-up B', 'it is waiting there to be sent again');
   assert.equal(view.result.current.input, '', 'and not in the composer of the session now open');
+  view.rerender({ session: SESSION_1, isLoading: true, model: 'model-1' });
+  assert.deepEqual(view.result.current.attachedFiles.map(file => file.name), ['b.txt'], 'the failed submission retains its original file');
 });
 
 test('a follow-up refused after a switch made while it was being queued goes back to the session it was typed in', async () => {

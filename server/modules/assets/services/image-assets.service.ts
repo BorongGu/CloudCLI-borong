@@ -37,6 +37,23 @@ type UploadedImageFile = {
 
 type UploadedAttachmentFile = UploadedImageFile;
 
+const pendingUploads = new Map<string, { promise: Promise<StoredImageAsset[]>; pending: boolean; until: number }>();
+
+/** The assets route reuses an authenticated client's upload result after a lost acknowledgement or simultaneous retry. */
+export function reserveAttachmentUpload(owner: string | undefined, requestId: string | undefined, upload: () => Promise<StoredImageAsset[]>) {
+  if (!owner || !requestId) return { reused: false, promise: upload() };
+  const now = Date.now();
+  for (const [key, record] of pendingUploads) if (!record.pending && record.until <= now) pendingUploads.delete(key);
+  const key = `${owner}:${requestId}`;const existing = pendingUploads.get(key);
+  if (existing) return { reused: true, promise: existing.promise };
+  if (pendingUploads.size >= 256) for (const [old, record] of pendingUploads) if (!record.pending) { pendingUploads.delete(old);break; }
+  if (pendingUploads.size >= 512) throw Object.assign(new Error('Uploads are busy; please retry shortly.'), { status: 429 });
+  const record = { promise: Promise.resolve().then(upload), pending: true, until: now + 900000 };
+  pendingUploads.set(key, record);
+  record.promise = record.promise.then(result => { record.pending = false;record.until = Date.now() + 900000;return result; }, error => { if (pendingUploads.get(key) === record) pendingUploads.delete(key);throw error; });
+  return { reused: false, promise: record.promise };
+}
+
 /** Returns whether one uploaded mime type may be stored as a chat image asset. */
 export function isAllowedImageMimeType(mimeType: string): boolean {
   return ALLOWED_IMAGE_MIME_TYPES.has(mimeType);

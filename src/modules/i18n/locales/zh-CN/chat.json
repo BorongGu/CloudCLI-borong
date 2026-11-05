@@ -150,7 +150,15 @@
       "button": "排队"
     },
     "steer": "追加指令",
-    "steerFailed": "追加指令失败：{{message}}"
+    "steerFailed": "追加指令失败：{{message}}",
+    "preparingSend": "准备发送中…",
+    "compactionHint": "可以新开一个对话来避免等待。",
+    "retryAttachment": "重试上传 {{name}}",
+    "attachmentRetry": "重试",
+    "attachmentReady": "已就绪",
+    "attachmentPreparing": "优化中",
+    "attachmentConfirming": "确认中",
+    "attachmentProgress": "{{name}} 上传进度"
   },
   "providerSelection": {
     "title": "选择您的 AI 助手",

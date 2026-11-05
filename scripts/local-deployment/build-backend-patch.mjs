@@ -7,6 +7,8 @@ import ts from 'typescript';
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const output = process.env.CLOUDCLI_PATCH_DIR || path.join(os.homedir(), '.config/cloudcli/backend-patch');
 const files = [
+  'server/modules/assets/assets.routes.ts',
+  'server/modules/assets/services/image-assets.service.ts',
   'server/modules/providers/services/sessions-watcher.service.ts',
   'server/modules/providers/list/opencode/opencode-runtime.provider.ts',
   'server/modules/providers/list/opencode/opencode-btw-connection.ts',

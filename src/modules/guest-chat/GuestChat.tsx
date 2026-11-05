@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { ArrowUp, Check, ImagePlus, Loader2, LogOut, MessageSquare, Plus, RotateCw, Square, X } from 'lucide-react';
+import { ArrowUp, Check, Gauge, ImagePlus, Loader2, LogOut, MessageSquare, Plus, RotateCw, Square, X } from 'lucide-react';
 
 import { guestChatApi } from '@/shared/api';
 import type { GuestChatBootstrap, GuestChatSnapshot, GuestChatSummary } from '@/shared/types';
@@ -64,6 +64,10 @@ export function GuestChat() {
   const waiting = Boolean(queued || chat?.busy || loadingId);
   const startedAt = queued?.startedAt || chat?.messages.slice().reverse().find(message => message.role === 'user')?.createdAt || now;
   const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const compacting = chat?.compaction?.phase === 'running';
+  const compactSeconds = Math.max(0, Math.floor((now - (chat?.compaction?.startedAt || now)) / 1000));
+  const context = chat?.context || { used: chat?.messages.length ? null : 0, limit: 475_000 };
+  const formatTokens = (value: number | null) => value === null ? '—' : value < 1000 ? String(value) : `${Math.round(value / 100) / 10}K`;
   function setDraft(value: string) { setDrafts(previous => ({ ...previous, [selectedId]: value })); }
   function receive(next: GuestChatSnapshot) {
     const previous = cache.current.get(next.id);
@@ -99,6 +103,10 @@ export function GuestChat() {
     try { const next = await guestChatApi.read(id, controller.signal);if (!controller.signal.aborted) receive(next); }
     catch (error) { if (!controller.signal.aborted) report(error); }
     finally { if (activeId.current === id && !controller.signal.aborted) setLoadingId(null); }
+  }
+  async function newConversation() {
+    readRequest.current?.abort();setPending(true);
+    try { select(await guestChatApi.create()); } catch (error) { report(error); } finally { setPending(false); }
   }
   useEffect(() => {
     const controller = new AbortController();
@@ -198,7 +206,7 @@ export function GuestChat() {
       <div className="guest-actions"><select aria-label="我的对话" value={selectedId} disabled={pending} onChange={e => { void switchChat(e.target.value); }}>
         {!selectedId && <option value="">加载中…</option>}{chats.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}</select>
         <GuestThemePicker />
-        <Button variant="ghost" aria-label="新对话" title="新对话" disabled={pending} onClick={() => { readRequest.current?.abort();setPending(true);void guestChatApi.create().then(select).catch(report).finally(() => setPending(false)); }}>{pending ? <Loader2 className="guest-spin" /> : <Plus />}<span>{pending ? '创建中' : '新对话'}</span></Button>
+        <Button variant="ghost" aria-label="新对话" title="新对话" disabled={pending} onClick={() => { void newConversation(); }}>{pending ? <Loader2 className="guest-spin" /> : <Plus />}<span>{pending ? '创建中' : '新对话'}</span></Button>
         <Button variant="ghost" size="icon" aria-label="退出登录" title="退出登录" disabled={pending || Object.values(outgoing).some(message => message && !message.error)} onClick={() => { void guestChatApi.logout().then(() => { readRequest.current?.abort();activeId.current = null;cache.current.clear();positions.current.clear();attachments.reset();setDrafts({});setOutgoing({});setSelectedId('');setChat(null);setChats([]);setAuthenticated(false); }).catch(report); }}><LogOut /></Button>
       </div>
     </header>
@@ -216,11 +224,12 @@ export function GuestChat() {
         <div className="guest-question">{queued.text}</div>
         <div className="guest-delivery" role="status">{queued.error ? <><span>{queued.error}</span><button onClick={() => { void send(queued); }}><RotateCw size={12} />重试发送</button></> : <><Loader2 className="guest-spin" size={12} />{elapsed >= 5 ? '正在确认送达' : '正在发送'} · {elapsed}s</>}</div>
       </article>}
-      {chat?.busy && chat.messages.at(-1)?.role !== 'user' && !chat.messages.at(-1)?.text && <div className="guest-waiting" role="status"><Loader2 className="guest-spin" size={15} /><span>{chat.status || '正在思考'} · {elapsed}s</span><small>{elapsed >= 15 ? '正在准备回答，内容会实时显示' : '问题已送达，正在准备回答'}</small></div>}
-      {chat?.busy && chat.messages.at(-1)?.role === 'user' && <div className="guest-waiting" role="status"><Loader2 className="guest-spin" size={15} /><span>{chat.status || '正在思考'} · {elapsed}s</span><small>问题已送达，内容会实时显示</small></div>}
+      {chat?.busy && !compacting && chat.messages.at(-1)?.role !== 'user' && !chat.messages.at(-1)?.text && <div className="guest-waiting" role="status"><Loader2 className="guest-spin" size={15} /><span>{chat.status || '正在思考'} · {elapsed}s</span><small>{elapsed >= 15 ? '正在准备回答，内容会实时显示' : '问题已送达，正在准备回答'}</small></div>}
+      {chat?.busy && !compacting && chat.messages.at(-1)?.role === 'user' && <div className="guest-waiting" role="status"><Loader2 className="guest-spin" size={15} /><span>{chat.status || '正在思考'} · {elapsed}s</span><small>问题已送达，内容会实时显示</small></div>}
       {chat?.error && <div role="alert" className="guest-notice">{chat.error}</div>}
     </div></main>
     <footer className="guest-footer"><div className="guest-compose-shell"><img className="guest-companions" src={companions} alt="" aria-hidden="true" width={112} height={56} loading="lazy" decoding="async" /><div className="guest-compose">
+      {compacting && <div className="guest-compaction" role="status"><Loader2 className="guest-spin" size={15} /><div><strong>正在压缩上下文 · {compactSeconds}s</strong><p>可以新开一个对话来避免等待。</p></div><button type="button" disabled={pending} onClick={() => { void newConversation(); }}><Plus size={13} />新开对话</button></div>}
       {images.length > 0 && <div className="guest-previews">{images.map((image, index) => <div key={image.id} className="guest-attachment">
         <img src={image.preview} alt={`待发送图片 ${index + 1}`} />
         <button className="guest-remove-image" disabled={posting} aria-label={`移除图片 ${index + 1}`} onClick={() => attachments.remove(selectedId, image.id)}><X size={14} /></button>
@@ -234,7 +243,8 @@ export function GuestChat() {
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && matchMedia('(pointer:fine)').matches) { e.preventDefault();void send(); } }} />
       <div className="guest-compose-bar"><input ref={upload} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={e => { void addImages([...e.target.files || []]);e.target.value = ''; }} />
         <Button variant="ghost" aria-label="上传图片" disabled={!selectedId || posting} onClick={() => upload.current?.click()}><ImagePlus /><span>图片</span></Button>
-        <span className="guest-status guest-status-visible" role="status">{pending ? <><Loader2 className="guest-spin" size={12} />处理中…</> : posting ? <><i />确认送达 · {elapsed}s</> : chat?.busy ? <><i />{chat.status || '思考中'} · {elapsed}s</> : images.length && !ready ? '图片准备中…' : connection}</span>
+        <div className="guest-compose-info"><span className="guest-context" title={`当前上下文 ${context.used === null ? '待更新' : context.used.toLocaleString()} tokens，窗口 ${context.limit.toLocaleString()} tokens`}><Gauge size={12} />Ctx <span>{formatTokens(context.used)} / {formatTokens(context.limit)}</span></span>
+        <span className="guest-status guest-status-visible" role="status">{pending ? <><Loader2 className="guest-spin" size={12} />处理中…</> : compacting ? <><i />正在压缩上下文</> : posting ? <><i />确认送达 · {elapsed}s</> : chat?.busy ? <><i />{chat.status || '思考中'} · {elapsed}s</> : images.length && !ready ? '图片准备中…' : chat?.compaction?.phase === 'completed' ? '上下文已压缩' : connection}</span></div>
         {chat?.busy ? <Button variant="outline" disabled={pending} onClick={() => { setPending(true);void guestChatApi.stop(chat.id).then(receive).catch(report).finally(() => setPending(false)); }}><Square size={14} />停止</Button>
           : <Button className="guest-primary" aria-label="发送问题" disabled={pending || posting || !ready || !chat || (!draft.trim() && !images.length)} onClick={() => { void send(); }}>{posting ? <Loader2 className="guest-spin" /> : <ArrowUp />}<span>{posting ? '发送中' : '发送'}</span></Button>}
       </div>

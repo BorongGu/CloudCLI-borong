@@ -7,6 +7,7 @@ import {
   ensureImageAssetsDir,
   isAllowedImageMimeType,
   openStoredAttachmentAsset,
+  reserveAttachmentUpload,
 } from '@/modules/assets/services/image-assets.service.js';
 
 const router = express.Router();
@@ -74,20 +75,24 @@ router.post('/images', (req, res) => {
  * accepted because providers inspect them as data through their file-reading
  * tools; uploads are capped at 10 files and 10MB per file.
  */
-router.post('/files', (req, res) => {
-  attachmentUpload.array('files', 10)(req, res, (err: unknown) => {
-    if (err) {
-      const message = err instanceof Error ? err.message : 'Upload failed';
-      return res.status(400).json({ error: message });
-    }
-
-    const files = Array.isArray(req.files) ? req.files : [];
-    if (files.length === 0) {
-      return res.status(400).json({ error: 'No files provided' });
-    }
-
-    res.json({ attachments: buildStoredAttachmentRecords(files) });
-  });
+router.post('/files', async (req, res) => {
+  try {
+    const id = req.get('X-Upload-Id');
+    if (id && !/^[a-f0-9-]{36}$/.test(id)) return res.status(400).json({ error: 'Invalid upload identifier' });
+    const owner = (req as typeof req & { user?: { id?: string | number } }).user?.id;
+    const reservation = reserveAttachmentUpload(owner === undefined ? undefined : String(owner), id, () => new Promise((resolve, reject) => {
+      attachmentUpload.array('files', 10)(req, res, (error: unknown) => {
+        if (error) { reject(error);return; }
+        const files = Array.isArray(req.files) ? req.files : [];
+        if (!files.length) { reject(new Error('No files provided'));return; }
+        resolve(buildStoredAttachmentRecords(files));
+      });
+    }));
+    if (reservation.reused) req.resume();
+    res.json({ attachments: await reservation.promise });
+  } catch (error) {
+    res.status((error as { status?: number }).status || 400).json({ error: error instanceof Error ? error.message : 'Upload failed' });
+  }
 });
 
 /**

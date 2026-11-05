@@ -112,4 +112,13 @@ button svg { flex-shrink: 0; } h1, h2, p { margin: 0; }
 .guest-attachment progress { width: 58px; height: 3px; display: block; accent-color: #9a85c7; }
 .guest-upload-error { padding: 2px 15px; font-size: 10px; color: #bfa5a2; }
 .guest-status.guest-status-visible { font-size: 10px; }
+.guest-compose-info { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.guest-context { display: flex; align-items: center; gap: 5px; color: hsl(var(--muted-foreground)); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.guest-context svg { color: hsl(var(--primary)); }
+.guest-compaction { display: flex; align-items: center; gap: 9px; padding: 11px 14px; border-bottom: 1px solid hsl(var(--border) / .65); background: hsl(var(--accent) / .45); color: hsl(var(--accent-foreground)); }
+.guest-compaction > div { flex: 1; min-width: 0; }
+.guest-compaction strong { font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.guest-compaction p { margin-top: 4px; font-size: 10px; color: hsl(var(--muted-foreground)); }
+.guest-compaction button { display: inline-flex; align-items: center; gap: 3px; padding: 6px 7px; border-radius: 8px; border: 1px solid hsl(var(--primary) / .25); font-size: 10px; white-space: nowrap; }
+.guest-compaction button:hover { background: hsl(var(--primary) / .1); }
 @media(prefers-reduced-motion:reduce) { .guest-spin,.guest-skeleton { animation: none; } }

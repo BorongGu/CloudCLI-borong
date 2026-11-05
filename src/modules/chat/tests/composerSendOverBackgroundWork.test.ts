@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, test, vi } from 'vitest';
 
+import { api } from '@/shared/api';
 import '@/modules/i18n';
 import { useChatComposerState } from '@/modules/chat/hooks/useChatComposerState';
 import { clearQueuedMessage, readQueuedMessage } from '@/shared/chatDrafts';
@@ -101,6 +102,7 @@ const submitAndAnswer = async (view: View, choice: BackgroundSendChoice) => {
 };
 
 beforeEach(() => {
+  vi.spyOn(api.assets, 'uploadFiles').mockImplementation((body) => fetch('/api/assets/files', { method: 'POST', body }));
   vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     if (String(url).includes('/api/assets/files')) {
       return new Response(JSON.stringify({ attachments: [UPLOADED] }), { status: 200, headers: { 'Content-Type': 'application/json' } });

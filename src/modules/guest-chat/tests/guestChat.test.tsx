@@ -142,3 +142,14 @@ test('a late send acknowledgement preserves the newer streamed answer and comple
   await act(async () => acknowledge({ ...chat, revision: 2, busy: true }));
   expect(screen.getByText('完整回答')).toBeTruthy();expect(screen.queryByRole('button', { name: '停止' })).toBeNull();
 });
+
+test('compression shows its context and a new-conversation action while the original turn keeps running', async () => {
+  const compressing = { ...chat, busy: true, context: { used: 420000, limit: 475000 }, compaction: { phase: 'running' as const, startedAt: Date.now() } };
+  vi.mocked(guestChatApi.auth).mockResolvedValue({ authenticated: true, chats: [compressing], chat: compressing });
+  vi.mocked(guestChatApi.create).mockResolvedValue({ ...chat, id: 'fresh', title: '新对话' });
+  render(<GuestChat />);await screen.findByText('420K / 475K');
+  expect(screen.getByText('可以新开一个对话来避免等待。')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '新开对话' }));
+  await waitFor(() => expect((screen.getByLabelText('我的对话') as HTMLSelectElement).value).toBe('fresh'));
+  expect(guestChatApi.stop).not.toHaveBeenCalled();expect(screen.queryByText('可以新开一个对话来避免等待。')).toBeNull();
+});

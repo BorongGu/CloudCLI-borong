@@ -188,7 +188,8 @@ describe('recent session reading positions', () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31 * 60 * 1000);
     vi.mocked(api.providers.sessionMessages).mockResolvedValueOnce(response(rows.slice(400), true));
     rerender({ selectedSession: session });
-    await waitFor(() => expect(result.current.chatMessages.length).toBe(100));
+    // Expiry resets the visible window/scroll, while the cached transcript stays available during refresh.
+    await waitFor(() => expect(result.current.chatMessages.length).toBe(300));
     expect(result.current.visibleMessageCount).toBe(100);
     expect(result.current.isUserScrolledUp).toBe(false);
     expect(api.providers.sessionMessages).toHaveBeenCalledTimes(3);

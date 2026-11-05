@@ -15,7 +15,8 @@ ExecStart=%h/.local/share/cloudcli-runtime/node_modules/node/bin/node %h/.local/
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
-KillMode=control-group
+# The native Codex daemon owns ongoing turns independently of this web worker.
+KillMode=process
 UMask=0077
 
 [Install]

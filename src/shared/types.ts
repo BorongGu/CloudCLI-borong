@@ -7,7 +7,11 @@ import type { NavigateFunction } from 'react-router-dom';
 export type GuestChatMessage = { id: string; role: 'user' | 'assistant'; text: string; reasoning?: string; images: string[]; createdAt: number };
 /** The guest API and page share this snapshot; native thread IDs and paths stay on the server. */
 export type GuestChatSnapshot = { id: string; title: string; busy: boolean; status: string; error: string | null;
-  messages: GuestChatMessage[]; updatedAt: number; revision: number; model: string; effort: string; partial?: boolean };
+  messages: GuestChatMessage[]; updatedAt: number; revision: number; model: string; effort: string; partial?: boolean;
+  /** Latest native call usage, rather than cumulative account token consumption. */
+  context?: { used: number | null; limit: number };
+  /** Native compaction lifecycle survives snapshots, reconnects and session switches. */
+  compaction?: { phase: 'running' | 'completed' | 'failed'; startedAt: number; finishedAt?: number } | null };
 /** Guest history picker contains only its dedicated store's conversation summaries. */
 export type GuestChatSummary = Pick<GuestChatSnapshot, 'id' | 'title' | 'updatedAt' | 'busy'>;
 /** One authenticated response supplies the guest history and selected transcript. */
@@ -15,6 +19,10 @@ export type GuestChatBootstrap = { authenticated: boolean; username?: string; ch
 /** A selected guest image stays attached to its draft while preparation, upload or retry runs. */
 export type GuestChatAttachment = { id: string; preview: string; name: string; source: File; blob?: Blob; imageId?: string;
   status: 'preparing' | 'queued' | 'uploading' | 'ready' | 'error'; progress: number; error?: string };
+// ---------------------------
+//----------------- WORKSPACE ATTACHMENT PROGRESS ------------
+/** Chat attachment thumbnails display preparation, transfer, server acknowledgement and retry state. */
+export type ChatAttachmentProgress = { phase: 'preparing' | 'uploading' | 'ready' | 'error'; percent: number; error?: string };
 // ---------------------------
 
 //----------------- LLM PROVIDER MODEL CATALOG ------------

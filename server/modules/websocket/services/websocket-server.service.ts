@@ -87,6 +87,8 @@ export function createWebSocketServer(
 ): WebSocketServer {
   const wss = new WebSocketServer({
     server,
+    perMessageDeflate: { threshold: 1024, serverNoContextTakeover: true, clientNoContextTakeover: true,
+      concurrencyLimit: 4, zlibDeflateOptions: { level: 3 } },
     verifyClient: ((
       info: Parameters<VerifyClientCallbackSync<AuthenticatedWebSocketRequest>>[0]
     ) => verifyWebSocketClient(info, dependencies.verifyClient)),

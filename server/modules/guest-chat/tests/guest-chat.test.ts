@@ -110,6 +110,7 @@ test('guest send pins Astra/high, serializes turns, deduplicates retries and ren
   const thread = f.client.calls.find(c => c.method === 'thread/start')!;
   assert.equal(thread.params.sandbox, 'read-only');assert.equal(thread.params.cwd, '/workspace');
   assert.equal(thread.params.config.web_search, 'live');
+  assert.equal(thread.params.config.model_context_window, 500000);
   const threadId = turns[0].params.threadId;
   f.client.emit('notification', { method: 'item/agentMessage/delta', params: { threadId, itemId: 'answer', delta: '1+1=' } });
   f.client.emit('notification', { method: 'item/completed', params: { threadId, item: { type: 'agentMessage', id: 'answer', text: '1+1=2' } } });
@@ -255,4 +256,36 @@ test('generic resume failures and conversations with prior answers retain their 
     const restored = await createGuestChatService(f.root, client);await restored.send(chat.id, 'continue', [], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));
     assert.equal(restored.read(chat.id).error, error);assert.equal(client.calls.length, 1);assert.equal(client.calls[0].method, 'thread/resume');await restored.close();
   }
+});
+
+test('context tracks the latest native call and compression stays visible through interleaved output', async t => {
+  const f = await setup(t);const chat = await f.service.create();assert.deepEqual(chat.context, { used: 0, limit: 475000 });
+  await f.service.send(chat.id, 'question', [], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));
+  const threadId = f.client.calls.find(call => call.method === 'turn/start')!.params.threadId;
+  const notify = (method: string, params: any = {}) => f.client.emit('notification', { method, params: { threadId, turnId: 'turn', ...params } });
+  notify('thread/tokenUsage/updated', { tokenUsage: { last: { totalTokens: 420000 }, total: { totalTokens: 6000000 }, modelContextWindow: 475000 } });
+  assert.deepEqual(f.service.read(chat.id).context, { used: 420000, limit: 475000 });
+  notify('item/started', { item: { id: 'compact', type: 'contextCompaction' } });
+  const startedAt = f.service.read(chat.id).compaction!.startedAt;
+  notify('item/started', { item: { id: 'compact', type: 'contextCompaction' } });
+  notify('item/reasoning/summaryTextDelta', { itemId: 'reason', delta: 'late thinking' });
+  assert.equal(f.service.read(chat.id).status, '正在压缩上下文');assert.equal(f.service.read(chat.id).compaction!.startedAt, startedAt);
+  notify('item/completed', { threadId: 'other', item: { type: 'contextCompaction' } });assert.equal(f.service.read(chat.id).compaction!.phase, 'running');
+  notify('item/completed', { item: { id: 'compact', type: 'contextCompaction' } });
+  assert.equal(f.service.read(chat.id).compaction!.phase, 'completed');assert.equal(f.service.read(chat.id).busy, true);
+  notify('turn/completed', { turn: { id: 'turn', status: 'completed' } });
+  notify('thread/tokenUsage/updated', { tokenUsage: { last: { totalTokens: 45000 }, total: { totalTokens: 6045000 }, modelContextWindow: 475000 } });
+  assert.equal(f.service.read(chat.id).context.used, 45000);assert.equal(f.service.read(chat.id).busy, false);
+  notify('item/started', { item: { id: 'post-turn-compact', type: 'contextCompaction' } });assert.equal(f.service.read(chat.id).busy, true);
+  notify('thread/compacted');assert.equal(f.service.read(chat.id).busy, false);
+});
+
+test('failed or interrupted compaction clears the running notice and persists actual usage', async t => {
+  const f = await setup(t);const chat = await f.service.create();await f.service.send(chat.id, 'question', [], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));
+  const threadId = f.client.calls.find(call => call.method === 'turn/start')!.params.threadId;
+  f.client.emit('notification', { method: 'item/started', params: { threadId, item: { type: 'contextCompaction' } } });
+  f.client.emit('notification', { method: 'error', params: { threadId, willRetry: false, error: { message: 'Compaction interrupted' } } });
+  assert.equal(f.service.read(chat.id).compaction!.phase, 'failed');assert.equal(f.service.read(chat.id).busy, false);
+  await f.service.close();const restored = await createGuestChatService(f.root, new FakeCodex());
+  assert.equal(restored.read(chat.id).compaction!.phase, 'failed');await restored.close();
 });

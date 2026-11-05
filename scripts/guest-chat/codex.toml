@@ -1,5 +1,7 @@
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
+# Codex reserves 5%, leaving a 475K effective context window.
+model_context_window = 500000
 approval_policy = "never"
 sandbox_mode = "read-only"
 web_search = "live"

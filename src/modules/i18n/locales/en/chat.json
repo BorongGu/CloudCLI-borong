@@ -163,7 +163,15 @@
       "button": "Queue"
     },
     "steer": "Send to active turn",
-    "steerFailed": "Failed to add input: {{message}}"
+    "steerFailed": "Failed to add input: {{message}}",
+    "preparingSend": "Preparing to send…",
+    "compactionHint": "You can open a new conversation to avoid waiting.",
+    "retryAttachment": "Retry {{name}}",
+    "attachmentRetry": "Retry",
+    "attachmentReady": "Ready",
+    "attachmentPreparing": "Preparing",
+    "attachmentConfirming": "Confirming",
+    "attachmentProgress": "{{name}} upload progress"
   },
   "composer": {
     "reasoning": "Reasoning",

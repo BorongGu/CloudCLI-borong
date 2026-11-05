@@ -12,6 +12,24 @@ import type { Project, ProjectSession, QuickSettingsTab, ServerEvent, SlashComma
 export const IS_PLATFORM = import.meta.env?.VITE_IS_PLATFORM === 'true';
 
 // ---------------------------
+//----------------- CHAT IMAGE PREPARATION ------------
+/** Guest chat and workspace attachments share a legible, size-reducing raster export; other files stay intact. */
+export async function optimizeChatImage(file: File): Promise<Blob> {
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size <= 180_000) return file;
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();image.src = url;await image.decode();
+    const scale = Math.min(1, 2560 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext('2d');if (!context) return file;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const compressed = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', .88));
+    canvas.width = 0;canvas.height = 0;
+    return compressed && compressed.size < file.size ? compressed : file;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+// ---------------------------
 
 //----------------- TAILWIND CLASS COMPOSITION ------------
 

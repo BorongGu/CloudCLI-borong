@@ -141,6 +141,50 @@ export const authenticatedFetch = (
   });
 };
 
+type AssetUploadOptions = { onProgress: (percent: number) => void; signal: AbortSignal; requestId: string };
+function uploadAssetForm(form: FormData, options: AssetUploadOptions): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();const abort = () => xhr.abort();const cleanup = () => options.signal.removeEventListener('abort', abort);
+    xhr.open('POST', '/api/assets/files');xhr.timeout = 150000;xhr.withCredentials = true;
+    const token = getStoredAuthToken();if (!IS_PLATFORM && token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('X-Upload-Id', options.requestId);
+    xhr.upload.onprogress = event => { if (event.lengthComputable) options.onProgress(Math.min(99, Math.round(event.loaded / event.total * 100))); };
+    xhr.onload = () => {
+      cleanup();const refreshed = xhr.getResponseHeader('X-Refreshed-Token');if (refreshed) storeAuthToken(refreshed);
+      if (xhr.status === 401 && xhr.getResponseHeader('X-Auth-Error')) expireAuthSession();
+      if (!xhr.status) { reject(new Error('上传连接已中断，请重试。'));return; }
+      resolve(new Response(xhr.responseText, { status: xhr.status, headers: { 'Content-Type': 'application/json' } }));
+    };
+    xhr.onerror = () => { cleanup();reject(new Error('上传连接中断，点击重试。')); };
+    xhr.ontimeout = () => { cleanup();reject(new Error('上传超时，文件已保留，请重试。')); };
+    xhr.onabort = () => { cleanup();reject(new DOMException('Upload cancelled', 'AbortError')); };
+    if (options.signal.aborted) { reject(new DOMException('Upload cancelled', 'AbortError'));return; }
+    options.signal.addEventListener('abort', abort, { once: true });xhr.send(form);
+  });
+}
+
+// Cache image bytes, not authenticated HTTP responses: refreshed-token headers must remain fresh.
+const chatImageBytes = new Map<string, { blob: Blob; until: number }>();
+function rememberChatImage(filename: string, blob: Blob, token = getStoredAuthToken()) {
+  if (IS_PLATFORM || !token || blob.size > 10 * 1024 * 1024) return;
+  const key = `${token}:${filename}`;chatImageBytes.delete(key);chatImageBytes.set(key, { blob, until: Date.now() + 600000 });
+  let size = [...chatImageBytes.values()].reduce((sum, value) => sum + value.blob.size, 0);
+  while (chatImageBytes.size > 24 || size > 32 * 1024 * 1024) {
+    const [oldest, entry] = chatImageBytes.entries().next().value!;size -= entry.blob.size;chatImageBytes.delete(oldest);
+  }
+}
+async function readChatImage(filename: string, options: ApiRequestOptions = {}): Promise<Response> {
+  const token = getStoredAuthToken();const key = `${token}:${filename}`;
+  if (options.signal?.aborted) throw new DOMException('Image request cancelled', 'AbortError');
+  const saved = !IS_PLATFORM && token ? chatImageBytes.get(key) : undefined;
+  if (saved && saved.until > Date.now()) return new Response(saved.blob, { headers: { 'Content-Type': saved.blob.type } });
+  chatImageBytes.delete(key);
+  const response = await authenticatedFetch(`/api/assets/images/${encodeURIComponent(filename)}`, options);
+  if (!response.ok) return response;
+  const blob = await response.blob();rememberChatImage(filename, blob, token);
+  return new Response(blob, { status: response.status, headers: { 'Content-Type': blob.type } });
+}
+
 // ─── Request helpers ────────────────────────────────────────────────────────
 // Every endpoint below goes through these so verb, JSON encoding and query
 // serialization stay consistent across the whole frontend.
@@ -581,15 +625,15 @@ export const api = {
 
   // Chat attachments, stored globally under ~/.cloudcli/assets
   assets: {
-    uploadFiles: (formData: FormData) =>
+    uploadFiles: (formData: FormData, options?: AssetUploadOptions) => options ? uploadAssetForm(formData, options) :
       authenticatedFetch('/api/assets/files', {
         method: 'POST',
         headers: {}, // Let browser set Content-Type for FormData
         body: formData,
       }),
     file: (storedName: string) => get(`/api/assets/files/${encodeURIComponent(storedName)}`),
-    image: (filename: string, options: ApiRequestOptions = {}) =>
-      get(`/api/assets/images/${encodeURIComponent(filename)}`, options),
+    image: readChatImage,
+    cacheImage: rememberChatImage,
   },
 
   // TaskMaster endpoints — all addressed by DB projectId post-migration.

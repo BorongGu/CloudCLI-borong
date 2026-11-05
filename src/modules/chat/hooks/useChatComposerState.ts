@@ -29,6 +29,7 @@ import {
 import { escapeRegExp } from '@/modules/chat/utils/chatFormatting';
 import { describeBackgroundTask, ownBackgroundTasks } from '@/modules/chat/utils/backgroundTasks';
 import { useFileMentions } from '@/modules/chat/hooks/useFileMentions';
+import { useChatAttachmentUploads } from '@/modules/chat/hooks/useChatAttachmentUploads';
 import { useInputHistory } from '@/modules/chat/hooks/useInputHistory';
 import { useSlashCommands } from '@/modules/chat/hooks/useSlashCommands';
 
@@ -112,36 +113,12 @@ const createFakeSubmitEvent = () => {
 
 const MAX_ATTACHMENT_COUNT = 10;
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+const EMPTY_ATTACHMENT_FILES: File[] = [];
 
 const isImageAttachment = (attachment: ChatAttachment) => {
   if (attachment.mimeType?.startsWith('image/')) return true;
   return /\.(gif|jpe?g|png|svg|webp)$/i.test(attachment.path || attachment.name || '');
 };
-
-const uploadAttachmentFiles = async (files: File[]): Promise<unknown[]> => {
-  if (files.length === 0) {
-    return [];
-  }
-
-  const formData = new FormData();
-  files.forEach((file) => {
-    formData.append('files', file);
-  });
-
-  const response = await api.assets.uploadFiles(formData);
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.error || 'Failed to upload files');
-  }
-
-  const result = await response.json();
-  if (!Array.isArray(result.attachments) || result.attachments.length !== files.length) {
-    throw new Error('File upload returned an incomplete result');
-  }
-  return result.attachments;
-};
-
 
 const restoreQueuedDraft = (sessionKey: string): QueuedDraft | null => {
   const saved = readQueuedMessage(sessionKey);
@@ -262,7 +239,7 @@ export function useChatComposerState({
     };
   });
   const input = inputState.value;
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+
   const [fileErrors, setFileErrors] = useState<Map<string, string>>(new Map());
   const [isTextareaExpanded, setIsTextareaExpanded] = useState(false);
   const [commandModalPayload, setCommandModalPayload] = useState<CommandModalPayload | null>(null);
@@ -290,6 +267,17 @@ export function useChatComposerState({
   const draftScope = sessionKey ?? (selectedProjectId ? `project:${selectedProjectId}` : null);
   const draftScopeRef = useRef(draftScope);
   draftScopeRef.current = draftScope;
+  // Browser files belong to their draft scope and survive switching to another conversation.
+  const [attachmentsByScope, setAttachmentsByScope] = useState<Record<string, File[]>>({});
+  const attachedFiles = attachmentsByScope[draftScope ?? ''] || EMPTY_ATTACHMENT_FILES;
+  const setAttachedFiles = useCallback<Dispatch<SetStateAction<File[]>>>((next) => {
+    const scope = draftScopeRef.current ?? '';
+    setAttachmentsByScope(previous => ({ ...previous, [scope]: typeof next === 'function' ? next(previous[scope] || []) : next }));
+  }, []);
+  const { progress: attachmentProgress, upload: uploadAttachmentFiles, retry: retryAttachment, cancel: cancelAttachment } = useChatAttachmentUploads(attachedFiles);
+  // Pending HTTP work is visible per scope so navigation never blocks another conversation's input.
+  const [submittingScopes, setSubmittingScopes] = useState<Set<string>>(new Set());
+
   // Composition is tracked on `window` in the capture phase rather than on the textarea, so a
   // composition that starts in one field and ends after focus moves still closes cleanly.
   const isComposingRef = useRef(false);
@@ -647,7 +635,7 @@ export function useChatComposerState({
     if (validFiles.length > 0) {
       setAttachedFiles((previous) => [...previous, ...validFiles].slice(0, MAX_ATTACHMENT_COUNT));
     }
-  }, []);
+  }, [setAttachedFiles]);
 
   const handlePaste = useCallback(
     (event: ClipboardEvent<HTMLTextAreaElement>) => {
@@ -832,8 +820,10 @@ export function useChatComposerState({
               writeDraftText(draftScopeRef.current, restored);
             }
           } else {
-            // Browser files cannot follow it into a composer that is not open.
             writeDraftText(queuedSessionKey, withTypedSince(readDraftText(queuedSessionKey)));
+            if (queuedFromOpenComposer) {
+              setAttachmentsByScope(previous => ({ ...previous, [queuedSessionKey]: [...durableDraft.attachments, ...(previous[queuedSessionKey] || [])] }));
+            }
           }
           return false;
         }
@@ -843,6 +833,9 @@ export function useChatComposerState({
       // the session-switch return below — the queued text must be
       // recallable even when it dispatches without this composer.
       recordSentMessage(durableDraft.content, queuedSessionKey);
+      if (queuedSessionKey && !preserveComposer) {
+        setAttachmentsByScope(previous => ({ ...previous, [queuedSessionKey]: (previous[queuedSessionKey] || []).filter(file => !durableDraft.attachments.includes(file)) }));
+      }
 
       // The server owns dispatch after persistence. If the user changed
       // sessions meanwhile, the durable record is already enough; do not
@@ -863,7 +856,7 @@ export function useChatComposerState({
       }));
       return true;
     },
-    [addMessage, recordSentMessage, resetCommandMenuState, setInput, t],
+    [addMessage, recordSentMessage, resetCommandMenuState, setInput, setAttachedFiles, t],
   );
 
   const submitMessage = useCallback(
@@ -874,6 +867,7 @@ export function useChatComposerState({
     ) => {
       event.preventDefault();
       const currentInput = queuedSubmission?.content ?? inputValueRef.current;
+      const submittedScope = draftScopeRef.current;
       const currentAttachments = queuedSubmission?.attachments ?? attachedFiles;
       const previouslyUploadedAttachments = queuedSubmission?.uploadedAttachments ?? [];
       if (
@@ -961,12 +955,16 @@ export function useChatComposerState({
             }
             if (response.ok) {
               recordSentMessage(currentInput, queuedSessionKey);
+              if (!submitOptions?.preserveDraft) {
+                setAttachmentsByScope(previous => ({ ...previous, [queuedSessionKey]: (previous[queuedSessionKey] || []).filter(file => !currentAttachments.includes(file)) }));
+                if (readDraftText(queuedSessionKey) === currentInput) writeDraftText(queuedSessionKey, '');
+              }
               if (sessionKeyRef.current === queuedSessionKey) {
                 const attachments = uploadedAttachments as ChatAttachment[];
                 addMessage({ type: 'user', content: submitOptions?.displayContent ?? currentInput,
                   images: attachments.filter(isImageAttachment), files: attachments.filter(file => !isImageAttachment(file)), timestamp: new Date() });
                 if (!submitOptions?.preserveDraft && inputValueRef.current === currentInput) {
-                  setInput(''); inputValueRef.current = ''; setAttachedFiles([]); setFileErrors(new Map());
+                  setInput(''); inputValueRef.current = ''; setFileErrors(new Map());
                   resetCommandMenuState();
                   if (draftScopeRef.current) writeDraftText(draftScopeRef.current, '');
                 }
@@ -1175,9 +1173,11 @@ export function useChatComposerState({
         statusText: null,
         canInterrupt: true,
       });
-      setIsUserScrolledUp(false);
-      setTimeout(() => scrollToBottom(), 100);
-      setEditingAnchorId(null);
+      const stillViewingSubmission = draftScopeRef.current === submittedScope || draftScopeRef.current === targetSessionId;
+      if (stillViewingSubmission) {
+        setIsUserScrolledUp(false);setTimeout(() => { if (draftScopeRef.current === submittedScope || draftScopeRef.current === targetSessionId) scrollToBottom(); }, 100);
+        setEditingAnchorId(null);
+      }
 
       // Recorded under the (possibly just-allocated) session id, so the first
       // message of a new chat lands in the history of the session the user is
@@ -1185,19 +1185,20 @@ export function useChatComposerState({
       // consecutive-duplicate check keeps this second call a no-op.
       recordSentMessage(currentInput, targetSessionId);
       if (!submitOptions?.preserveDraft) {
-        setInput('');
-        inputValueRef.current = '';
-        resetCommandMenuState();
-        setAttachedFiles([]);
-        setFileErrors(new Map());
-        setIsTextareaExpanded(false);
+        if (submittedScope) {
+          setAttachmentsByScope(previous => ({ ...previous, [submittedScope]: (previous[submittedScope] || []).filter(file => !currentAttachments.includes(file)) }));
+          if (readDraftText(submittedScope) === currentInput) writeDraftText(submittedScope, '');
+        }
+        if (stillViewingSubmission && inputValueRef.current === currentInput) {
+          setInput('');inputValueRef.current = '';resetCommandMenuState();setFileErrors(new Map());setIsTextareaExpanded(false);
+        }
       }
 
-      if (textareaRef.current) {
+      if (stillViewingSubmission && textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
 
-      if (draftScopeRef.current && !submitOptions?.preserveDraft) {
+      if (stillViewingSubmission && draftScopeRef.current && !submitOptions?.preserveDraft && !inputValueRef.current) {
         writeDraftText(draftScopeRef.current, '');
       }
       return true;
@@ -1215,6 +1216,7 @@ export function useChatComposerState({
       onSessionEstablished,
       onOpenBtw,
       setInput,
+      setAttachedFiles,
       provider,
       queueMessage,
       recordSentMessage,
@@ -1223,6 +1225,7 @@ export function useChatComposerState({
       selectedProject,
       sendMessage,
       sessionKey,
+      uploadAttachmentFiles,
       addMessage,
       setIsUserScrolledUp,
       slashCommands,
@@ -1250,10 +1253,12 @@ export function useChatComposerState({
         return;
       }
       submittingScopesRef.current.add(scope);
+      setSubmittingScopes(previous => new Set(previous).add(scope));
       try {
         return await submitMessage(event, queuedSubmission, submitOptions);
       } finally {
         submittingScopesRef.current.delete(scope);
+        setSubmittingScopes(previous => { const next = new Set(previous);next.delete(scope);return next; });
       }
     },
     [submitMessage],
@@ -1321,7 +1326,7 @@ export function useChatComposerState({
     inputValueRef.current = queuedDraft.content;
     setAttachedFiles(queuedDraft.attachments);
     textareaRef.current?.focus();
-  }, [queuedDraft]);
+  }, [queuedDraft, setInput, setAttachedFiles]);
 
   const deleteQueuedDraft = useCallback(() => {
     if (queuedDraftSessionRef.current) {
@@ -1648,6 +1653,8 @@ export function useChatComposerState({
     selectFile,
     attachedFiles,
     setAttachedFiles,
+    attachmentProgress, retryAttachment, cancelAttachment,
+    isSubmitting: submittingScopes.has(draftScope ?? ''),
     fileErrors,
     getRootProps,
     getInputProps,

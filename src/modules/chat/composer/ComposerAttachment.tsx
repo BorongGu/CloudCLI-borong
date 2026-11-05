@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { FileIcon, XIcon } from 'lucide-react';
+import { Check, FileIcon, Loader2, RotateCw, XIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+import type { ChatAttachmentProgress } from '@/shared/types';
 
 import { ImageLightbox } from '@/modules/chat/transcript/ChatMessageImages';
 
@@ -7,6 +10,9 @@ type ComposerAttachmentProps = {
   file: File;
   onRemove: () => void;
   error?: string;
+  progress?: ChatAttachmentProgress;
+  onRetry?: () => void;
+  disabled?: boolean;
 };
 
 const formatFileSize = (size: number) => {
@@ -19,7 +25,8 @@ const formatFileSize = (size: number) => {
  * Rendered by chat's ChatComposer for each pending attachment, showing its
  * thumbnail or file chip, upload progress and remove control.
  */
-const ComposerAttachment = ({ file, onRemove, error }: ComposerAttachmentProps) => {
+const ComposerAttachment = ({ file, onRemove, error, progress, onRetry, disabled }: ComposerAttachmentProps) => {
+  const { t } = useTranslation('chat');
   const [preview, setPreview] = useState<string | undefined>(undefined);
   const [expanded, setExpanded] = useState(false);
   const isImage = file.type.startsWith('image/');
@@ -58,16 +65,16 @@ const ComposerAttachment = ({ file, onRemove, error }: ComposerAttachmentProps) 
           </div>
         </div>
       )}
-      {error && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-red-500/50">
-          <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </div>
-      )}
+      {(progress || error) && <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground" role="status" data-upload-phase={progress?.phase} title={progress?.error || error}>
+        {progress?.phase === 'error' || error ? <button type="button" disabled={disabled} onClick={onRetry} className="flex items-center gap-1 text-primary" aria-label={t('input.retryAttachment', { name: file.name, defaultValue: 'Retry {{name}}' })}><RotateCw className="h-3 w-3" />{t('input.attachmentRetry', { defaultValue: 'Retry' })}</button>
+          : progress?.phase === 'ready' ? <><Check className="h-3 w-3 text-primary" />{t('input.attachmentReady', { defaultValue: 'Ready' })}</>
+          : <><Loader2 className="h-3 w-3 animate-spin" />{progress?.phase === 'preparing' ? t('input.attachmentPreparing', { defaultValue: 'Preparing' }) : progress?.percent === 99 ? t('input.attachmentConfirming', { defaultValue: 'Confirming' }) : `${progress?.percent || 0}%`}</>}
+      </div>}
+      {progress?.phase === 'uploading' && <progress className="mt-1 block h-0.5 w-full accent-[hsl(var(--primary))]" value={progress.percent} max={100} aria-label={t('input.attachmentProgress', { name: file.name, defaultValue: '{{name}} upload progress' })} />}
       <button
         type="button"
         onClick={onRemove}
+        disabled={disabled}
         className="absolute -right-1.5 -top-1.5 rounded-full border border-border/40 bg-background/90 p-1 text-foreground shadow-sm backdrop-blur transition-opacity hover:bg-background focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
         aria-label={`Remove ${file.name}`}
       >

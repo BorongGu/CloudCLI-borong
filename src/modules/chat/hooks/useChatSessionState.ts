@@ -892,6 +892,15 @@ export function useChatSessionState({
     }
     readingPositionsRef.current.delete(selectedSessionId);
 
+    // An expired reading position changes where we scroll, not whether cached history can render immediately.
+    if (existingSlot?.fetchedAt && !hasSearchTarget) {
+      setHasMoreMessages(existingSlot.hasMore);setTotalMessages(existingSlot.total);messagesOffsetRef.current = existingSlot.offset;
+      setAllMessagesLoaded(!existingSlot.hasMore);allMessagesLoadedRef.current = !existingSlot.hasMore;
+      setTokenBudget((existingSlot.tokenUsage as Record<string, unknown> | null) ?? null);setIsLoadingSessionMessages(false);
+      if (sessionStore.isStale(selectedSessionId)) void requestLatestMessages(selectedSessionId);
+      return;
+    }
+
     // Fetch from server → store updates → chatMessages re-derives automatically
     setIsLoadingSessionMessages(true);
     sessionStore.fetchFromServer(selectedSessionId, {
