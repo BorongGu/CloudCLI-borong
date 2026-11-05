@@ -29,9 +29,20 @@ type MermaidDiagramProps = {
  */
 export default function MermaidDiagram({ code }: MermaidDiagramProps) {
   const theme = useOptionalTheme();
-  const isDarkMode = theme?.isDarkMode ?? document.documentElement.classList.contains('dark');
+  // Guest chat selects its appearance on the document while workspace views use ThemeContext.
+  const [documentDark, setDocumentDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const isDarkMode = theme?.isDarkMode ?? documentDark;
   const reactId = useId();
   const [svg, setSvg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (theme) return;
+    const sync = () => setDocumentDark(document.documentElement.classList.contains('dark'));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, [theme]);
 
   useEffect(() => {
     let cancelled = false;

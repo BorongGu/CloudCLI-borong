@@ -5,6 +5,11 @@ This entrypoint gives a guest a small public chat UI using `gpt-6-astra` with
 Markdown, table, KaTeX and expandable reasoning-summary rendering. It runs independently of the company
 CloudCLI service and requires a dedicated login.
 
+The palette button on the login page and chat header switches between Dark and
+Cream Cake. Cream Cake pairs vanilla surfaces with berry-purple accents. The
+browser remembers this choice under `guest-theme`, separately from workspace
+preferences; Markdown, formulas, code blocks and diagrams follow the appearance.
+
 ## Boundaries
 
 - The guest server imports only the guest module. Its HTTP allowlist exposes

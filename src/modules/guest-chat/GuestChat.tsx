@@ -7,6 +7,7 @@ import { Button, Input } from '@/shared/ui';
 import { copyTextToClipboard } from '@/shared/utils';
 import companions from '@/modules/guest-chat/assets/companions.webp';
 import { useGuestAttachments } from '@/modules/guest-chat/hooks/useGuestAttachments';
+import { GuestThemePicker } from '@/modules/guest-chat/GuestThemePicker';
 import '@/modules/guest-chat/guest-chat.css';
 
 const GuestAnswer = lazy(() => import('@/modules/guest-chat/GuestAnswer'));
@@ -183,7 +184,7 @@ export function GuestChat() {
     } finally { sending.current.delete(id); }
   }
 
-  if (authenticated !== true) return <main className="guest-login"><form onSubmit={login}>
+  if (authenticated !== true) return <main className="guest-login"><GuestThemePicker /><form onSubmit={login}>
     <div className="guest-brand"><MessageSquare size={23} /></div><h1>GPT-6 Astra</h1><p>文字、截图，随时提问。</p>
     <label htmlFor="guest-user">账号</label><Input id="guest-user" autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} required />
     <label htmlFor="guest-password">密码</label><Input id="guest-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
@@ -196,6 +197,7 @@ export function GuestChat() {
     <header className="guest-header"><div className="guest-heading"><div className="guest-brand"><MessageSquare size={20} /></div><div><h1>GPT-6 Astra</h1><p>High · 深度思考</p></div></div>
       <div className="guest-actions"><select aria-label="我的对话" value={selectedId} disabled={pending} onChange={e => { void switchChat(e.target.value); }}>
         {!selectedId && <option value="">加载中…</option>}{chats.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}</select>
+        <GuestThemePicker />
         <Button variant="ghost" aria-label="新对话" title="新对话" disabled={pending} onClick={() => { readRequest.current?.abort();setPending(true);void guestChatApi.create().then(select).catch(report).finally(() => setPending(false)); }}>{pending ? <Loader2 className="guest-spin" /> : <Plus />}<span>{pending ? '创建中' : '新对话'}</span></Button>
         <Button variant="ghost" size="icon" aria-label="退出登录" title="退出登录" disabled={pending || Object.values(outgoing).some(message => message && !message.error)} onClick={() => { void guestChatApi.logout().then(() => { readRequest.current?.abort();activeId.current = null;cache.current.clear();positions.current.clear();attachments.reset();setDrafts({});setOutgoing({});setSelectedId('');setChat(null);setChats([]);setAuthenticated(false); }).catch(report); }}><LogOut /></Button>
       </div>
