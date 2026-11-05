@@ -19,10 +19,13 @@ type GitStatusFileGroup = 'modified' | 'added' | 'deleted' | 'untracked';
 
 //----------------- BRANDING ------------
 
+/** Application name used by workspace chrome, authentication and browser title fallbacks. */
+export const APP_NAME = 'Orbit';
+
 /**
  * The wordmark follows the selected interface's text face wherever the brand appears.
  */
-export const CLOUDCLI_WORDMARK_FONT_FAMILY =
+export const APP_WORDMARK_FONT_FAMILY =
   'var(--font-text, "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif)';
 
 // ---------------------------

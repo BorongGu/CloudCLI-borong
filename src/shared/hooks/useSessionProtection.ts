@@ -22,6 +22,7 @@ const sessionActivitiesMatch = (left: SessionActivity, right: SessionActivity): 
   left.statusText === right.statusText
   && left.canInterrupt === right.canInterrupt
   && left.startedAt === right.startedAt
+  && left.compactingSince === right.compactingSince
   && Boolean(left.background) === Boolean(right.background)
   && backgroundTasksKey(left.tasks) === backgroundTasksKey(right.tasks);
 
@@ -81,11 +82,14 @@ export function useSessionProtection() {
       // its own clock: the stale idle-ack guard compares against it, and the
       // tasks' start is not when this response began.
       const continuing = existing && !existing.background ? existing : undefined;
+      const compacting = activity?.compacting ?? (activity?.statusText === 'Compacting' || continuing?.compactingSince !== undefined);
+      const compactingSince = compacting ? continuing?.compactingSince ?? Date.now() : undefined;
       const next: SessionActivity = {
         statusText:
           activity?.statusText !== undefined ? activity.statusText : continuing?.statusText ?? null,
         canInterrupt: activity?.canInterrupt ?? continuing?.canInterrupt ?? true,
         startedAt: continuing?.startedAt ?? Date.now(),
+        ...(compactingSince !== undefined ? { compactingSince } : {}),
         // The tasks keep running under the new turn; they are reported again
         // when it ends.
         ...(existing?.tasks ? { tasks: existing.tasks } : {}),
@@ -95,6 +99,7 @@ export function useSessionProtection() {
         continuing
         && continuing.statusText === next.statusText
         && continuing.canInterrupt === next.canInterrupt
+        && continuing.compactingSince === next.compactingSince
       ) {
         return prev;
       }
@@ -204,6 +209,8 @@ export function useSessionProtection() {
             snapshot.statusText !== undefined ? snapshot.statusText : existing?.statusText ?? null,
           canInterrupt: snapshot.canInterrupt ?? existing?.canInterrupt ?? true,
           startedAt: snapshotStartedAt ?? existing?.startedAt ?? now,
+          ...(!snapshot.background && (snapshot.statusText === 'Compacting' || (snapshot.statusText === undefined && existing?.compactingSince !== undefined))
+            ? { compactingSince: existing?.compactingSince ?? now } : {}),
           ...(snapshot.background ? { background: true } : {}),
           ...(snapshot.tasks ? { tasks: snapshot.tasks } : {}),
         });

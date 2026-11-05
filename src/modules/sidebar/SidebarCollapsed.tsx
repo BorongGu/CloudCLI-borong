@@ -1,5 +1,6 @@
-import { Settings, PanelLeftOpen, Bug, AlertTriangle } from 'lucide-react';
+import { Settings, Bug, AlertTriangle } from 'lucide-react';
 import type { TFunction } from 'i18next';
+import { OrbitMark } from '@/shared/ui';
 
 const DISCORD_INVITE_URL = 'https://discord.gg/buxwujPNRE';
 const GITHUB_ISSUES_URL = 'https://github.com/siteboon/claudecodeui/issues/new';
@@ -35,7 +36,7 @@ export default function SidebarCollapsed({
         aria-label={t('common:versionUpdate.ariaLabels.showSidebar')}
         title={t('common:versionUpdate.ariaLabels.showSidebar')}
       >
-        <PanelLeftOpen className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+        <OrbitMark className="h-7 w-7 text-primary" />
       </button>
 
       <div className="nav-divider my-1 w-6" />

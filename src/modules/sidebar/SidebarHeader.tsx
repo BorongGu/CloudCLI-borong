@@ -1,8 +1,8 @@
 import { FolderPlus, Plus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
-import { Button, Input } from '@/shared/ui';
-import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '@/shared/constants';
+import { Button, Input, OrbitMark } from '@/shared/ui';
+import { APP_NAME, APP_WORDMARK_FONT_FAMILY } from '@/shared/constants';
 import { IS_PLATFORM } from '@/shared/utils';
 import type { SidebarSearchMode } from '@/shared/types';
 import GitHubStarBadge from '@/modules/sidebar/GitHubStarBadge';
@@ -32,19 +32,17 @@ type SidebarHeaderProps = {
 };
 
 /** Module-level, not a nested render function, so the wordmark is not remounted on every SidebarHeader render. */
-function LogoBlock({ t }: { t: TFunction }) {
+function LogoBlock() {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
-      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary/90 shadow-sm">
-        <svg className="h-3.5 w-3.5 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] bg-primary text-primary-foreground shadow-sm ring-1 ring-inset ring-white/15">
+        <OrbitMark />
       </div>
       <h1
         className="truncate text-sm font-bold tracking-tight text-foreground"
-        style={{ fontFamily: CLOUDCLI_WORDMARK_FONT_FAMILY }}
+        style={{ fontFamily: APP_WORDMARK_FONT_FAMILY }}
       >
-        {t('app.title')}
+        {APP_NAME}
       </h1>
     </div>
   );
@@ -93,10 +91,10 @@ export default function SidebarHeader({
               className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80"
               title={t('tooltips.viewEnvironments')}
             >
-              <LogoBlock t={t} />
+              <LogoBlock />
             </a>
           ) : (
-            <LogoBlock t={t} />
+            <LogoBlock />
           )}
 
           <div className="flex flex-shrink-0 items-center gap-0.5">
@@ -194,10 +192,10 @@ export default function SidebarHeader({
               className="flex min-w-0 items-center gap-2.5 transition-opacity active:opacity-70"
               title={t('tooltips.viewEnvironments')}
             >
-              <LogoBlock t={t} />
+              <LogoBlock />
             </a>
           ) : (
-            <LogoBlock t={t} />
+            <LogoBlock />
           )}
 
           <div className="flex flex-shrink-0 gap-1.5">

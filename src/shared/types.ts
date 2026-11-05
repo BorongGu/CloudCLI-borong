@@ -229,6 +229,8 @@ export type BackgroundTaskSummary = {
 
 /** What a busy session is doing, as shown by the activity indicator: producing a response, or only running background tasks. */
 export type SessionActivity = {
+  /** Client-observed compaction start; its independent notice survives ordinary run-status updates. */
+  compactingSince?: number;
   /** Provider-supplied status line; null renders the default activity label. */
   statusText: string | null;
   canInterrupt: boolean;
@@ -254,7 +256,7 @@ export type SessionActivityMap = ReadonlyMap<string, SessionActivity>;
 /** Marks a session as producing a response; call it as soon as a send is dispatched so the UI reacts immediately. */
 export type MarkSessionProcessing = (
   sessionId?: string | null,
-  activity?: { statusText?: string | null; canInterrupt?: boolean },
+  activity?: { statusText?: string | null; canInterrupt?: boolean; compacting?: boolean },
 ) => void;
 
 /** Marks a session's response as finished; `ifStartedBefore` lets a late acknowledgement clear only a stale run. Leaves background-only work alone, which it says nothing about. */

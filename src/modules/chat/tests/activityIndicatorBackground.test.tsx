@@ -42,7 +42,7 @@ test('a background-only session names its workflow, counts from its start and of
   assert.match(container.textContent ?? '', /Workflow frontend-architecture-audit/);
   assert.match(container.textContent ?? '', /1m 5s/, 'elapsed since the task started, not since the pill mounted');
   assert.equal(screen.queryByRole('button', { name: 'Stop' }), null);
-  assert.ok(container.querySelector('.bg-primary'), 'the activity dot uses the theme accent');
+  assert.ok(container.querySelector('[data-activity-spinner].text-primary'), 'the activity star uses the theme accent');
 });
 
 test('an agent and a command are named by what they were asked to do; several tasks by their count', () => {
@@ -73,7 +73,7 @@ test('an agent and a command are named by what they were asked to do; several ta
   assert.doesNotMatch(nested.container.textContent ?? '', /2 tasks/);
 });
 
-test('a response in flight still shows the Stop button and the primary dot', () => {
+test('a response in flight shows the Stop button and the theme-colored activity star', () => {
   const { container } = render(
     <ActivityIndicator
       activity={{ statusText: 'Thinking', canInterrupt: true, startedAt: Date.now() }}
@@ -82,6 +82,7 @@ test('a response in flight still shows the Stop button and the primary dot', () 
   );
 
   assert.ok(screen.getByRole('button', { name: 'Stop' }));
-  assert.ok(container.querySelector('.bg-primary'));
+  assert.ok(container.querySelector('[data-activity-spinner].text-primary'));
+  assert.doesNotMatch(container.textContent || '', /Thinking/);
   assert.equal(container.querySelector('.bg-purple-500'), null);
 });

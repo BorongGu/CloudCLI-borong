@@ -272,6 +272,9 @@
     "startCli": "Starting Claude CLI in {{projectName}}",
     "defaultCommand": "command"
   },
+  "compaction": {
+    "running": "Compacting context"
+  },
   "claudeStatus": {
     "actions": {
       "thinking": "Thinking",

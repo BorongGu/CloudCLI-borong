@@ -236,6 +236,9 @@
     "startCli": "在 {{projectName}} 中启动 Claude CLI",
     "defaultCommand": "命令"
   },
+  "compaction": {
+    "running": "正在压缩上下文"
+  },
   "claudeStatus": {
     "actions": {
       "thinking": "Thinking",

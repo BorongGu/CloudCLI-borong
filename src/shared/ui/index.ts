@@ -27,6 +27,7 @@ export { DarkModeToggle } from '@/shared/ui/DarkModeToggle';
 export { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/shared/ui/Dialog';
 export { Input } from '@/shared/ui/Input';
 export { LLMProviderLogo } from '@/shared/ui/LLMProviderLogo';
+export { OrbitMark } from '@/shared/ui/OrbitMark';
 export { PillBar, Pill } from '@/shared/ui/PillBar';
 export { ScrollArea } from '@/shared/ui/ScrollArea';
 export { Shimmer } from '@/shared/ui/Shimmer';

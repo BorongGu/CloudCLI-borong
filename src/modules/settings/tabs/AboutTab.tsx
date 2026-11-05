@@ -1,7 +1,8 @@
-import { Cloud, ExternalLink, MessageSquare, Star, Users } from 'lucide-react';
+import { Cloud, ExternalLink, Star, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { APP_VERSION, CLOUDCLI_WORDMARK_FONT_FAMILY } from '@/shared/constants';
+import { APP_NAME, APP_VERSION, APP_WORDMARK_FONT_FAMILY } from '@/shared/constants';
+import { OrbitMark } from '@/shared/ui';
 import { IS_PLATFORM } from '@/shared/utils';
 import PremiumFeatureCard from '@/modules/settings/PremiumFeatureCard';
 
@@ -35,15 +36,15 @@ export default function AboutTab() {
       {/* Logo + name + version */}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/90 shadow-sm">
-          <MessageSquare className="h-5 w-5 text-primary-foreground" />
+          <OrbitMark className="h-8 w-8 text-primary-foreground" />
         </div>
         <div>
           <div className="flex items-center gap-2">
             <span
               className="text-base font-semibold text-foreground"
-              style={{ fontFamily: CLOUDCLI_WORDMARK_FONT_FAMILY }}
+              style={{ fontFamily: APP_WORDMARK_FONT_FAMILY }}
             >
-              CloudCLI
+              {APP_NAME}
             </span>
             <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
               v{APP_VERSION}

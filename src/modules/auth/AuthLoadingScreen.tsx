@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
-import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '@/shared/constants';
+import { APP_NAME, APP_WORDMARK_FONT_FAMILY } from '@/shared/constants';
+import { OrbitMark } from '@/shared/ui';
 
 const loadingDotAnimationDelays = ['0s', '0.15s', '0.3s'];
 
@@ -16,15 +17,15 @@ export default function AuthLoadingScreen() {
       <div className="relative text-center" role="status" aria-live="polite">
         <div className="mb-5 flex justify-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25 ring-1 ring-inset ring-white/20">
-            <img src="/logo.svg" alt="CloudCLI" className="h-9 w-9" />
+            <OrbitMark className="h-12 w-12 text-primary-foreground" />
           </div>
         </div>
 
         <h1
           className="mb-4 text-2xl font-bold tracking-tight text-foreground"
-          style={{ fontFamily: CLOUDCLI_WORDMARK_FONT_FAMILY }}
+          style={{ fontFamily: APP_WORDMARK_FONT_FAMILY }}
         >
-          CloudCLI
+          {APP_NAME}
         </h1>
         <p className="sr-only">{t('misc.loadingState')}</p>
         <div aria-hidden className="flex items-center justify-center gap-2">

@@ -269,6 +269,8 @@ export default function ChatComposer({
 
   // Hide the thinking/status bar while any permission request is pending
   const hasPendingPermissions = pendingPermissionRequests.some(request => (request.context as { isBlocking?: boolean } | undefined)?.isBlocking !== false);
+  const isCompacting = Boolean(activity && !activity.background
+    && (activity.compactingSince !== undefined || activity.statusText === 'Compacting'));
 
   const hasQueuedDraft = Boolean(queuedDraft);
   const canQueueDraft = isLoading && Boolean(input.trim() || attachedFiles.length > 0);
@@ -568,10 +570,9 @@ export default function ChatComposer({
             </PromptInputSubmit>
           </div>
 
-          <div className={`order-last basis-full ${(activity || isSubmitting) && !hasPendingPermissions ? '' : 'hidden lg:block'}`}>
+          <div className={`order-last basis-full ${((activity || isSubmitting) && !hasPendingPermissions) || isCompacting ? '' : 'hidden lg:block'}`}>
             {isSubmitting && <p role="status" className="px-2 py-1 text-xs text-muted-foreground">{t('input.preparingSend', { defaultValue: 'Preparing to send…' })}</p>}
-            {activity?.statusText === 'Compacting' && <p role="status" className="px-2 py-1 text-xs text-muted-foreground">{t('input.compactionHint', { defaultValue: 'You can open a new conversation to avoid waiting.' })}</p>}
-            {hasPendingPermissions ? submitHintContent : (
+            {hasPendingPermissions && !isCompacting ? submitHintContent : (
               <ActivityIndicator activity={activity} onAbort={onAbortSession} hint={submitHintContent} />
             )}
           </div>

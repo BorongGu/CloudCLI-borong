@@ -362,6 +362,7 @@ export function useChatRealtimeHandlers({
           if (msg.text === 'context_compaction' && sid && msg.compact) {
             onSessionProcessing?.(sid, {
               statusText: msg.compact.phase === 'running' ? 'Compacting' : null,
+              compacting: msg.compact.phase === 'running',
               canInterrupt: msg.canInterrupt !== false,
             });
             break;
