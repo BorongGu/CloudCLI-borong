@@ -10,7 +10,7 @@ type Session = { id: string; title: string; nativeId?: string; turnId?: string; 
 type Client = Pick<GuestCodexClient, 'initialize' | 'call' | 'close'> & { on: (event: string, listener: (...args: any[]) => void) => unknown };
 const MODEL = 'gpt-6-astra';
 const EFFORT = 'high';
-const INSTRUCTIONS = '你是中文答疑助手。帮助用户理解题目、分析图片并作答。先给清楚的答案，再给必要的推导；信息不足时在正文中追问。数学公式使用 $...$ 和 $$...$$。仅使用本对话中用户提供的信息以及你的知识。';
+const INSTRUCTIONS = '你是中文答疑助手。帮助用户理解题目、分析图片并作答。先给清楚的答案，再给必要的推导；信息不足时在正文中追问。数学公式使用 $...$ 和 $$...$$。你可以使用内置网页搜索获取公开资料；涉及最新信息或用户要求查证时，主动搜索，并在回答中用 Markdown 链接标注来源。结合本对话中的文字、图片和检索结果回答。';
 
 /** Guest HTTP routes use this store, which accepts only locally allocated conversation IDs. */
 export async function createGuestChatService(directory: string, client: Client = new GuestCodexClient()) {
@@ -27,7 +27,7 @@ export async function createGuestChatService(directory: string, client: Client =
   const replies = new Map<string, Message>();
   const summaries = new Map<string, Map<string, string>>();
   const listeners = new Set<(id: string) => void>();
-  const preparing = new Map<string, Promise<void>>();
+  const preparing = new Map<string, Promise<boolean>>();
   const starts = new Map<string, Promise<void>>();
   const accepting = new Map<string, Promise<void>>();
   let persistence = Promise.resolve();
@@ -93,17 +93,30 @@ export async function createGuestChatService(directory: string, client: Client =
     if (!reply) { reply = { id: randomUUID(), role: 'assistant', text: '', images: [], createdAt: Date.now() };replies.set(session.id, reply);session.messages.push(reply); }
     return reply;
   }
-  function prepare(session: Session): Promise<void> {
-    if (loaded.has(session.id)) return Promise.resolve();
+  function prepare(session: Session): Promise<boolean> {
+    if (loaded.has(session.id)) return Promise.resolve(false);
     const existing = preparing.get(session.id);if (existing) return existing;
     const pending = (async () => {
       await client.initialize();
-      const result = await client.call(session.nativeId ? 'thread/resume' : 'thread/start', {
+      const parameters = {
         model: MODEL, cwd: '/workspace', approvalPolicy: 'never', sandbox: 'read-only', developerInstructions: INSTRUCTIONS,
-        config: { model_reasoning_effort: EFFORT },
-        ...(session.nativeId ? { threadId: session.nativeId } : { allowProviderModelFallback: false }),
-      });
+        config: { model_reasoning_effort: EFFORT, web_search: 'live' },
+      };
+      let recreated = false;let result;
+      try {
+        result = await client.call(session.nativeId ? 'thread/resume' : 'thread/start', {
+          ...parameters, ...(session.nativeId ? { threadId: session.nativeId } : { allowProviderModelFallback: false }),
+        });
+      } catch (error) {
+        // Codex only writes a rollout once a turn starts; old prewarmed empty threads vanish on restart.
+        const emptyNativeHistory = !session.messages.some(message => message.role === 'assistant' && (message.text || message.reasoning));
+        if (!session.nativeId || !emptyNativeHistory || !/no rollout found for thread id/i.test(error instanceof Error ? error.message : '')) throw error;
+        session.status = '正在恢复会话';changed(session);
+        result = await client.call('thread/start', { ...parameters, allowProviderModelFallback: false });recreated = true;
+        nativeSessions.delete(session.nativeId);
+      }
       session.nativeId = result.thread.id;nativeSessions.set(result.thread.id, session);loaded.add(session.id);await persist();
+      return recreated;
     })().finally(() => preparing.delete(session.id));
     preparing.set(session.id, pending);return pending;
   }
@@ -117,6 +130,9 @@ export async function createGuestChatService(directory: string, client: Client =
     const session = nativeSessions.get(p.threadId);
     if (!session?.busy) return;
     if (event.method === 'turn/started') { session.turnId = p.turn.id;session.status = '思考中';changed(session); }
+    if ((event.method === 'item/started' || event.method === 'item/completed') && p.item?.type === 'webSearch') {
+      session.status = event.method === 'item/started' ? '正在搜索网页' : '正在整理搜索结果';changed(session);
+    }
     if (event.method === 'item/agentMessage/delta' || (event.method === 'item/completed' && p.item?.type === 'agentMessage')) {
       const parts = textParts.get(session.id) || new Map<string, string>();textParts.set(session.id, parts);
       const id = p.itemId || p.item?.id;
@@ -170,7 +186,8 @@ export async function createGuestChatService(directory: string, client: Client =
     async create() {
       if (sessions.size >= 100) throw Object.assign(new Error('对话数量已达上限，请继续使用已有对话。'), { status: 409 });
       const session: Session = { id: randomUUID(), title: '新对话', busy: false, status: '', error: null, messages: [], updatedAt: Date.now(), revision: 1, requests: [] };
-      sessions.set(session.id, session);await persist();void prepare(session).catch(() => {});return view(session);
+      // Allocate the native thread on the first message so empty UI sessions survive every service restart.
+      sessions.set(session.id, session);await persist();return view(session);
     },
     async send(id: string, text: string, images: string[], requestId: string, imageIds: string[] = []) {
       const session = get(id);
@@ -203,10 +220,24 @@ export async function createGuestChatService(directory: string, client: Client =
         if (session.messages.length === 1) session.title = (text || '图片提问').slice(0, 40);
         changed(session);await persist();accepted = true;
         const start = (async () => {
-          await prepare(session);
+          const recreated = await prepare(session);
+          const input: Array<{ type: 'text'; text: string } | { type: 'image'; url: string }> = [
+            { type: 'text', text: text || '请分析这张图片中的题目并作答。' }, ...modelImages.map(url => ({ type: 'image' as const, url })),
+          ];
+          if (recreated) {
+            const previousQuestions: typeof input = [];
+            for (const message of session.messages.slice(0, -1)) if (message.role === 'user') {
+              previousQuestions.push({ type: 'text', text: `此前尚未回答的问题：${message.text || '请分析所附图片。'}` });
+              for (const imageId of message.images) {
+                const bytes = await readFile(path.join(directory, 'images', imageId));
+                previousQuestions.push({ type: 'image', url: `data:image/${imageId.split('.').at(-1)};base64,${bytes.toString('base64')}` });
+              }
+            }
+            input.unshift(...previousQuestions);
+          }
           const turn = await client.call('turn/start', { threadId: session.nativeId, model: MODEL, effort: EFFORT,
             summary: 'auto',
-            input: [{ type: 'text', text: text || '请分析这张图片中的题目并作答。' }, ...modelImages.map(url => ({ type: 'image', url }))],
+            input,
           });
           if (session.busy) session.turnId = turn.turn.id;
         })().catch(error => fail(session, error)).finally(() => starts.delete(id));

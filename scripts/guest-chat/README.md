@@ -15,15 +15,20 @@ CloudCLI service and requires a dedicated login.
   subscription credential is copied during initial setup.
 - The container mounts only the dedicated guest directory and configuration.
   The web process and Codex run as UID 1000 with an empty capability bounding set.
-- Shell, apps, agents, browser, hooks and other execution tools are disabled.
-  A native Codex 0.164.0 request capture verified an empty model tool list.
+- Shell, apps, agents, local browser and hooks are disabled. The matching
+  `codex-code-mode-host` binary is bundled for Astra's search tool runtime.
+  Codex's built-in live web search retrieves public sources through the model
+  service; answers include source links and the UI reports search progress.
 - A namespace firewall allows loopback, response traffic and the model proxy.
   The proxy accepts CONNECT only for four exact OpenAI hostnames on port 443.
   Startup pins these hostnames to the operator machine's resolved addresses,
   accommodating private model gateways without allowing arbitrary internal hosts.
 - Authenticated, Origin-checked WebSocket updates stream only the selected guest
-  transcript, with polling for recovery. Model and thread connections are warmed
-  before the first question. The login bundle is split from answer rendering,
+  transcript, with polling for recovery. The model connection is warmed at
+  startup; native threads are allocated with the first question. Empty guest
+  conversations survive restarts. Legacy empty native IDs recover automatically
+  when their rollout is absent, replaying any unanswered questions and images.
+  The login bundle is split from answer rendering,
   and static assets are precompressed.
 - Login uses scrypt and Secure/HttpOnly/SameSite cookies. Tickets expire and are
   revoked by logout; restarting the guest web process requires logging in again.
@@ -65,7 +70,9 @@ refresh pinned model gateway addresses while preserving the existing login.
 
 `server/modules/guest-chat/tests/guest-chat.test.ts` covers authentication,
 revocation, CSRF, foreign IDs, endpoint allowlisting, fixed model settings,
-idempotency, streaming, restart/resume, image validation and egress policy.
+idempotency, streaming, empty-session restart/recovery, image validation and
+egress policy. The native integration check verifies live search events and
+source links using an isolated temporary Codex home.
 Guest UI and restricted Markdown tests live in their owning frontend modules.
 Before sharing an address, also test the deployed firewall, company-home
 visibility, a real model reply, and desktop/mobile browser login.

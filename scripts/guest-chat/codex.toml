@@ -2,7 +2,7 @@ model = "gpt-6-astra"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode = "read-only"
-web_search = "disabled"
+web_search = "live"
 cli_auth_credentials_store = "file"
 
 [agents]
@@ -13,8 +13,9 @@ enabled = false
 apps = false
 shell_tool = false
 unified_exec = false
-code_mode = false
-code_mode_host = false
+code_mode = true
+code_mode_host = true
+standalone_web_search = true
 browser_use = false
 computer_use = false
 hooks = false

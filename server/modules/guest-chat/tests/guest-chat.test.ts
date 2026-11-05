@@ -109,6 +109,7 @@ test('guest send pins Astra/high, serializes turns, deduplicates retries and ren
   assert.equal(turns[0].params.model, 'gpt-6-astra');assert.equal(turns[0].params.effort, 'high');
   const thread = f.client.calls.find(c => c.method === 'thread/start')!;
   assert.equal(thread.params.sandbox, 'read-only');assert.equal(thread.params.cwd, '/workspace');
+  assert.equal(thread.params.config.web_search, 'live');
   const threadId = turns[0].params.threadId;
   f.client.emit('notification', { method: 'item/agentMessage/delta', params: { threadId, itemId: 'answer', delta: '1+1=' } });
   f.client.emit('notification', { method: 'item/completed', params: { threadId, item: { type: 'agentMessage', id: 'answer', text: '1+1=2' } } });
@@ -217,4 +218,41 @@ test('simultaneous retries acknowledge the persisted question and start one mode
   const results = await Promise.all([f.service.send(chat.id, 'same question', [image], requestId), f.service.send(chat.id, 'same question', [image], requestId)]);
   for (const result of results) assert.equal(result.messages[0]?.id, requestId);
   await new Promise(resolve => setTimeout(resolve, 20));assert.equal(f.client.calls.filter(call => call.method === 'turn/start').length, 1);
+});
+
+test('empty guest conversations allocate a native thread only after the first message, including after restart', async t => {
+  const f = await setup(t);const chat = await f.service.create();assert.equal(f.client.calls.length, 0);
+  await f.service.close();const client = new FakeCodex();const restored = await createGuestChatService(f.root, client);
+  await restored.send(chat.id, 'hello after restart', [], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(client.calls[0].method, 'thread/start');assert.equal(client.calls.filter(call => call.method === 'turn/start').length, 1);
+  await restored.close();
+});
+
+test('legacy missing empty rollouts recover once and preserve unanswered questions and images', async t => {
+  const f = await setup(t);const chat = await f.service.create();
+  const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6WlIAAAAASUVORK5CYII=';
+  await f.service.send(chat.id, 'original pending question', [image], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));await f.service.close();
+  const client = new FakeCodex();const original = client.call.bind(client);
+  client.call = async (method, params) => { if (method === 'thread/resume') { client.calls.push({ method, params });throw new Error(`no rollout found for thread id ${params.threadId}`); }return original(method, params); };
+  const restored = await createGuestChatService(f.root, client);
+  await restored.send(chat.id, 'continue', [], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(client.calls.map(call => call.method), ['thread/resume', 'thread/start', 'turn/start']);
+  const turn = client.calls.at(-1)!.params;
+  assert.match(turn.input[0].text, /original pending question/);assert.equal(turn.input[1].url, image);assert.equal(turn.input.at(-1).text, 'continue');
+  assert.equal(restored.read(chat.id).error, null);assert.equal(restored.read(chat.id).messages.length, 2);
+  client.emit('notification', { method: 'item/started', params: { threadId: turn.threadId, item: { type: 'webSearch' } } });
+  assert.equal(restored.read(chat.id).status, '正在搜索网页');
+  client.emit('notification', { method: 'item/completed', params: { threadId: turn.threadId, item: { type: 'webSearch' } } });
+  assert.equal(restored.read(chat.id).status, '正在整理搜索结果');await restored.close();
+});
+
+test('generic resume failures and conversations with prior answers retain their original native identity', async t => {
+  const f = await setup(t);const chat = await f.service.create();await f.service.send(chat.id, 'question', [], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));
+  const threadId = f.client.calls.find(call => call.method === 'turn/start')!.params.threadId;
+  f.client.emit('notification', { method: 'item/completed', params: { threadId, item: { id: 'answer', type: 'agentMessage', text: 'existing answer' } } });await f.service.close();
+  for (const error of ['no rollout found for thread id ' + threadId, 'authentication failed']) {
+    const client = new FakeCodex();client.call = async (method, params) => { client.calls.push({ method, params });throw new Error(error); };
+    const restored = await createGuestChatService(f.root, client);await restored.send(chat.id, 'continue', [], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(restored.read(chat.id).error, error);assert.equal(client.calls.length, 1);assert.equal(client.calls[0].method, 'thread/resume');await restored.close();
+  }
 });

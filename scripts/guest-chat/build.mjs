@@ -25,4 +25,5 @@ await copyFile('/etc/ssl/certs/ca-certificates.crt', path.join(output, 'ca-certi
 await copyFile(process.execPath, path.join(output, 'node'));
 if (!process.env.GUEST_CODEX_SOURCE) throw new Error('Set GUEST_CODEX_SOURCE to the installed native Codex binary.');
 await copyFile(process.env.GUEST_CODEX_SOURCE, path.join(output, 'codex'));
+await copyFile(path.join(path.dirname(process.env.GUEST_CODEX_SOURCE), 'codex-code-mode-host'), path.join(output, 'codex-code-mode-host'));
 console.log('Guest build prepared:', output);
