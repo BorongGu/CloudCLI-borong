@@ -30,33 +30,36 @@ export default function AppearanceSettingsTab({
   onCodeEditorFontSizeChange,
 }: AppearanceSettingsTabProps) {
   const { t } = useTranslation('settings');
-  const { themeMode, setThemeMode, chatFontSize, setChatFontSize } = useTheme();
+  const { themeMode, setThemeMode, chatFontSize, setChatFontSize, appearanceStyle, setAppearanceStyle } = useTheme();
   const preferences = useUiPreferences();
   const setPreference = useSetUiPreference();
 
   return (
     <div className="space-y-8">
       <SettingsSection title={t('appearanceSettings.style.label', { defaultValue: 'Interface style' })}>
-        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={t('appearanceSettings.style.label', { defaultValue: 'Interface style' })}>
-          {[{ github: false, name: 'Claude' }, { github: true, name: 'GitHub' }].map(option => (
-            <label key={option.name} className={`appearance-style-option relative cursor-pointer rounded-xl border p-3 transition-colors focus-within:ring-2 focus-within:ring-ring ${preferences.githubAppearance === option.github ? 'border-ring bg-accent/30' : 'border-border bg-card hover:bg-muted/40'}`}>
-              <input type="radio" name="interface-style" value={option.name.toLowerCase()} aria-label={option.name}
-                checked={preferences.githubAppearance === option.github} onChange={() => setPreference('githubAppearance', option.github)} className="peer sr-only" />
-              <span aria-hidden="true" className="appearance-style-preview" data-preview={option.name.toLowerCase()}>
+        <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-3" role="radiogroup" aria-label={t('appearanceSettings.style.label', { defaultValue: 'Interface style' })}>
+          {(['claude', 'github', 'linear'] as const).map(style => (
+            <label key={style} className={`appearance-style-option relative cursor-pointer rounded-xl border p-3 transition-colors focus-within:ring-2 focus-within:ring-ring ${appearanceStyle === style ? 'border-ring bg-accent/30' : 'border-border bg-card hover:bg-muted/40'}`}>
+              <input type="radio" name="interface-style" value={style} aria-label={style === 'github' ? 'GitHub' : style === 'linear' ? 'Linear' : 'Claude'}
+                checked={appearanceStyle === style} onChange={() => setAppearanceStyle(style)} className="peer sr-only" />
+              <span aria-hidden="true" className="appearance-style-preview" data-preview={style}>
                 <span className="appearance-preview-sidebar"><i /><i /><i /></span>
                 <span className="appearance-preview-main"><i /><i /><i /></span>
               </span>
               <span className="mt-2.5 flex items-center justify-between gap-2 text-sm font-semibold">
-                {option.name}<span aria-hidden="true" className={`h-3.5 w-3.5 rounded-full border ${preferences.githubAppearance === option.github ? 'border-ring bg-ring shadow-[inset_0_0_0_3px_hsl(var(--card))]' : 'border-input'}`} />
+                {style === 'github' ? 'GitHub' : style === 'linear' ? 'Linear' : 'Claude'}<span aria-hidden="true" className={`h-3.5 w-3.5 rounded-full border ${appearanceStyle === style ? 'border-ring bg-ring shadow-[inset_0_0_0_3px_hsl(var(--card))]' : 'border-input'}`} />
               </span>
               <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                {option.github
+                {style === 'linear'
+                  ? t('appearanceSettings.style.linearDescription', { defaultValue: 'Graphite surfaces, indigo accents and clear Inter type.' })
+                  : style === 'github'
                   ? t('appearanceSettings.style.githubDescription', { defaultValue: 'Neutral surfaces, fine borders and system type.' })
                   : t('appearanceSettings.style.claudeDescription', { defaultValue: 'Warm surfaces, terracotta accents and serif type.' })}
               </span>
             </label>
           ))}
         </div>
+        {appearanceStyle === 'linear' && <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t('appearanceSettings.style.linearFonts', { defaultValue: 'Inter · system Chinese sans serif · JetBrains Mono for code' })}</p>}
       </SettingsSection>
 
       <SettingsSection title={t('appearanceSettings.theme.label')}>

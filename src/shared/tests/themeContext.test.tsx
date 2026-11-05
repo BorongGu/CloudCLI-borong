@@ -282,3 +282,43 @@ test('the appearance choice survives remounting through the existing UI preferen
   act(() => restored.result.current('githubAppearance', false));
   assert.equal(document.documentElement.dataset.appearance, 'claude');
 });
+
+test('choosing Linear preserves the light/dark mode and font size while migrating the legacy appearance', () => {
+  writeUserPreference('uiPreferences', { githubAppearance: true, showThinking: true });
+  writeUserPreference('theme', 'dark');
+  writeUserPreference('chatFontSize', '9');
+  const first = renderHook(() => useTheme(), { wrapper });
+  assert.equal(first.result.current.appearanceStyle, 'github');
+  act(() => first.result.current.setAppearanceStyle('linear'));
+  assert.equal(document.documentElement.dataset.appearance, 'linear');
+  assert.equal(readUserPreference('appearanceStyle', null), 'linear');
+  assert.equal(first.result.current.themeMode, 'dark');
+  assert.equal(document.documentElement.style.getPropertyValue('--chat-font-size'), '9px');
+  first.unmount();
+  const second = renderHook(() => useTheme(), { wrapper });
+  assert.equal(second.result.current.appearanceStyle, 'linear');
+  act(() => writeUserPreference('uiPreferences', { githubAppearance: true, showThinking: false }));
+  assert.equal(second.result.current.appearanceStyle, 'linear');
+  act(() => second.result.current.setAppearanceStyle('claude'));
+  assert.equal(document.documentElement.dataset.appearance, 'claude');
+  act(() => second.result.current.setAppearanceStyle('github'));
+  assert.equal(document.documentElement.dataset.appearance, 'github');
+});
+
+test('Linear arriving from another device tracks system colors and an unknown style preserves legacy preferences', () => {
+  const meta = document.createElement('meta');
+  meta.name = 'theme-color';document.head.appendChild(meta);
+  try {
+    writeUserPreference('uiPreferences', { githubAppearance: true });
+    writeUserPreference('appearanceStyle', 'future-style');
+    const view = renderHook(() => useTheme(), { wrapper });
+    assert.equal(view.result.current.appearanceStyle, 'github');
+    act(() => writeUserPreference('appearanceStyle', 'linear'));
+    assert.equal(document.documentElement.dataset.appearance, 'linear');
+    assert.equal(meta.content, '#fcfcfd');
+    act(() => changeSystemAppearance(true));
+    assert.equal(meta.content, '#191a1d');
+    assert.equal(view.result.current.themeMode, 'system');
+    assert.equal(readUserPreference('theme', null), null);
+  } finally { meta.remove(); }
+});

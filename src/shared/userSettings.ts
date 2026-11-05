@@ -1,5 +1,6 @@
 import { api } from '@/shared/api';
 import { CODE_EDITOR_STORAGE_KEYS } from '@/shared/constants';
+import type { AppearanceStyle } from '@/shared/types';
 
 /**
  * The one reader and writer for the settings that used to live in browser
@@ -27,6 +28,7 @@ export type UserPreferences = {
   opencodePermissions: unknown;
   codeEditorSettings: unknown;
   chatFontSize: string;
+  appearanceStyle: AppearanceStyle;
   uiPreferences: unknown;
   selectedProvider: string;
 };
@@ -67,6 +69,7 @@ const LEGACY_STORAGE_KEYS: Record<UserPreferenceKey, string> = {
   // read by readLegacyCodeEditorSettings instead.
   codeEditorSettings: '',
   chatFontSize: '',
+  appearanceStyle: '',
   uiPreferences: 'uiPreferences',
   selectedProvider: 'selected-provider',
 };

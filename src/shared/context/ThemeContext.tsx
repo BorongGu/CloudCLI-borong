@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import type { ThemeMode } from '@/shared/types';
+import type { AppearanceStyle, ThemeMode } from '@/shared/types';
 import { readStoredUiPreferences } from '@/shared/uiPreferences';
 import {
   readUserPreference,
@@ -16,6 +16,8 @@ type ThemeContextValue = {
   setThemeMode: (mode: ThemeMode) => void;
   chatFontSize: string;
   setChatFontSize: (size: string) => void;
+  appearanceStyle: AppearanceStyle;
+  setAppearanceStyle: (style: AppearanceStyle) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -39,6 +41,13 @@ const normalizeChatFontSize = (value: unknown): string => {
 };
 
 const readStoredChatFontSize = (): string => normalizeChatFontSize(readUserPreference('chatFontSize', 'theme'));
+
+/** Existing accounts keep their Claude/GitHub choice until they explicitly select a named style. */
+const readStoredAppearanceStyle = (): AppearanceStyle => {
+  const saved = readUserPreference<unknown>('appearanceStyle', null);
+  if (saved === 'claude' || saved === 'github' || saved === 'linear') return saved;
+  return readStoredUiPreferences().githubAppearance ? 'github' : 'claude';
+};
 
 /** Whether the OS currently asks for a dark appearance; false when unknown. */
 const prefersDarkAppearance = (): boolean =>
@@ -70,7 +79,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // under `system` it changes when the OS does, with no state change here.
   const [isDarkMode, setIsDarkMode] = useState(() => resolveIsDarkMode(readStoredThemeMode()));
   // The saved interface style travels with the account and applies before the first workspace paint.
-  const [githubAppearance, setGithubAppearance] = useState(() => readStoredUiPreferences().githubAppearance);
+  const [appearanceStyle, setAppearanceStyleState] = useState<AppearanceStyle>(readStoredAppearanceStyle);
   // Apply the account's chat type size before painting, then follow local and remote preference changes.
   const [chatFontSize, setChatFontSizeState] = useState(readStoredChatFontSize);
 
@@ -80,7 +89,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const storedMode = readStoredThemeMode();
     setThemeModeState(storedMode);
     setIsDarkMode(resolveIsDarkMode(storedMode));
-    setGithubAppearance(readStoredUiPreferences().githubAppearance);
+    setAppearanceStyleState(readStoredAppearanceStyle());
     setChatFontSizeState(readStoredChatFontSize());
   }), []);
 
@@ -90,14 +99,16 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // theme the user actually chose on another one.
   useLayoutEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
-    document.documentElement.dataset.appearance = githubAppearance ? 'github' : 'claude';
+    document.documentElement.dataset.appearance = appearanceStyle;
     document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
       ?.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
-    const canvas = githubAppearance
+    const canvas = appearanceStyle === 'linear'
+      ? isDarkMode ? '#191a1d' : '#fcfcfd'
+      : appearanceStyle === 'github'
       ? isDarkMode ? '#0d1117' : '#ffffff'
       : isDarkMode ? '#1c1b19' : '#faf9f5';
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', canvas);
-  }, [githubAppearance, isDarkMode]);
+  }, [appearanceStyle, isDarkMode]);
 
   useLayoutEffect(() => {
     if (chatFontSize === 'theme') document.documentElement.style.removeProperty('--chat-font-size');
@@ -135,6 +146,12 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     setChatFontSizeState(value);
   }, []);
 
+  const setAppearanceStyle = useCallback((style: AppearanceStyle) => {
+    if (!['claude', 'github', 'linear'].includes(style)) return;
+    writeUserPreference('appearanceStyle', style);
+    setAppearanceStyleState(style);
+  }, []);
+
   // Kept for the callers that only offer a light/dark switch: choosing either
   // one is an explicit choice, so it leaves `system` behind exactly as before.
   const toggleDarkMode = useCallback(() => {
@@ -149,8 +166,8 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // A fresh object here would re-render every consumer in the app on any
   // render of this provider, theme change or not.
   const value = useMemo<ThemeContextValue>(
-    () => ({ isDarkMode, toggleDarkMode, themeMode, setThemeMode, chatFontSize, setChatFontSize }),
-    [isDarkMode, toggleDarkMode, themeMode, setThemeMode, chatFontSize, setChatFontSize],
+    () => ({ isDarkMode, toggleDarkMode, themeMode, setThemeMode, chatFontSize, setChatFontSize, appearanceStyle, setAppearanceStyle }),
+    [isDarkMode, toggleDarkMode, themeMode, setThemeMode, chatFontSize, setChatFontSize, appearanceStyle, setAppearanceStyle],
   );
 
   return (

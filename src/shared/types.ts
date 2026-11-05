@@ -1606,6 +1606,9 @@ export type SidebarProjectListProps = SessionRowActions & {
  */
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+/** Account-synced workspace styling, independent of the light/dark mode and chat font size. */
+export type AppearanceStyle = 'claude' | 'github' | 'linear';
+
 /** The ordering applied to the project list, either alphabetically by name or by most recent activity, persisted alongside the user's appearance settings. */
 export type ProjectSortOrder = 'name' | 'date';
 

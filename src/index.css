@@ -488,76 +488,76 @@
   
   /* Fix placeholder text color to be properly gray */
   textarea::placeholder {
-    color: rgb(156 163 175) !important; /* gray-400 */
+    color: var(--chat-placeholder-color, rgb(156 163 175)) !important; /* gray-400 */
     opacity: 1 !important;
   }
   
   .dark textarea::placeholder {
-    color: rgb(75 85 99) !important; /* gray-600 - darker gray */
+    color: var(--chat-placeholder-color, rgb(75 85 99)) !important; /* gray-600 - darker gray */
     opacity: 1 !important;
   }
   
   /* More specific selector for chat input textarea */
   .dark .bg-gray-800 textarea::placeholder,
   .dark textarea.bg-transparent::placeholder {
-    color: rgb(75 85 99) !important; /* gray-600 - darker gray */
+    color: var(--chat-placeholder-color, rgb(75 85 99)) !important; /* gray-600 - darker gray */
     opacity: 1 !important;
-    -webkit-text-fill-color: rgb(75 85 99) !important;
+    -webkit-text-fill-color: var(--chat-placeholder-color, rgb(75 85 99)) !important;
   }
   
   /* Custom class for chat input placeholder */
   .chat-input-placeholder::placeholder {
-    color: rgb(156 163 175) !important;
+    color: var(--chat-placeholder-color, rgb(156 163 175)) !important;
     opacity: 1 !important;
   }
 
   .dark .chat-input-placeholder::placeholder {
-    color: rgb(75 85 99) !important;
+    color: var(--chat-placeholder-color, rgb(75 85 99)) !important;
     opacity: 1 !important;
-    -webkit-text-fill-color: rgb(75 85 99) !important;
+    -webkit-text-fill-color: var(--chat-placeholder-color, rgb(75 85 99)) !important;
   }
 
   .chat-input-placeholder::-webkit-input-placeholder {
-    color: rgb(156 163 175) !important;
+    color: var(--chat-placeholder-color, rgb(156 163 175)) !important;
     opacity: 1 !important;
   }
 
   .dark .chat-input-placeholder::-webkit-input-placeholder {
-    color: rgb(75 85 99) !important;
+    color: var(--chat-placeholder-color, rgb(75 85 99)) !important;
     opacity: 1 !important;
-    -webkit-text-fill-color: rgb(75 85 99) !important;
+    -webkit-text-fill-color: var(--chat-placeholder-color, rgb(75 85 99)) !important;
   }
   
   /* WebKit specific placeholder styles */
   textarea::-webkit-input-placeholder {
-    color: rgb(156 163 175) !important;
+    color: var(--chat-placeholder-color, rgb(156 163 175)) !important;
     opacity: 1 !important;
   }
   
   .dark textarea::-webkit-input-placeholder {
-    color: rgb(75 85 99) !important; /* gray-600 - darker gray */
+    color: var(--chat-placeholder-color, rgb(75 85 99)) !important; /* gray-600 - darker gray */
     opacity: 1 !important;
   }
   
   /* Mozilla specific placeholder styles */
   textarea::-moz-placeholder {
-    color: rgb(156 163 175) !important;
+    color: var(--chat-placeholder-color, rgb(156 163 175)) !important;
     opacity: 1 !important;
   }
   
   .dark textarea::-moz-placeholder {
-    color: rgb(75 85 99) !important; /* gray-600 - darker gray */
+    color: var(--chat-placeholder-color, rgb(75 85 99)) !important; /* gray-600 - darker gray */
     opacity: 1 !important;
   }
   
   /* IE/Edge specific placeholder styles */
   textarea:-ms-input-placeholder {
-    color: rgb(156 163 175) !important;
+    color: var(--chat-placeholder-color, rgb(156 163 175)) !important;
     opacity: 1 !important;
   }
   
   .dark textarea:-ms-input-placeholder {
-    color: rgb(75 85 99) !important; /* gray-600 - darker gray */
+    color: var(--chat-placeholder-color, rgb(75 85 99)) !important; /* gray-600 - darker gray */
     opacity: 1 !important;
   }
 }
