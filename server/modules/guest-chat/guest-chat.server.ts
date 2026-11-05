@@ -9,7 +9,7 @@ import { createGuestChatService } from '@/modules/guest-chat/guest-chat.service.
 
 type Credentials = { username: string; passwordSalt: string; passwordHash: string; sessionSecret: string };
 const COOKIE = '__Host-cloudcli-guest';
-const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.svg': 'image/svg+xml' };
+const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.png': 'image/png' };
 const invalid = (message = '请求格式有误。', status = 400) => Object.assign(new Error(message), { status });
 
 function exactObject(value: unknown, keys: string[]): Record<string, any> {
@@ -143,7 +143,9 @@ export function createGuestServer(service: Awaited<ReturnType<typeof createGuest
   });
   server.requestTimeout = 30_000;server.headersTimeout = 15_000;
   server.keepAliveTimeout = 65_000;
-  const sockets = new WebSocketServer({ noServer: true, maxPayload: 1024 });
+  const sockets = new WebSocketServer({ noServer: true, maxPayload: 1024, perMessageDeflate: {
+    threshold: 1024, serverNoContextTakeover: true, clientNoContextTakeover: true, concurrencyLimit: 2, zlibDeflateOptions: { level: 3 },
+  } });
   server.on('upgrade', (req, socket, head) => {
     const match = (req.url || '').match(/^\/api\/live\/([a-f0-9-]{36})$/);
     if (!match || !authenticated(req)) { socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');return; }
@@ -154,9 +156,17 @@ export function createGuestServer(service: Awaited<ReturnType<typeof createGuest
     } catch { socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return; }
     sockets.handleUpgrade(req, socket, head, ws => {
       let timer: NodeJS.Timeout | undefined;
+      let needsFullSnapshot = false;
       const send = (partial = false) => {
         if (ws.readyState !== 1) return;
         if (!authenticated(req)) { ws.close(1008);return; }
+        // Slow connections retain a single latest snapshot instead of queuing every token.
+        if (ws.bufferedAmount > 256 * 1024) {
+          needsFullSnapshot = true;
+          if (!timer) timer = setTimeout(() => { timer = undefined;send(); }, 100);
+          return;
+        }
+        if (needsFullSnapshot) { partial = false;needsFullSnapshot = false; }
         const chat = service.read(match[1]);
         ws.send(JSON.stringify(partial ? { ...chat, partial: true, messages: chat.messages.slice(-2) } : chat));
       };

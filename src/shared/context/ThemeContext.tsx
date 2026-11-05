@@ -48,6 +48,9 @@ const prefersDarkAppearance = (): boolean =>
 const resolveIsDarkMode = (mode: ThemeMode): boolean =>
   mode === 'system' ? prefersDarkAppearance() : mode === 'dark';
 
+/** Standalone renderers such as guest-chat diagrams can fall back to their document theme. */
+export const useOptionalTheme = () => useContext(ThemeContext);
+
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {

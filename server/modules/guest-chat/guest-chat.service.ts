@@ -19,6 +19,8 @@ export async function createGuestChatService(directory: string, client: Client =
   const filename = path.join(directory, 'chats.json');
   const sessions = new Map<string, Session>();
   const loaded = new Set<string>();
+  const nativeSessions = new Map<string, Session>();
+  const ownedImages = new Set<string>();
   const textParts = new Map<string, Map<string, string>>();
   const replies = new Map<string, Message>();
   const summaries = new Map<string, Map<string, string>>();
@@ -31,6 +33,8 @@ export async function createGuestChatService(directory: string, client: Client =
     for (const session of JSON.parse(await readFile(filename, 'utf8')) as Session[]) {
       if (session.busy) { session.error = '连接已恢复，可以继续提问。';session.revision++; }
       session.busy = false;session.turnId = undefined;session.status = '';sessions.set(session.id, session);
+      if (session.nativeId) nativeSessions.set(session.nativeId, session);
+      for (const message of session.messages) for (const image of message.images) ownedImages.add(image);
     }
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
 
@@ -78,7 +82,7 @@ export async function createGuestChatService(directory: string, client: Client =
         config: { model_reasoning_effort: EFFORT },
         ...(session.nativeId ? { threadId: session.nativeId } : { allowProviderModelFallback: false }),
       });
-      session.nativeId = result.thread.id;loaded.add(session.id);await persist();
+      session.nativeId = result.thread.id;nativeSessions.set(result.thread.id, session);loaded.add(session.id);await persist();
     })().finally(() => preparing.delete(session.id));
     preparing.set(session.id, pending);return pending;
   }
@@ -89,7 +93,7 @@ export async function createGuestChatService(directory: string, client: Client =
   });
   client.on('notification', (event: any) => {
     const p = event.params || {};
-    const session = [...sessions.values()].find(s => s.nativeId === p.threadId);
+    const session = nativeSessions.get(p.threadId);
     if (!session?.busy) return;
     if (event.method === 'turn/started') session.turnId = p.turn.id;
     if (event.method === 'item/agentMessage/delta' || (event.method === 'item/completed' && p.item?.type === 'agentMessage')) {
@@ -142,7 +146,7 @@ export async function createGuestChatService(directory: string, client: Client =
         for (const image of images) {
           const match = image.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/)!;
           const imageId = randomUUID() + '.' + match[1];
-          await writeFile(path.join(directory, 'images', imageId), Buffer.from(match[2], 'base64'), { mode: 0o600 });attachments.push(imageId);
+          await writeFile(path.join(directory, 'images', imageId), Buffer.from(match[2], 'base64'), { mode: 0o600 });attachments.push(imageId);ownedImages.add(imageId);
         }
         session.messages.push({ id: randomUUID(), role: 'user', text, images: attachments, createdAt: Date.now() });
         if (session.messages.length === 1) session.title = (text || '图片提问').slice(0, 40);
@@ -165,7 +169,7 @@ export async function createGuestChatService(directory: string, client: Client =
       return view(session);
     },
     async image(id: string) {
-      if (!/^[a-f0-9-]{36}\.(png|jpeg|webp)$/.test(id) || ![...sessions.values()].some(s => s.messages.some(m => m.images.includes(id)))) {
+      if (!/^[a-f0-9-]{36}\.(png|jpeg|webp)$/.test(id) || !ownedImages.has(id)) {
         throw Object.assign(new Error('图片不存在。'), { status: 404 });
       }
       return { bytes: await readFile(path.join(directory, 'images', id)), mime: 'image/' + id.split('.').at(-1) };

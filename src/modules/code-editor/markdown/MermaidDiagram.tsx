@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react';
 // Type-only: erased at build time, so it does not pull mermaid into the main chunk.
 import type mermaid from 'mermaid';
 
-import { useTheme } from '@/shared/context/ThemeContext';
+import { useOptionalTheme } from '@/shared/context/ThemeContext';
 
 // Mermaid is ~1.5MB minified, so it is loaded on demand the first time a
 // diagram is rendered and shared by every instance afterwards.
@@ -28,7 +28,8 @@ type MermaidDiagramProps = {
  * content is never blank or replaced by an error box.
  */
 export default function MermaidDiagram({ code }: MermaidDiagramProps) {
-  const { isDarkMode } = useTheme();
+  const theme = useOptionalTheme();
+  const isDarkMode = theme?.isDarkMode ?? document.documentElement.classList.contains('dark');
   const reactId = useId();
   const [svg, setSvg] = useState<string | null>(null);
 

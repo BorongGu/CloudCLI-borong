@@ -84,6 +84,7 @@ test('live guest sockets require authentication and matching Origin, and push on
   const ws = new WebSocket(`ws://${base}/api/live/${chat.id}`, { headers: { Cookie: cookie, Origin: `http://${base}` } });
   t.after(() => ws.terminate());
   const first: any = await new Promise(resolve => ws.once('message', bytes => resolve(JSON.parse(String(bytes)))));
+  assert.match(ws.extensions, /permessage-deflate/);
   assert.equal(first.id, chat.id);assert.deepEqual(first.messages, []);
   await f.service.send(chat.id, 'Explain', [], randomUUID());await new Promise(resolve => setTimeout(resolve, 20));
   const threadId = f.client.calls.find(call => call.method === 'turn/start')!.params.threadId;

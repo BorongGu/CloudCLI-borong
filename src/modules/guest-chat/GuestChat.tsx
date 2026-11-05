@@ -5,6 +5,7 @@ import { guestChatApi } from '@/shared/api';
 import type { GuestChatSnapshot, GuestChatSummary } from '@/shared/types';
 import { Button, Input } from '@/shared/ui';
 import { copyTextToClipboard } from '@/shared/utils';
+import companions from '@/modules/guest-chat/assets/companions.webp';
 import '@/modules/guest-chat/guest-chat.css';
 
 const GuestAnswer = lazy(() => import('@/modules/guest-chat/GuestAnswer'));
@@ -56,14 +57,14 @@ export function GuestChat() {
       const saved = localStorage.getItem('guest-active-chat');
       const chosen = list.find(c => c.id === saved) || list[0];
       const next = chosen ? await guestChatApi.read(chosen.id) : await guestChatApi.create();
-      if (!disposed) { select(next);await refreshList(); }
+      if (!disposed) { select(next);if (!chosen) await refreshList(); }
     })().catch(report);
     return () => { disposed = true; };
   }, [authenticated]);
 
   useEffect(() => {
     if (!authenticated || !chat?.id) return;
-    let disposed = false;let live = false;let timer: ReturnType<typeof setTimeout>;let reconnect: ReturnType<typeof setTimeout>;
+    let disposed = false;let live = false;let polling = false;let timer: ReturnType<typeof setTimeout>;let reconnect: ReturnType<typeof setTimeout>;
     let stopSocket = () => {};
     const id = chat.id;
     const receive = (next: GuestChatSnapshot) => {
@@ -83,18 +84,22 @@ export function GuestChat() {
       if (disposed) return;
       stopSocket = guestChatApi.subscribe(id, receive, connected => {
         live = connected;
-        if (!connected && !disposed) reconnect = setTimeout(connect, 2000);
+        if (!connected && !disposed) { reconnect = setTimeout(connect, 2000);clearTimeout(timer);void poll(); }
       });
     };
     connect();
-    const poll = async () => {
+    async function poll() {
+      if (disposed || polling) return;
+      if (live) { timer = setTimeout(() => { void poll(); }, 5000);return; }
+      polling = true;
       let busy = false;
       try { const next = await guestChatApi.read(id);busy = next.busy;receive(next); }
       catch (error) {
         if (!disposed) { if ((error as { status?: number }).status === 401) setAuthenticated(false);else if (!live) setNotice('连接中断，正在重新连接…'); }
       }
-      if (!disposed) timer = setTimeout(() => { void poll(); }, live ? 15_000 : document.hidden ? 3000 : busy ? 500 : 1800);
-    };
+      polling = false;
+      if (!disposed) timer = setTimeout(() => { void poll(); }, live ? 5000 : document.hidden ? 5000 : busy ? 500 : 1800);
+    }
     void poll();return () => { disposed = true;clearTimeout(timer);clearTimeout(reconnect);stopSocket(); };
   }, [authenticated, chat?.id]);
 
@@ -127,22 +132,26 @@ export function GuestChat() {
     setPending(true);setNotice('');stick.current = true;
     try {
       const next = await guestChatApi.send(id, draft, images, request.current.id);
-      if (activeId.current === id) { setChat(next);setDraft('');setImages([]);request.current = null; }
+      if (activeId.current === id) {
+        // A live completion can overtake the HTTP acknowledgement on mobile networks.
+        setChat(previous => previous?.id === next.id && previous.revision > next.revision ? previous : next);
+        setDraft('');setImages([]);request.current = null;
+      }
       await refreshList();composer.current?.focus();
     } catch (error) { report(error); } finally { setPending(false); }
   }
 
   if (authenticated !== true) return <main className="guest-login"><form onSubmit={login}>
-    <div className="guest-brand"><MessageSquare size={23} /></div><h1>答疑助手</h1><p>文字、截图，随时提问。</p>
+    <div className="guest-brand"><MessageSquare size={23} /></div><h1>GPT-6 Astra</h1><p>文字、截图，随时提问。</p>
     <label htmlFor="guest-user">账号</label><Input id="guest-user" autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} required />
     <label htmlFor="guest-password">密码</label><Input id="guest-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
     {notice && <p role="alert" className="guest-notice">{notice}</p>}
     <Button type="submit" className="guest-primary" disabled={pending || authenticated === null}>{pending ? '正在登录…' : '进入对话'}</Button>
-    <small>GPT-6 Astra · High</small>
+    <small>High · 深度思考</small>
   </form></main>;
 
   return <div className="guest-shell">
-    <header className="guest-header"><div className="guest-heading"><div className="guest-brand"><MessageSquare size={20} /></div><div><h1>答疑助手</h1><p>GPT-6 Astra · High</p></div></div>
+    <header className="guest-header"><div className="guest-heading"><div className="guest-brand"><MessageSquare size={20} /></div><div><h1>GPT-6 Astra</h1><p>High · 深度思考</p></div></div>
       <div className="guest-actions"><select aria-label="我的对话" value={chat?.id || ''} disabled={pending} onChange={e => { const id = e.target.value;activeId.current = id;void guestChatApi.read(id).then(next => { if (activeId.current === id) select(next); }).catch(report); }}>
         {!chat && <option value="">加载中…</option>}{chats.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}</select>
         <Button variant="ghost" aria-label="新对话" title="新对话" disabled={pending} onClick={() => { setPending(true);void guestChatApi.create().then(async next => { select(next);await refreshList(); }).catch(report).finally(() => setPending(false)); }}><Plus /><span>新对话</span></Button>
@@ -150,7 +159,7 @@ export function GuestChat() {
       </div>
     </header>
     <main ref={scroller} className="guest-transcript" onScroll={e => { const el = e.currentTarget;stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; }}><div className="guest-content">
-      {!chat?.messages.length && <div className="guest-empty"><h2>有什么题目想一起看看？</h2><p>输入问题，或上传 / 粘贴题目截图。</p></div>}
+      {!chat?.messages.length && <div className="guest-empty"><h2>把题目发给我</h2><p>输入文字，或上传题目截图。</p></div>}
       {chat?.messages.map(message => <article key={message.id} className={`guest-message ${message.role}`}>
         {message.images.length > 0 && <div className="guest-images">{message.images.map(id => <a key={id} href={guestChatApi.image(id)} target="_blank" rel="noreferrer"><img src={guestChatApi.image(id)} alt="题目截图" /></a>)}</div>}
         {message.role === 'assistant' ? <><Suspense fallback={<div className="guest-question">{message.text || message.reasoning}</div>}><GuestAnswer message={message} busy={chat.busy && message === chat.messages.at(-1)} /></Suspense>
@@ -158,9 +167,9 @@ export function GuestChat() {
       </article>)}
       {chat?.error && <div role="alert" className="guest-notice">{chat.error}</div>}
     </div></main>
-    <footer className="guest-footer"><div className="guest-compose">
+    <footer className="guest-footer"><div className="guest-compose-shell"><img className="guest-companions" src={companions} alt="" aria-hidden="true" width={112} height={56} loading="lazy" decoding="async" /><div className="guest-compose">
       {images.length > 0 && <div className="guest-previews">{images.map((url, index) => <div key={index}><img src={url} alt={`待发送图片 ${index + 1}`} /><button aria-label={`移除图片 ${index + 1}`} onClick={() => setImages(previous => previous.filter((_, i) => i !== index))}><X size={14} /></button></div>)}</div>}
-      <textarea ref={composer} aria-label="输入问题" placeholder="输入问题，或粘贴截图…" value={draft} maxLength={32000} onChange={e => setDraft(e.target.value)}
+      <textarea ref={composer} aria-label="输入问题" placeholder="发消息，或粘贴截图…" value={draft} maxLength={32000} onChange={e => setDraft(e.target.value)}
         onPaste={e => { const files = [...e.clipboardData.files];if (files.length) { e.preventDefault();void addImages(files); } }}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && matchMedia('(pointer:fine)').matches) { e.preventDefault();void send(); } }} />
       <div className="guest-compose-bar"><input ref={upload} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onChange={e => { void addImages([...e.target.files || []]);e.target.value = ''; }} />
@@ -169,6 +178,6 @@ export function GuestChat() {
         {chat?.busy ? <Button variant="outline" onClick={() => { void guestChatApi.stop(chat.id).catch(report); }}><Square size={14} />停止</Button>
           : <Button className="guest-primary" aria-label="发送问题" disabled={pending || !chat || (!draft.trim() && !images.length)} onClick={() => { void send(); }}><ArrowUp /><span>发送</span></Button>}
       </div>
-    </div>{notice && <p className="guest-feedback" role="status">{notice}</p>}</footer>
+    </div></div>{notice && <p className="guest-feedback" role="status">{notice}</p>}</footer>
   </div>;
 }

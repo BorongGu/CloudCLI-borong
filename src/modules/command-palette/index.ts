@@ -1,4 +1,4 @@
-export { default as CommandPalette } from '@/modules/command-palette/CommandPalette';
+export { default as CommandPalette } from '@/modules/command-palette/CommandPaletteLoader';
 export {
   PaletteOpsProvider,
   usePaletteOps,

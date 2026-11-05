@@ -1,8 +1,10 @@
+import { memo } from 'react';
+
 import { Reasoning, ReasoningContent, ReasoningTrigger, StreamingMarkdown } from '@/modules/chat';
 import type { GuestChatMessage } from '@/shared/types';
 
 /** GuestChat loads CloudCLI's answer renderer after login so its initial screen stays small. */
-export default function GuestAnswer({ message, busy }: { message: GuestChatMessage; busy: boolean }) {
+export default memo(function GuestAnswer({ message, busy }: { message: GuestChatMessage; busy: boolean }) {
   return <>
     {message.reasoning && <Reasoning isStreaming={busy && !message.text} className="guest-reasoning">
       <ReasoningTrigger getThinkingMessage={streaming => streaming ? '思考中…' : '思考摘要'} />
@@ -10,4 +12,7 @@ export default function GuestAnswer({ message, busy }: { message: GuestChatMessa
     </Reasoning>}
     {message.text && <StreamingMarkdown content={message.text} isStreaming={busy} restricted className="guest-prose" />}
   </>;
-}
+} , (previous, next) => previous.busy === next.busy
+  && previous.message.id === next.message.id
+  && previous.message.text === next.message.text
+  && previous.message.reasoning === next.message.reasoning);
