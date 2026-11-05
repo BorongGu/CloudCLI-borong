@@ -1,23 +1,15 @@
-/* Inter is self-hosted; its SIL Open Font License is shipped in public/fonts/linear/. */
+/* Manrope and MiSans are self-hosted; their licenses are shipped in public/fonts/linear/. */
 @font-face {
-  font-family: "CloudCLI Inter";
+  font-family: "Orbit Manrope";
   font-style: normal;
-  font-weight: 100 900;
+  font-weight: 200 800;
   font-display: swap;
-  src: url("../assets/fonts/inter-variable.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "CloudCLI Inter";
-  font-style: italic;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("../assets/fonts/inter-variable-italic.woff2") format("woff2");
+  src: url("../assets/fonts/manrope-variable.woff2") format("woff2");
 }
 
 /* Static ambient color sits behind translucent chrome; the reading column stays crisp. */
 :root[data-appearance="linear"] {
-  --font-text: "CloudCLI Inter", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-text: "Orbit Manrope", "Orbit MiSans", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-code: "JetBrains Mono", "SF Mono", Menlo, Consolas, "Noto Sans Mono CJK SC", monospace;
   --background: 240 20% 99%;
   --foreground: 240 7% 15%;
@@ -122,9 +114,9 @@
 
 :root[data-appearance="linear"] body {
   font-size: 14px;
-  font-weight: 450;
+  font-weight: 400;
   font-optical-sizing: auto;
-  font-feature-settings: "cv11", "calt";
+  font-feature-settings: "calt";
 }
 
 :root[data-appearance="linear"] :is(.font-sans, .font-serif) { font-family: var(--font-text); }
@@ -158,8 +150,8 @@
 
 :root[data-appearance="linear"] .workspace-sidebar h1 {
   font-size: 17px;
-  font-weight: 650;
-  letter-spacing: -0.04em;
+  font-weight: 700;
+  letter-spacing: -0.035em;
 }
 
 :root[data-appearance="linear"] .workspace-sidebar :is(button, a, .nav-search-input) { border-radius: 7px; }
@@ -218,13 +210,15 @@
 :root[data-appearance="linear"] .chat-message.user { padding-block: 9px; }
 :root[data-appearance="linear"] .chat-message .prose {
   font-size: var(--chat-font-size, 14px);
-  font-weight: 450;
-  line-height: 1.75;
+  font-weight: 400;
+  line-height: 1.78;
+  letter-spacing: 0.005em;
 }
 
-:root[data-appearance="linear"] .prose :where(strong, b) { font-weight: 650; }
+:root[data-appearance="linear"] .prose :where(strong, b) { font-weight: 600; }
 :root[data-appearance="linear"] .prose .katex { font-size: 1.05em; }
-:root[data-appearance="linear"] .chat-message .prose :where(h1, h2, h3, h4) { font-weight: 650; letter-spacing: -0.02em; }
+:root[data-appearance="linear"] .chat-message :is(code, pre, .katex) { letter-spacing: normal; }
+:root[data-appearance="linear"] .chat-message .prose :where(h1, h2, h3, h4) { font-weight: 600; letter-spacing: -0.015em; }
 :root[data-appearance="linear"] .chat-message .prose :where(p, ul, ol, blockquote) { margin-block: 0.65em; }
 :root[data-appearance="linear"] .chat-message .prose > :first-child { margin-top: 0; }
 :root[data-appearance="linear"] .chat-message .prose > :last-child { margin-bottom: 0; }

@@ -1,0 +1,16 @@
+Orbit Linear typography
+
+Manrope, by the Manrope Project Authors
+Source: https://github.com/google/fonts/tree/main/ofl/manrope
+File: Manrope[wght].ttf (losslessly compressed to WOFF2)
+License: SIL Open Font License 1.1; see OFL-Manrope.txt and FONTLOG-Manrope.txt.
+Source TTF SHA-256: 3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6
+
+MiSans VF, by Xiaomi
+Source: https://hyperos.mi.com/font/zh/
+Official webfont stylesheet:
+https://cdn-font.hyperos.mi.com/font/css?family=MiSans_VF:VF:Chinese_Simplify,Latin&display=swap
+The 56 official WOFF2 subsets are bundled unchanged with Orbit.
+Unicode ranges follow the official stylesheet; the CSS family alias is Orbit MiSans.
+License: MiSans Font Intellectual Property License Agreement; see LICENSE-MiSans.pdf.
+https://hyperos.mi.com/font-download/MiSans字体知识产权许可协议.pdf

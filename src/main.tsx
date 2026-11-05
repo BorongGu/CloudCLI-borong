@@ -7,6 +7,7 @@ import '@/index.css'
 import '@/styles/claude.css'
 import '@/styles/github.css'
 import '@/styles/linear.css'
+import '@/styles/linear-fonts.css'
 import 'katex/dist/katex.min.css'
 
 // Initialize i18n

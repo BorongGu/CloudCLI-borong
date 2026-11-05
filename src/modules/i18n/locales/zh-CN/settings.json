@@ -172,8 +172,8 @@
       "label": "界面风格",
       "claudeDescription": "暖色底、陶土色与衬线字体",
       "githubDescription": "中性灰、细边框与系统字体",
-      "linearDescription": "磨砂半透明、克制底色与紧凑排版",
-      "linearFonts": "英文 Inter · 中文苹方 / Noto Sans CJK / 微软雅黑 · 代码 JetBrains Mono"
+      "linearDescription": "磨砂半透明、蓝紫柔光与几何感字体",
+      "linearFonts": "英文 Manrope · 中文 MiSans · 代码 JetBrains Mono"
     },
     "darkMode": {
       "label": "深色模式",

@@ -51,7 +51,7 @@ export default function AppearanceSettingsTab({
               </span>
               <span className="mt-1 block text-xs leading-5 text-muted-foreground">
                 {style === 'linear'
-                  ? t('appearanceSettings.style.linearDescription', { defaultValue: 'Graphite surfaces, indigo accents and clear Inter type.' })
+                  ? t('appearanceSettings.style.linearDescription', { defaultValue: 'Frosted surfaces, soft blue-violet light and geometric type.' })
                   : style === 'github'
                   ? t('appearanceSettings.style.githubDescription', { defaultValue: 'Neutral surfaces, fine borders and system type.' })
                   : t('appearanceSettings.style.claudeDescription', { defaultValue: 'Warm surfaces, terracotta accents and serif type.' })}
@@ -59,7 +59,7 @@ export default function AppearanceSettingsTab({
             </label>
           ))}
         </div>
-        {appearanceStyle === 'linear' && <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t('appearanceSettings.style.linearFonts', { defaultValue: 'Inter · system Chinese sans serif · JetBrains Mono for code' })}</p>}
+        {appearanceStyle === 'linear' && <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t('appearanceSettings.style.linearFonts', { defaultValue: 'Manrope · MiSans for Chinese · JetBrains Mono for code' })}</p>}
       </SettingsSection>
 
       <SettingsSection title={t('appearanceSettings.theme.label')}>

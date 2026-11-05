@@ -172,8 +172,8 @@
       "label": "Interface style",
       "claudeDescription": "Warm surfaces, terracotta accents and serif type.",
       "githubDescription": "Neutral surfaces, fine borders and system type.",
-      "linearDescription": "Frosted surfaces, restrained neutral tones and compact layouts.",
-      "linearFonts": "Inter · PingFang / Noto Sans CJK / Microsoft YaHei for Chinese · JetBrains Mono for code"
+      "linearDescription": "Frosted surfaces, soft blue-violet light and geometric type.",
+      "linearFonts": "Manrope · MiSans for Chinese · JetBrains Mono for code"
     },
     "darkMode": {
       "label": "Dark Mode",
