@@ -118,6 +118,7 @@ function ProjectSidebarRegion({
   if (!isMobile) {
     return (
       <div
+        data-sidebar-region
         className="relative h-full flex-shrink-0 border-r border-border/50"
         style={isSidebarResizable ? { width: sidebarWidth } : undefined}
       >
@@ -157,6 +158,7 @@ function ProjectSidebarRegion({
         aria-label={t('versionUpdate.ariaLabels.closeSidebar')}
       />
       <div
+        data-sidebar-drawer
         className={`relative h-full w-[85vw] max-w-sm transform border-r border-border/40 bg-card transition-transform duration-150 ease-out sm:w-80 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}

@@ -15,7 +15,7 @@
   src: url("../assets/fonts/inter-variable-italic.woff2") format("woff2");
 }
 
-/* A quiet, dense workspace with independent light/dark palettes. */
+/* Static ambient color sits behind translucent chrome; the reading column stays crisp. */
 :root[data-appearance="linear"] {
   --font-text: "CloudCLI Inter", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-code: "JetBrains Mono", "SF Mono", Menlo, Consolas, "Noto Sans Mono CJK SC", monospace;
@@ -47,6 +47,15 @@
   --brand-terracotta: #6258cf;
   --linear-gradient: linear-gradient(125deg, #5146c7, #6d52c9);
   --linear-selection: hsl(243 58% 55% / 7%);
+  --linear-atmosphere: radial-gradient(ellipse at 0% 8%, hsl(248 75% 72% / 28%), transparent 48%),
+    radial-gradient(ellipse at 100% 100%, hsl(216 85% 72% / 24%), transparent 52%),
+    radial-gradient(ellipse at 72% 0%, hsl(278 65% 80% / 14%), transparent 42%);
+  --linear-glass-opacity: 0.54;
+  --linear-panel-opacity: 0.76;
+  --linear-glass-highlight: rgb(255 255 255 / 60%);
+  --linear-glass-edge: rgb(255 255 255 / 78%);
+  --linear-glass-shadow: 0 8px 28px rgb(45 43 90 / 7%), inset 0 1px 0 rgb(255 255 255 / 78%);
+  --linear-glass-filter: blur(22px) saturate(135%);
   --nav-glass-bg: 240 8% 96% / 1;
   --nav-tab-glow: 243 58% 55% / 0.04;
   --nav-tab-ring: 243 58% 55% / 0.12;
@@ -97,6 +106,14 @@
   --surface-shadow: 0 4px 16px rgb(0 0 0 / 14%);
   --brand-terracotta: #a4a0f4;
   --linear-selection: hsl(244 77% 79% / 9%);
+  --linear-atmosphere: radial-gradient(ellipse at 0% 8%, hsl(250 65% 52% / 25%), transparent 48%),
+    radial-gradient(ellipse at 100% 100%, hsl(218 65% 50% / 19%), transparent 52%),
+    radial-gradient(ellipse at 72% 0%, hsl(278 55% 51% / 10%), transparent 42%);
+  --linear-glass-opacity: 0.56;
+  --linear-panel-opacity: 0.78;
+  --linear-glass-highlight: rgb(255 255 255 / 5%);
+  --linear-glass-edge: rgb(212 214 255 / 15%);
+  --linear-glass-shadow: 0 8px 32px rgb(0 0 0 / 16%), inset 0 1px 0 rgb(225 225 255 / 10%);
   --nav-glass-bg: 225 7% 8.4% / 1;
   --nav-tab-glow: 244 77% 79% / 0.05;
   --nav-tab-ring: 244 77% 79% / 0.14;
@@ -117,9 +134,28 @@
 :root[data-appearance="linear"] :is(button, input, textarea, select):focus-visible { outline-color: hsl(var(--ring)); }
 :root[data-appearance="linear"] :is(.bg-primary, .bg-primary\/90, .bg-primary\/80) { background-image: var(--linear-gradient); }
 
+:root[data-appearance="linear"] .workspace-shell {
+  background-color: hsl(var(--background));
+  background-image: var(--linear-atmosphere);
+}
+
+:root[data-appearance="linear"] .chat-messages-pane { background: transparent; }
+:root[data-appearance="linear"] [data-sidebar-region] { border-right-color: transparent; }
+:root[data-appearance="linear"] [data-sidebar-drawer] { background: transparent; }
+
+:root[data-appearance="linear"] :is(.workspace-sidebar, [data-sidebar-rail], .workspace-header, .chat-composer-form) {
+  background: linear-gradient(135deg, var(--linear-glass-highlight), transparent 55%),
+    hsl(var(--card) / var(--linear-glass-opacity));
+  border-color: var(--linear-glass-edge);
+  box-shadow: var(--linear-glass-shadow);
+  -webkit-backdrop-filter: var(--linear-glass-filter);
+  backdrop-filter: var(--linear-glass-filter);
+}
+
 :root[data-appearance="linear"] .workspace-sidebar {
-  background: var(--surface-sidebar);
-  border-color: hsl(var(--border) / 65%);
+  position: relative;
+  z-index: 30;
+  border: 1px solid var(--linear-glass-edge);
 }
 
 :root[data-appearance="linear"] .workspace-sidebar h1 {
@@ -131,8 +167,9 @@
 :root[data-appearance="linear"] .workspace-sidebar :is(button, a, .nav-search-input) { border-radius: 7px; }
 :root[data-appearance="linear"] .workspace-sidebar .nav-search-input {
   height: 32px;
-  border-color: hsl(var(--border) / 65%);
-  box-shadow: none;
+  border-color: hsl(var(--border) / 45%);
+  background: hsl(var(--card) / 28%);
+  box-shadow: inset 0 1px 2px hsl(var(--foreground) / 2%);
 }
 
 :root[data-appearance="linear"] .workspace-sidebar .sidebar-session-row {
@@ -142,7 +179,10 @@
   border-radius: 7px;
 }
 
-:root[data-appearance="linear"] .sidebar-session-row[data-selected="true"] { background: var(--linear-selection); }
+:root[data-appearance="linear"] .sidebar-session-row[data-selected="true"] {
+  background: linear-gradient(110deg, hsl(var(--primary) / 15%), hsl(var(--card) / 24%));
+  box-shadow: inset 0 1px 0 var(--linear-glass-highlight), 0 2px 6px hsl(var(--foreground) / 3%);
+}
 :root[data-appearance="linear"] .sidebar-session-row[data-selected="true"]::before {
   position: absolute;
   inset: 10px auto 10px 0;
@@ -153,9 +193,11 @@
 }
 
 :root[data-appearance="linear"] .workspace-header {
-  min-height: 50px;
-  padding-block: 7px;
-  border-bottom-color: hsl(var(--border) / 55%);
+  min-height: 44px;
+  margin: 8px 12px 4px;
+  padding-block: 6px;
+  border: 1px solid var(--linear-glass-edge);
+  border-radius: 13px;
 }
 
 :root[data-appearance="linear"] .workspace-header [role="tablist"] {
@@ -163,15 +205,15 @@
   padding: 3px;
   border-color: transparent;
   border-radius: 8px;
-  background: hsl(var(--muted) / 50%);
+  background: hsl(var(--foreground) / 3%);
   box-shadow: none;
 }
 
 :root[data-appearance="linear"] .workspace-header [role="tab"] { height: 28px; border-radius: 5px; font-weight: 500; }
 :root[data-appearance="linear"] .workspace-header [role="tab"][aria-selected="true"] {
   color: hsl(var(--foreground));
-  background: hsl(var(--card));
-  box-shadow: 0 1px 3px rgb(0 0 0 / 6%);
+  background: hsl(var(--card) / 60%);
+  box-shadow: inset 0 1px 0 var(--linear-glass-highlight), 0 1px 4px rgb(0 0 0 / 7%);
 }
 
 :root[data-appearance="linear"] .chat-message { padding-block: 3px; }
@@ -191,32 +233,28 @@
 
 :root[data-appearance="linear"] .chat-user-bubble {
   padding: 10px 14px;
-  border: 1px solid hsl(var(--border) / 45%);
+  border: 1px solid var(--linear-glass-edge);
   border-radius: 12px;
+  background: hsl(var(--card) / var(--linear-glass-opacity)) !important;
+  box-shadow: inset 0 1px 0 var(--linear-glass-highlight);
 }
 
 :root[data-appearance="linear"] .chat-message pre { border-color: hsl(var(--border) / 65%); border-radius: 8px; }
 :root[data-appearance="linear"] .chat-message pre :is(code, span) { font-weight: 400; }
 :root[data-appearance="linear"] [data-slot="code-block"] { border-color: hsl(var(--border) / 65%); border-radius: 8px; box-shadow: none; }
-:root[data-appearance="linear"] .chat-message.tool > button { padding-block: 5px; border-left-width: 1px; border-radius: 0 5px 5px 0; }
+:root[data-appearance="linear"] .chat-message.tool > button { padding-block: 5px; border-left-width: 1px; border-radius: 0 5px 5px 0; background: hsl(var(--card) / 18%); }
 :root[data-appearance="linear"] .chat-message.tool .border-l-2 { border-left-width: 1px; }
 :root[data-appearance="linear"] .chat-empty-state h2 { font-size: 25px; font-weight: 550; letter-spacing: -0.035em; }
 
 :root[data-appearance="linear"] .chat-composer-form {
-  border: 1px solid transparent;
-  border-radius: 14px;
-  background: linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
-    linear-gradient(120deg, hsl(var(--border) / 75%), hsl(var(--primary) / 22%) 55%, hsl(var(--border) / 65%)) border-box;
-  box-shadow: 0 3px 18px rgb(20 20 35 / 4%);
+  border: 1px solid var(--linear-glass-edge);
+  border-radius: 17px;
   transition: box-shadow 150ms ease;
 }
 
-:root[data-appearance="linear"].dark .chat-composer-form { box-shadow: 0 4px 24px rgb(0 0 0 / 13%); }
 :root[data-appearance="linear"] .chat-composer-form:focus-within {
-  border-color: transparent;
-  background: linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
-    linear-gradient(120deg, hsl(var(--primary) / 38%), hsl(266 60% 64% / 32%), hsl(var(--border) / 70%)) border-box;
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 4%), 0 4px 20px hsl(var(--primary) / 5%);
+  border-color: hsl(var(--primary) / 38%);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 5%), var(--linear-glass-shadow);
 }
 
 :root[data-appearance="linear"] .chat-composer-form .chat-input-placeholder {
@@ -228,7 +266,7 @@
 :root[data-appearance="linear"] .chat-composer-form textarea:focus-visible { outline: none; }
 :root[data-appearance="linear"] .chat-composer-form [data-slot="prompt-input-footer"] {
   border-top-color: hsl(var(--border) / 38%);
-  background: hsl(var(--muted) / 22%);
+  background: hsl(var(--foreground) / 2%);
 }
 
 :root[data-appearance="linear"] .chat-goal-panel { padding-inline: 12px; border-bottom-color: hsl(var(--border) / 45%); }
@@ -238,21 +276,56 @@
 }
 
 :root[data-appearance="linear"] :is(.settings-dialog, .auth-card, [data-btw-panel]) {
-  border-radius: 12px;
-  border-color: hsl(var(--border) / 75%);
-  box-shadow: 0 12px 48px rgb(0 0 0 / 14%);
+  border-radius: 16px;
 }
 
+:root[data-appearance="linear"] :is(.settings-dialog, .auth-card, [data-btw-panel], [data-quick-settings-panel], [role="menu"], [role="listbox"], [role="dialog"].bg-popover) {
+  background: linear-gradient(135deg, var(--linear-glass-highlight), transparent 50%),
+    hsl(var(--popover) / var(--linear-panel-opacity));
+  border-color: var(--linear-glass-edge);
+  box-shadow: var(--linear-glass-shadow), 0 20px 60px rgb(0 0 0 / 10%);
+  -webkit-backdrop-filter: var(--linear-glass-filter);
+  backdrop-filter: var(--linear-glass-filter);
+}
+
+:root[data-appearance="linear"] :is(.modal-backdrop:has(> .settings-dialog), [data-quick-settings-backdrop]) {
+  background: hsl(var(--background) / 28%);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+:root[data-appearance="linear"] .settings-dialog aside { background: hsl(var(--muted) / 24%); }
+:root[data-appearance="linear"] .settings-dialog :is([data-slot="settings-card"], .appearance-style-option) { background-color: hsl(var(--card) / 24%); }
+:root[data-appearance="linear"] [data-quick-settings-panel] [role="tabpanel"] > .bg-background { background: transparent; }
 :root[data-appearance="linear"] :is([data-slot="settings-card"], [role="menu"]) { border-radius: 8px; }
-.appearance-style-preview[data-preview="linear"] { border-color: #313238; border-radius: 6px; background: #191a1d; }
-[data-preview="linear"] .appearance-preview-sidebar { border-color: #313238; background: #141517; }
+.appearance-style-preview[data-preview="linear"] { border-color: #555167; border-radius: 6px; background: radial-gradient(ellipse at 0 0, #514176, transparent 80%), linear-gradient(125deg, #191a1d, #29314b); }
+[data-preview="linear"] .appearance-preview-sidebar { border-color: rgb(255 255 255 / 15%); background: rgb(255 255 255 / 5%); }
 [data-preview="linear"] .appearance-preview-sidebar i { background: #454650; }
 [data-preview="linear"] .appearance-preview-sidebar i:first-child { background: #a4a0f4; }
 [data-preview="linear"] .appearance-preview-main i { background: #494a53; }
-[data-preview="linear"] .appearance-preview-main i:last-child { border-color: #57516e; border-radius: 4px; background: #232429; }
+[data-preview="linear"] .appearance-preview-main i:last-child { border-color: rgb(255 255 255 / 25%); border-radius: 4px; background: rgb(255 255 255 / 8%); }
+
+@media (min-width: 768px) {
+  :root[data-appearance="linear"] .workspace-sidebar { width: calc(100% - 16px); height: calc(100% - 16px); margin: 8px; border-radius: 16px; }
+}
 
 @media (max-width: 767px) {
-  :root[data-appearance="linear"] .workspace-header { padding-top: max(7px, env(safe-area-inset-top)); }
+  :root[data-appearance="linear"] { --linear-glass-filter: blur(14px) saturate(125%); }
+  :root[data-appearance="linear"] .workspace-header { margin: 0; border-width: 0 0 1px; border-radius: 0; padding-top: max(7px, env(safe-area-inset-top)); }
   :root[data-appearance="linear"] .chat-composer-form .chat-input-placeholder { font-size: 16px; }
   :root[data-appearance="linear"] .chat-empty-state h2 { font-size: 21px; }
+}
+
+/* Opaque material remains available through browser support and OS accessibility preferences. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-appearance="linear"], :root[data-appearance="linear"].dark { --linear-glass-opacity: 1; --linear-panel-opacity: 1; --linear-glass-filter: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-appearance="linear"], :root[data-appearance="linear"].dark { --linear-glass-opacity: 1; --linear-panel-opacity: 1; --linear-glass-filter: none; --linear-atmosphere: none; }
+  :root[data-appearance="linear"] :is(.modal-backdrop:has(> .settings-dialog), [data-quick-settings-backdrop]) {
+    background: hsl(var(--background) / 80%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }

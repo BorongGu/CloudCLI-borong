@@ -178,12 +178,13 @@ function QuickSettingsPanelView({ selectedProject, onInsertCommand }: QuickSetti
       {/* Docked: a layout column while open, gone while collapsed via the handle (the pin is kept). */}
       {isPinned ? (
         isOpen && (
-          <div className="relative h-full w-64 flex-shrink-0 border-l border-border bg-background">
+          <div data-quick-settings-panel className="relative h-full w-64 flex-shrink-0 border-l border-border bg-background">
             {panelBody}
           </div>
         )
       ) : (
         <div
+          data-quick-settings-panel
           className={`fixed right-0 top-0 z-[9999] h-full w-64 transform border-l border-border bg-background shadow-xl transition-transform duration-150 ease-out ${isOpen ? 'translate-x-0' : 'translate-x-full'} ${isMobile ? 'h-screen' : ''}`}
         >
           {panelBody}
@@ -192,6 +193,7 @@ function QuickSettingsPanelView({ selectedProject, onInsertCommand }: QuickSetti
 
       {isOpen && !isPinned && (
         <div
+          data-quick-settings-backdrop
           className="fixed inset-0 z-[9998] bg-background/80 backdrop-blur-sm transition-opacity duration-150 ease-out"
           onClick={close}
         />
