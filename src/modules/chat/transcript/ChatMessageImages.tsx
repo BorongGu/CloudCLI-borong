@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 import { api } from '@/shared/api';
+import { getOverlayContainer } from '@/shared/utils';
 import type { ChatImage } from '@/shared/types';
 
 type ChatMessageImagesProps = {
@@ -125,7 +126,7 @@ export function ImageLightbox({ src, alt, onClose }: { src: string; alt: string;
         className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
       />
     </div>,
-    document.body,
+    getOverlayContainer(),
   );
 }
 

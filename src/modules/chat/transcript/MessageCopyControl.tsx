@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
-import { copyTextToClipboard } from '@/shared/utils';
+import { copyTextToClipboard, getOverlayContainer } from '@/shared/utils';
 
 const COPY_SUCCESS_TIMEOUT_MS = 2000;
 
@@ -250,7 +250,7 @@ const MessageCopyControl = ({
                 );
               })}
             </div>,
-            document.body,
+            getOverlayContainer(),
           )}
         </>
       )}

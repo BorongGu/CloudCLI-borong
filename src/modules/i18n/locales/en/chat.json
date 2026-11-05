@@ -133,6 +133,12 @@
     "stopSpeaking": "Stop",
     "loading": "Loading…"
   },
+  "reading": {
+    "enter": "Fullscreen reading",
+    "exit": "Exit reading",
+    "exitHint": "Exit fullscreen reading (Esc)",
+    "pageOnly": "Page reading mode"
+  },
   "input": {
     "placeholder": "Type / for commands, @ for files, or ask {{provider}} anything...",
     "placeholderDefault": "Type your message...",

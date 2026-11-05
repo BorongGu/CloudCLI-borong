@@ -43,6 +43,17 @@ export function cn(...inputs: ClassValue[]) {
 
 // ---------------------------
 
+//----------------- OVERLAY PLACEMENT ------------
+
+/** Chat image previews and copy menus stay inside the browser's fullscreen layer or the page reading surface. */
+export function getOverlayContainer(): Element {
+  return document.fullscreenElement
+    || document.querySelector('[data-chat-reading-mode="true"]')
+    || document.body;
+}
+
+// ---------------------------
+
 //----------------- CLIPBOARD ------------
 
 /**

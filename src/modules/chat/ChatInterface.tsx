@@ -20,6 +20,7 @@ import type {
 import { useChatProviderState } from '@/modules/chat/hooks/useChatProviderState';
 import { useScheduledMessages } from '@/modules/chat/composer/useScheduledMessages';
 import { useChatSessionState } from '@/modules/chat/hooks/useChatSessionState';
+import { useChatReadingMode } from '@/modules/chat/hooks/useChatReadingMode';
 import { useChatRealtimeHandlers } from '@/modules/chat/hooks/useChatRealtimeHandlers';
 import { useChatComposerState } from '@/modules/chat/hooks/useChatComposerState';
 import { useSessionStore } from '@/modules/chat/hooks/useSessionStore';
@@ -32,6 +33,7 @@ import ChatComposer from '@/modules/chat/composer/ChatComposer';
 import { CodexGoalPanel } from '@/modules/chat/composer/CodexGoalPanel';
 import CommandResultModal from '@/modules/chat/modals/CommandResultModal';
 import { BtwPanel } from '@/modules/chat/modals/BtwPanel';
+import '@/modules/chat/reading-mode.css';
 
 type ChatInterfaceProps = {
   isActive: boolean;
@@ -188,6 +190,12 @@ function ChatInterface({
     lastSeqRef,
     sessionStore,
   });
+
+  const readingSurfaceRef = useRef<HTMLDivElement>(null);
+  const reading = useChatReadingMode(readingSurfaceRef, scrollContainerRef, isActive, selectedSession?.id || currentSessionId);
+  const handleReadingFileOpen = useCallback<NonNullable<ChatInterfaceProps['onFileOpen']>>((...args) => {
+    void reading.exit().then(() => onFileOpen?.(...args));
+  }, [reading.exit, onFileOpen]);
 
   // Brand-new conversation: the composer allocated a stable session id via
   // the session gateway before the first send. Record it locally and put it
@@ -365,7 +373,7 @@ function ChatInterface({
     }
 
     const handleGlobalEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.repeat || event.defaultPrevented) {
+      if (event.key !== 'Escape' || event.repeat || event.defaultPrevented || reading.suppressTaskEscape()) {
         return;
       }
 
@@ -378,7 +386,7 @@ function ChatInterface({
     return () => {
       document.removeEventListener('keydown', handleGlobalEscape, { capture: true });
     };
-  }, [canAbortSession, handleAbortSession]);
+  }, [canAbortSession, handleAbortSession, reading.suppressTaskEscape]);
 
   useEffect(() => {
     return () => {
@@ -487,10 +495,13 @@ function ChatInterface({
 
   return (
     <PermissionContext.Provider value={permissionContextValue}>
-      <div className="flex h-full min-h-0 flex-col">
+      <div ref={readingSurfaceRef} className="chat-reading-surface flex h-full min-h-0 flex-col" data-chat-reading-mode={reading.isReading ? 'true' : undefined}>
         <MarkdownWorkspaceContext.Provider value={markdownWorkspaceValue}>
           <TranscriptSessionContext.Provider value={transcriptSessionValue}>
             <ChatMessagesPane
+              isReading={reading.isReading}
+              readingPageOnly={reading.pageOnly}
+              onToggleReading={reading.toggle}
               scrollContainerRef={scrollContainerRef}
               // Not redundant with the `scroll` listener. A first page is 20 rows,
               // tool results fold into their calls, and the "load earlier" link is
@@ -522,7 +533,7 @@ function ChatInterface({
               sendMessage={sendMessage}
               loadAllMessages={loadAllMessages}
               createDiff={createDiff}
-              onFileOpen={onFileOpen}
+              onFileOpen={onFileOpen ? handleReadingFileOpen : undefined}
               onShowSettings={onShowSettings}
               onGrantToolPermission={handleGrantToolPermission}
               showRawParameters={showRawParameters}
@@ -531,8 +542,8 @@ function ChatInterface({
               // Editing replaces the turn and everything after it, so it is only
               // offered when the session is idle — a half-truncated transcript with
               // a live stream writing into it is not recoverable.
-              onEditMessage={supportsMessageEditing && !isProcessing ? beginEditMessage : undefined}
-              onForkFromMessage={supportsSessionForking ? handleForkFromMessage : undefined}
+              onEditMessage={supportsMessageEditing && !isProcessing && !reading.isReading ? beginEditMessage : undefined}
+              onForkFromMessage={supportsSessionForking && !reading.isReading ? handleForkFromMessage : undefined}
               onLoadFullTranscript={loadFullTranscript}
             />
           </TranscriptSessionContext.Provider>
@@ -553,6 +564,7 @@ function ChatInterface({
             </div>
           )}
 
+          <div hidden={reading.isReading} className={reading.isReading ? 'hidden' : undefined} data-chat-composer>
           <ChatComposer
           goalPanel={provider === 'codex' ? <CodexGoalPanel sessionId={selectedSession?.id || currentSessionId || null} /> : undefined}
           pendingPermissionRequests={pendingPermissionRequests}
@@ -634,10 +646,11 @@ function ChatInterface({
           sendByCtrlEnter={sendByCtrlEnter}
         />
         </div>
+        </div>
       </div>
 
       {btwRequests.map(request => <BtwPanel key={request.key} request={request}
-        active={isActive && request.sessionId === (selectedSession?.id || currentSessionId) && request.provider === provider}
+        active={isActive && !reading.isReading && request.sessionId === (selectedSession?.id || currentSessionId) && request.provider === provider}
         onClose={() => closeBtw(request.key)} />)}
       <CommandResultModal
         payload={commandModalPayload}

@@ -120,6 +120,12 @@
     "stopSpeaking": "停止",
     "loading": "加载中…"
   },
+  "reading": {
+    "enter": "全屏阅读",
+    "exit": "退出阅读",
+    "exitHint": "退出全屏阅读（Esc）",
+    "pageOnly": "页面阅读模式"
+  },
   "input": {
     "placeholder": "输入 / 调用命令，@ 选择文件，或向 {{provider}} 提问...",
     "placeholderDefault": "输入您的消息...",

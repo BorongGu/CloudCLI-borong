@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { memo, useCallback, useMemo } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 import type { BackgroundTaskSummary,
   ChatMessage,
@@ -27,6 +28,9 @@ import { BackgroundTasksStrip } from '@/modules/chat/transcript/BackgroundTasksS
 const INITIAL_MOUNTED_TAIL_ROWS = 30;
 
 type ChatMessagesPaneProps = {
+  isReading?: boolean;
+  readingPageOnly?: boolean;
+  onToggleReading?: () => void;
   scrollContainerRef: RefObject<HTMLDivElement>;
   onWheel: (event: { type: string; deltaY: number }) => void;
   onTouchMove: (event: { type: string; touches: ArrayLike<{ clientY: number }> }) => void;
@@ -85,6 +89,9 @@ const getGroupedMessageKey = (message: ChatMessage): string =>
  * list and tool groups, the export menu and the provider empty state.
  */
 function ChatMessagesPane({
+  isReading = false,
+  readingPageOnly = false,
+  onToggleReading,
   scrollContainerRef,
   onWheel,
   onTouchMove,
@@ -168,10 +175,10 @@ function ChatMessagesPane({
       onTouchMove={onTouchMove}
       className="chat-messages-pane relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2 pt-3 sm:pb-3 sm:pt-4"
     >
-      {chatMessages.length > 0 && (
+      {(chatMessages.length > 0 || isReading) && (
         <div className="pointer-events-none sticky right-4 top-3 z-10 mb-2 flex items-start justify-between gap-2 sm:px-4">
           {/* Running background work stays in view while the transcript scrolls under it. */}
-          <div className="pointer-events-auto min-w-0 pl-4 sm:pl-0">
+          <div className="pointer-events-auto min-w-0 pl-4 sm:pl-0" hidden={isReading}>
             <BackgroundTasksStrip
               messages={chatMessages}
               tasks={backgroundTasks}
@@ -181,15 +188,23 @@ function ChatMessagesPane({
               onLoadAll={loadAllMessages}
             />
           </div>
-          <div className="pointer-events-auto">
-            <ChatExportMenu
+          <div className="pointer-events-auto ml-auto flex items-center gap-2 pr-4 sm:pr-0">
+            {readingPageOnly && <span role="status" className="rounded-lg bg-background/90 px-2 py-1 text-xs text-muted-foreground">{t('reading.pageOnly')}</span>}
+            {onToggleReading && <button type="button" data-reading-toggle onClick={onToggleReading}
+              aria-label={t(isReading ? 'reading.exit' : 'reading.enter')}
+              title={t(isReading ? 'reading.exitHint' : 'reading.enter')}
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-border/50 bg-background/90 px-2 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
+              {isReading ? <Minimize2 className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
+              {isReading && <span className="text-xs">{t('reading.exit')}</span>}
+            </button>}
+            {!isReading && <ChatExportMenu
               messages={chatMessages}
               sessionTitle={selectedSession?.summary || selectedSession?.title}
               provider={provider}
               selectedProject={selectedProject}
               createDiff={createDiff}
               onLoadFullTranscript={onLoadFullTranscript}
-            />
+            />}
           </div>
         </div>
       )}

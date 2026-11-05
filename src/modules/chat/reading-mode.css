@@ -1,0 +1,19 @@
+.chat-reading-surface[data-chat-reading-mode="true"] {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  width: 100%;
+  height: 100dvh;
+  margin: 0;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.chat-reading-surface::backdrop {
+  background: hsl(var(--background));
+}
+
+.chat-reading-surface[data-chat-reading-mode="true"] .chat-messages-pane {
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
