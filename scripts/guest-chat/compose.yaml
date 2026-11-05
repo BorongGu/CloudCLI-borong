@@ -1,0 +1,74 @@
+services:
+  tunnel:
+    image: cloudcli-guest:local
+    container_name: cloudcli-guest-tunnel
+    profiles: [public]
+    entrypoint: ["/usr/local/bin/cloudflared"]
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "--url", "http://172.31.251.2:3002"]
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 256m
+    pids_limit: 64
+    volumes:
+      - ${GUEST_ROOT}/build/cloudflared:/usr/local/bin/cloudflared:ro
+    networks:
+      private:
+        ipv4_address: 172.31.251.4
+      internet: {}
+  egress:
+    image: cloudcli-guest:local
+    container_name: cloudcli-guest-egress
+    entrypoint: ["/usr/local/bin/node", "/app/guest-egress.mjs"]
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 128m
+    pids_limit: 64
+    volumes:
+      - ${GUEST_ROOT}/config/egress.json:/run/guest-egress.json:ro
+      - ${GUEST_ROOT}/build/guest-egress.mjs:/app/guest-egress.mjs:ro
+    networks:
+      private:
+        ipv4_address: 172.31.251.3
+      internet: {}
+  chat:
+    image: cloudcli-guest:local
+    container_name: cloudcli-guest
+    depends_on: [egress]
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN, SETUID, SETGID, SETPCAP]
+    security_opt: [no-new-privileges:true]
+    sysctls: {net.ipv6.conf.all.disable_ipv6: "1"}
+    restart: unless-stopped
+    mem_limit: 1536m
+    cpus: 2
+    pids_limit: 192
+    tmpfs: ["/tmp:size=134217728,uid=1000,gid=1000,mode=1770", "/run:size=1048576"]
+    environment:
+      HOME: /home/guest
+      CODEX_HOME: /data/codex
+      HTTPS_PROXY: http://172.31.251.3:3128
+      HTTP_PROXY: http://172.31.251.3:3128
+      NO_PROXY: localhost,127.0.0.1
+      NODE_ENV: production
+    volumes:
+      - ${GUEST_ROOT}/data:/data
+      - ${GUEST_ROOT}/config/credentials.json:/run/guest-credentials.json:ro
+      - ${GUEST_ROOT}/config/codex.toml:/data/codex/config.toml:ro
+    networks:
+      private:
+        ipv4_address: 172.31.251.2
+networks:
+  private:
+    name: cloudcli-guest-private
+    internal: true
+    ipam:
+      config: [{subnet: 172.31.251.0/28}]
+  internet:
+    name: cloudcli-guest-internet

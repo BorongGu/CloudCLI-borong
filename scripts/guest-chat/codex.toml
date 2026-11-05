@@ -1,0 +1,26 @@
+model = "gpt-6-astra"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode = "read-only"
+web_search = "disabled"
+cli_auth_credentials_store = "file"
+
+[agents]
+enabled = false
+[apps._default]
+enabled = false
+[features]
+apps = false
+shell_tool = false
+unified_exec = false
+code_mode = false
+code_mode_host = false
+browser_use = false
+computer_use = false
+hooks = false
+goals = false
+view_image = false
+skill_search = false
+skill_mcp_dependency_install = false
+shell_snapshot = false
+image_generation = false

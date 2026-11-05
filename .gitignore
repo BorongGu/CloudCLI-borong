@@ -11,6 +11,7 @@ lerna-debug.log*
 
 # Build outputs
 dist/
+dist-guest/
 dist-server/
 dist-server.next/
 dist-server.old/

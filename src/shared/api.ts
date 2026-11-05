@@ -5,6 +5,40 @@ import {
 } from '@/shared/authToken';
 import { IS_PLATFORM } from '@/shared/utils';
 import { readVoiceConfig, voiceConfigHeaders } from '@/shared/voiceConfig';
+import type { GuestChatSnapshot, GuestChatSummary } from '@/shared/types';
+
+async function guestRequest<T>(url: string, payload?: unknown): Promise<T> {
+  const response = await fetch(url, { method: payload === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store',
+    ...(payload === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+  });
+  const value = await response.json();
+  if (!response.ok) throw Object.assign(new Error(value.error || '连接暂时中断，请重试。'), { status: response.status });
+  return value;
+}
+
+/** Guest chat uses cookie authentication and its separate, tightly scoped service. */
+export const guestChatApi = {
+  auth: () => guestRequest<{ authenticated: boolean; username?: string }>('/api/auth'),
+  login: (username: string, password: string) => guestRequest('/api/login', { username, password }),
+  logout: () => guestRequest('/api/logout', {}),
+  list: () => guestRequest<{ chats: GuestChatSummary[] }>('/api/chats'),
+  create: () => guestRequest<GuestChatSnapshot>('/api/chats', {}),
+  read: (id: string) => guestRequest<GuestChatSnapshot>(`/api/chats/${encodeURIComponent(id)}`),
+  send: (id: string, text: string, images: string[], requestId: string) => guestRequest<GuestChatSnapshot>(`/api/chats/${encodeURIComponent(id)}/messages`, { text, images, requestId }),
+  stop: (id: string) => guestRequest<GuestChatSnapshot>(`/api/chats/${encodeURIComponent(id)}/stop`, {}),
+  image: (id: string) => `/api/images/${encodeURIComponent(id)}`,
+  subscribe: (id: string, onSnapshot: (snapshot: GuestChatSnapshot) => void, onConnection: (connected: boolean) => void) => {
+    const url = new URL(`/api/live/${encodeURIComponent(id)}`, window.location.href);url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(url);let closed = false;
+    socket.onopen = () => { if (!closed) onConnection(true); };
+    socket.onmessage = event => {
+      try { const snapshot = JSON.parse(event.data);if (!closed && snapshot.id === id) onSnapshot(snapshot); } catch { /* A later snapshot reconciles a dropped frame. */ }
+    };
+    socket.onclose = () => { if (!closed) onConnection(false); };
+    socket.onerror = () => socket.close();
+    return () => { closed = true;socket.close(); };
+  },
+};
 
 // Headers are a plain record rather than the full `HeadersInit` union so the
 // defaults below can be merged with a caller's headers by spreading.

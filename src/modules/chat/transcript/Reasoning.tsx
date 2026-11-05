@@ -36,7 +36,7 @@ export type ReasoningProps = {
   duration?: number;
 } & React.HTMLAttributes<HTMLDivElement>;
 
-/** Discloses an assistant turn's reasoning text; used by MessageComponent. */
+/** Discloses an assistant turn's reasoning text; used by MessageComponent and guest-chat. */
 export const Reasoning = React.memo<ReasoningProps>(
   ({
     className,
@@ -142,7 +142,7 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number): Rea
   return <p>Thought for {duration} seconds</p>;
 };
 
-/** Toggle of Reasoning, used by MessageComponent. */
+/** Toggle of Reasoning, used by MessageComponent and guest-chat. */
 export const ReasoningTrigger = React.memo<ReasoningTriggerProps>(
   ({
     className,
@@ -184,7 +184,7 @@ export type ReasoningContentProps = {
   children: React.ReactNode;
 } & React.HTMLAttributes<HTMLDivElement>;
 
-/** Body of Reasoning, used by MessageComponent. */
+/** Body of Reasoning, used by MessageComponent and guest-chat. */
 export const ReasoningContent = React.memo<ReasoningContentProps>(
   ({ className, children, ...props }) => (
     <CollapsibleContent

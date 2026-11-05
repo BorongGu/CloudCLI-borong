@@ -9,10 +9,12 @@ type StreamingMarkdownProps = {
   /** Provider delta streams can request block splitting from their first snapshot. */
   isStreaming: boolean;
   className?: string;
+  /** Public guest chat uses prose-only navigation and image rendering. */
+  restricted?: boolean;
 };
 
 /**
- * Chat renders both saved replies and growing Codex/OpenCode snapshots here.
+ * Chat and guest-chat render saved replies and growing Codex/OpenCode snapshots here.
  * Saved content appears immediately. Appended text is paced over short frames,
  * with a brief ink fade on new inline groups. Safe block splitting memoizes the
  * settled prefix while Markdown parses the growing tail. Keeping this component
@@ -22,6 +24,7 @@ export default function StreamingMarkdown({
   content,
   isStreaming,
   className,
+  restricted = false,
 }: StreamingMarkdownProps) {
   const displayed = useProgressiveText(content);
   // Retain the last append boundary so unrelated renders keep Markdown's memo stable.
@@ -41,8 +44,8 @@ export default function StreamingMarkdown({
 
   return (
     <div className={className}>
-      {settled && <MarkdownBody>{settled}</MarkdownBody>}
-      {pending && <MarkdownBody inkFrom={inkFrom}>{pending}</MarkdownBody>}
+      {settled && <MarkdownBody restricted={restricted}>{settled}</MarkdownBody>}
+      {pending && <MarkdownBody restricted={restricted} inkFrom={inkFrom}>{pending}</MarkdownBody>}
     </div>
   );
 }

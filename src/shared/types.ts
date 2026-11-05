@@ -2,6 +2,16 @@ import type { TFunction } from 'i18next';
 import type { CSSProperties } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
 
+//----------------- ISOLATED GUEST CHAT ------------
+/** Public guest API message; image identifiers resolve only through its authenticated image endpoint. */
+export type GuestChatMessage = { id: string; role: 'user' | 'assistant'; text: string; reasoning?: string; images: string[]; createdAt: number };
+/** The guest API and page share this snapshot; native thread IDs and paths stay on the server. */
+export type GuestChatSnapshot = { id: string; title: string; busy: boolean; status: string; error: string | null;
+  messages: GuestChatMessage[]; updatedAt: number; revision: number; model: string; effort: string; partial?: boolean };
+/** Guest history picker contains only its dedicated store's conversation summaries. */
+export type GuestChatSummary = Pick<GuestChatSnapshot, 'id' | 'title' | 'updatedAt' | 'busy'>;
+// ---------------------------
+
 //----------------- LLM PROVIDER MODEL CATALOG ------------
 
 /** Identifies which coding-agent CLI backs a session, project selection or model list. */

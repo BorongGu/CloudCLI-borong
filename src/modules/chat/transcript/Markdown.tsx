@@ -27,6 +27,8 @@ type MarkdownProps = {
   breaks?: boolean;
   /** In a growing reply, source text after this offset receives a short ink fade. */
   inkFrom?: number;
+  /** Guest chat renders prose without workspace navigation or model-authored images. */
+  restricted?: boolean;
 };
 
 // Links to the wider web (or in-page anchors) keep normal browser navigation;
@@ -333,7 +335,7 @@ const markdownComponents = {
  * render model-authored markdown with this module's shared prose styling,
  * code highlighting and table rules.
  */
-function MarkdownBodyRenderer({ children, breaks = false, inkFrom }: Omit<MarkdownProps, 'className'>) {
+function MarkdownBodyRenderer({ children, breaks = false, inkFrom, restricted = false }: Omit<MarkdownProps, 'className'>) {
   const content = useMemo(
     // The LaTeX pass runs second because it reads the code spans the fence pass
     // normalizes, and must leave the LaTeX inside them literal.
@@ -371,6 +373,7 @@ function MarkdownBodyRenderer({ children, breaks = false, inkFrom }: Omit<Markdo
   const components = useMemo(
     () => ({
       ...markdownComponents,
+      ...(restricted ? { img: ({ alt }: { alt?: string }) => <span>{alt || ''}</span> } : {}),
       'stream-ink': InkText,
       a: ({ href, children: linkChildren }: { href?: string; children?: React.ReactNode }) => {
         // Prefer the href when it is a real path; otherwise fall back to the
@@ -379,6 +382,7 @@ function MarkdownBodyRenderer({ children, breaks = false, inkFrom }: Omit<Markdo
         const fileRef = looksLikeFilePath(href) ? href : looksLikeFilePath(linkText) ? linkText : undefined;
 
         if (fileRef && !isExternalHref(href)) {
+          if (restricted) return <span>{linkChildren}</span>;
           return (
             <a
               href={href || fileRef}
@@ -414,7 +418,7 @@ function MarkdownBodyRenderer({ children, breaks = false, inkFrom }: Omit<Markdo
         );
       },
     }),
-    [openFileInEditor, openDirectory],
+    [openFileInEditor, openDirectory, restricted],
   );
 
   return (
