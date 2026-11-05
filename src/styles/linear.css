@@ -47,8 +47,8 @@
   --brand-terracotta: #6258cf;
   --linear-gradient: linear-gradient(125deg, #5146c7, #6d52c9);
   --linear-selection: hsl(243 58% 55% / 7%);
-  --linear-atmosphere: radial-gradient(ellipse at 0% 8%, hsl(240 30% 74% / 7%), transparent 48%),
-    radial-gradient(ellipse at 100% 100%, hsl(220 30% 74% / 6%), transparent 52%);
+  --linear-atmosphere: radial-gradient(ellipse at 16% 0%, hsl(248 66% 70% / 16%), hsl(248 66% 70% / 5%) 32%, transparent 64%),
+    radial-gradient(ellipse at 100% 100%, hsl(218 70% 72% / 13%), transparent 60%);
   --linear-glass-opacity: 0.54;
   --linear-panel-opacity: 0.76;
   --linear-glass-highlight: rgb(255 255 255 / 60%);
@@ -105,8 +105,8 @@
   --surface-shadow: 0 4px 16px rgb(0 0 0 / 14%);
   --brand-terracotta: #a4a0f4;
   --linear-selection: hsl(244 77% 79% / 9%);
-  --linear-atmosphere: radial-gradient(ellipse at 0% 8%, hsl(240 26% 48% / 7%), transparent 48%),
-    radial-gradient(ellipse at 100% 100%, hsl(220 28% 46% / 5%), transparent 52%);
+  --linear-atmosphere: radial-gradient(ellipse at 16% 0%, hsl(248 60% 58% / 20%), hsl(248 60% 58% / 6%) 32%, transparent 64%),
+    radial-gradient(ellipse at 100% 100%, hsl(218 65% 58% / 15%), transparent 58%);
   --linear-glass-opacity: 0.56;
   --linear-panel-opacity: 0.78;
   --linear-glass-highlight: rgb(255 255 255 / 5%);

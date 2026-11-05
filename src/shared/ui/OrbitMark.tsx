@@ -1,15 +1,29 @@
+import { useId } from 'react';
+
+// Filled contours make the foreground broad and taper the distant ends of each orbit.
+const FRONT_MERIDIAN = "M16 4.58C17.84 4.57 19.8 4.66 21.68 5.46C23.56 6.26 25.33 7.66 26.58 9.52C27.83 11.38 28.55 13.69 28.55 16C28.55 18.31 27.83 20.62 26.58 22.48C25.33 24.34 23.56 25.74 21.68 26.54C19.8 27.34 17.84 27.43 16 27.43L16 26.78C17.72 26.77 19.32 25.83 20.52 24.69C21.72 23.55 22.55 22.12 23.08 20.62C23.61 19.13 23.85 17.56 23.85 16C23.85 14.44 23.61 12.87 23.08 11.38C22.55 9.88 21.72 8.45 20.52 7.31C19.32 6.17 17.72 5.23 16 5.23Z";
+
 /** Sidebar, authentication and About share this theme-colored orbit-and-node brand mark. */
 export function OrbitMark({ className = 'h-7 w-7' }: { className?: string }) {
+  const crossingMaskId = useId();
   return (
     <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true" data-orbit-mark>
-      {/* Rear arcs stay translucent; the foreground passes give the tilted rings depth. */}
-      <g transform="rotate(-30 16 16)" stroke="currentColor" strokeWidth="2.9" strokeLinecap="round">
-        <ellipse cx="16" cy="16" rx="10.5" ry="11.7" opacity="0.3" />
-        <ellipse cx="16" cy="16" rx="11.7" ry="5.5" opacity="0.58" />
-        <path d="M4.3 16a11.7 5.5 0 0 0 23.4 0" />
-        <path d="M16 4.3a10.5 11.7 0 0 1 0 23.4" />
+      <defs>
+        <mask id={crossingMaskId} maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+          <rect width="32" height="32" fill="white" />
+          <path d={FRONT_MERIDIAN} fill="black" stroke="black" strokeWidth="0.9" strokeLinejoin="round" />
+        </mask>
+      </defs>
+      <g transform="rotate(-30 16 16)" fill="currentColor">
+        <path d="M16 27.43C14.16 27.43 12.29 27 10.62 26.06C8.95 25.11 7.5 23.66 6.5 21.9C5.5 20.14 4.95 18.07 4.95 16C4.95 13.93 5.5 11.86 6.5 10.1C7.5 8.34 8.95 6.89 10.62 5.94C12.29 5 14.16 4.57 16 4.58L16 5.23C14.28 5.23 12.6 5.84 11.18 6.83C9.76 7.82 8.61 9.21 7.83 10.8C7.06 12.4 6.65 14.2 6.65 16C6.65 17.8 7.06 19.6 7.83 21.2C8.61 22.79 9.76 24.18 11.18 25.17C12.6 26.16 14.28 26.77 16 26.78Z" opacity="0.28" />
+        {/* The gap at the crossing separates the near ribbon from the orbit passing behind it. */}
+        <g mask={`url(#${crossingMaskId})`}>
+          <path d="M3.98 16C3.97 14.89 4.51 13.76 5.56 12.79C6.61 11.81 8.15 11 9.97 10.44C11.8 9.88 13.9 9.58 16 9.58C18.1 9.58 20.2 9.88 22.03 10.44C23.85 11 25.39 11.81 26.44 12.79C27.49 13.76 28.03 14.89 28.02 16L27.38 16C27.37 15.12 26.82 14.27 25.83 13.51C24.84 12.76 23.39 12.13 21.67 11.69C19.96 11.26 17.98 11.03 16 11.03C14.02 11.03 12.04 11.26 10.33 11.69C8.61 12.13 7.16 12.76 6.17 13.51C5.18 14.27 4.63 15.12 4.63 16Z" opacity="0.48" />
+          <path d="M28.02 16C28.03 17.11 27.75 18.4 26.76 19.59C25.76 20.78 24.2 21.85 22.31 22.58C20.42 23.32 18.21 23.72 16 23.72C13.79 23.72 11.58 23.32 9.69 22.58C7.8 21.85 6.24 20.78 5.24 19.59C4.25 18.4 3.97 17.11 3.98 16L4.63 16C4.63 16.88 5.44 17.58 6.49 18.11C7.54 18.64 8.97 19.03 10.61 19.29C12.26 19.55 14.13 19.68 16 19.68C17.87 19.68 19.74 19.55 21.39 19.29C23.03 19.03 24.46 18.64 25.51 18.11C26.56 17.58 27.37 16.88 27.38 16Z" />
+        </g>
+        <path d={FRONT_MERIDIAN} />
       </g>
-      <circle cx="6.3" cy="10.2" r="2.7" fill="currentColor" />
+      <circle cx="6.3" cy="10.2" r="2.3" fill="currentColor" />
     </svg>
   );
 }
