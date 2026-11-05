@@ -1,0 +1,158 @@
+/* Reading type is self-hosted; licenses and sources are in public/fonts/paper/. */
+@font-face {
+  font-family: "Orbit Newsreader";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("../assets/fonts/newsreader-variable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Orbit Newsreader";
+  font-style: italic;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("../assets/fonts/newsreader-italic-variable.woff2") format("woff2");
+}
+
+:root[data-appearance="paper"] {
+  --font-text: "Orbit Newsreader", "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif;
+  --font-code: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --paper-ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  --background: 40 30.6% 90.4%;
+  --foreground: 30 11% 20%;
+  --card: 45 100% 98.4%;
+  --card-foreground: var(--foreground);
+  --popover: 45 65% 97%;
+  --popover-foreground: var(--foreground);
+  --primary: 326 18% 40.2%;
+  --primary-foreground: 45 100% 98.4%;
+  --secondary: 39 25% 92%;
+  --secondary-foreground: var(--foreground);
+  --muted: 39 22% 92%;
+  --muted-foreground: 30 8% 43%;
+  --chat-placeholder-color: hsl(var(--muted-foreground) / 85%);
+  --accent: 36 24% 86%;
+  --accent-foreground: var(--foreground);
+  --destructive: 8 36% 44%;
+  --destructive-foreground: 45 100% 98%;
+  --border: 35 17% 79%;
+  --input: 35 15% 73%;
+  --ring: 326 18% 40.2%;
+  --radius: 0.25rem;
+  --surface-sidebar: #e8e2d7;
+  --surface-user: #f4efe5;
+  --surface-code: #f4f0e7;
+  --surface-shadow: 0 2px 6px rgb(56 45 30 / 5%);
+  --brand-terracotta: #795469;
+  --paper-sheet-shadow: 0 7px 24px rgb(56 45 30 / 5%), 3px 3px 0 hsl(var(--background)), 4px 4px 0 hsl(var(--border) / 40%);
+  --nav-glass-bg: 39 25% 88% / 1;
+  --nav-tab-glow: 326 18% 40% / 0.04;
+  --nav-tab-ring: 326 18% 40% / 0.15;
+  --nav-divider-color: 35 17% 79% / 0.7;
+  --nav-input-bg: 45 65% 97% / 0.65;
+  --nav-input-focus-ring: 326 18% 40% / 0.18;
+}
+
+:root[data-appearance="paper"].dark {
+  --background: 30 6.2% 12.5%;
+  --foreground: 38 24% 85%;
+  --card: 34.3 8.9% 15.5%;
+  --popover: 33 8% 18%;
+  --primary: 330 24% 72%;
+  --primary-foreground: 30 7% 13%;
+  --secondary: 34 8% 20%;
+  --muted: 34 8% 19%;
+  --muted-foreground: 35 10% 63%;
+  --accent: 34 8% 24%;
+  --destructive: 8 36% 65%;
+  --border: 32 10% 30%;
+  --input: 32 9% 37%;
+  --ring: 330 24% 72%;
+  --surface-sidebar: #25221f;
+  --surface-user: #343029;
+  --surface-code: #24221f;
+  --surface-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+  --brand-terracotta: #c9a6b8;
+  --paper-sheet-shadow: 0 8px 28px rgb(0 0 0 / 12%), 3px 3px 0 hsl(var(--background)), 4px 4px 0 hsl(var(--border) / 50%);
+  --nav-glass-bg: 30 8% 14% / 1;
+  --nav-tab-glow: 330 24% 72% / 0.04;
+  --nav-tab-ring: 330 24% 72% / 0.16;
+  --nav-divider-color: 32 10% 30% / 0.8;
+  --nav-input-bg: 34 9% 16% / 1;
+  --nav-input-focus-ring: 330 24% 72% / 0.2;
+}
+
+:root[data-appearance="paper"] body { font-size: 14px; font-weight: 450; font-optical-sizing: auto; }
+:root[data-appearance="paper"] :is(.font-sans, .font-serif) { font-family: var(--font-text); }
+:root[data-appearance="paper"] ::selection { color: hsl(var(--foreground)); background: hsl(var(--primary) / 16%); }
+:root[data-appearance="paper"] :is(button, input, textarea, select):focus-visible { outline-color: hsl(var(--ring)); }
+
+/* Utility chrome forms a quiet contents rail around the serif reading sheet. */
+:root[data-appearance="paper"] :is(.workspace-sidebar, [data-sidebar-rail], .workspace-header, .chat-composer-form, .settings-dialog, [data-quick-settings-panel]) { font-family: var(--paper-ui-font); }
+:root[data-appearance="paper"] .workspace-sidebar { background: var(--surface-sidebar); border-right: 1px solid hsl(var(--border) / 65%); }
+:root[data-appearance="paper"] .workspace-sidebar h1 { font-family: var(--font-text); font-size: 23px; font-weight: 550; letter-spacing: -0.025em; }
+:root[data-appearance="paper"] .workspace-sidebar :is(button, a, .nav-search-input) { border-radius: 3px; }
+:root[data-appearance="paper"] .workspace-sidebar .nav-search-input { height: 33px; border-color: hsl(var(--border) / 70%); box-shadow: none; }
+:root[data-appearance="paper"] .sidebar-session-row { position: relative; padding-block: 8px; border-radius: 3px; }
+:root[data-appearance="paper"] .sidebar-session-row[data-selected="true"] { background: hsl(var(--card) / 65%); box-shadow: inset 2px 0 hsl(var(--primary)); }
+:root[data-appearance="paper"] .workspace-header { min-height: 50px; padding-block: 7px; background: hsl(var(--background)); border-bottom: 1px solid hsl(var(--border) / 60%); }
+:root[data-appearance="paper"] .workspace-header [role="tablist"] { gap: 8px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:root[data-appearance="paper"] .workspace-header [role="tab"] { height: 32px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none; }
+:root[data-appearance="paper"] .workspace-header [role="tab"][aria-selected="true"] { border-bottom-color: hsl(var(--primary)); color: hsl(var(--primary)); }
+
+/* Page edges live inside the shared 880px column, keeping scroll anchors and reading mode intact. */
+:root[data-appearance="paper"] .chat-messages-pane { padding: 12px 20px 8px; background: hsl(var(--background)); }
+:root[data-appearance="paper"] .chat-transcript-content {
+  padding: 24px 36px 18px;
+  border: 1px solid hsl(var(--border) / 65%);
+  border-radius: 2px;
+  background: hsl(var(--card));
+  box-shadow: var(--paper-sheet-shadow);
+}
+:root[data-appearance="paper"] .chat-message { padding-block: 5px; }
+:root[data-appearance="paper"] .chat-message.user { padding-block: 10px; }
+:root[data-appearance="paper"] .chat-message .prose { font-family: var(--font-text); font-size: var(--chat-font-size, 16px); font-weight: 450; line-height: 1.85; }
+:root[data-appearance="paper"] .prose :where(strong, b) { font-weight: 650; }
+:root[data-appearance="paper"] .prose :where(h1, h2, h3, h4) { font-weight: 600; letter-spacing: -0.015em; }
+:root[data-appearance="paper"] .prose > :where(p, .mb-2, ul, ol, blockquote) { margin-block: 0.7em; }
+:root[data-appearance="paper"] .prose > :first-child { margin-top: 0; }
+:root[data-appearance="paper"] .prose > :last-child { margin-bottom: 0; }
+:root[data-appearance="paper"] .prose blockquote { border-left-width: 1px; color: hsl(var(--muted-foreground)); }
+:root[data-appearance="paper"] .prose .katex { font-size: 1.02em; }
+:root[data-appearance="paper"] .prose table { font-family: var(--paper-ui-font); font-size: var(--chat-font-size, 13px); }
+:root[data-appearance="paper"] .prose :is(th, td) { padding: 7px 10px; }
+:root[data-appearance="paper"] .chat-user-bubble { padding: 10px 14px; border: 1px solid hsl(var(--border) / 55%); border-left: 3px solid hsl(var(--primary) / 60%); border-radius: 2px; background: var(--surface-user); box-shadow: none; }
+:root[data-appearance="paper"] .chat-message.tool > button { padding-block: 5px; border-left-width: 1px; border-radius: 0; background: hsl(var(--muted) / 60%); }
+:root[data-appearance="paper"] [data-slot="code-block"] { border-color: hsl(var(--border) / 65%); border-radius: 3px; background: var(--surface-code); box-shadow: none; }
+/* Prism supplies an inline fallback family; code on the reading sheet uses the selected code face. */
+:root[data-appearance="paper"] [data-slot="code-block"] code { font-family: var(--font-code) !important; }
+:root[data-appearance="paper"] :is(.chat-empty-state h2, .auth-card h1) { font-family: var(--font-text); font-weight: 500; }
+
+:root[data-appearance="paper"] .chat-composer-form { border: 1px solid hsl(var(--border)); border-radius: 4px; background: hsl(var(--card)); box-shadow: var(--surface-shadow); }
+:root[data-appearance="paper"] .chat-composer-form:focus-within { border-color: hsl(var(--primary) / 70%); box-shadow: 0 0 0 2px hsl(var(--primary) / 6%); }
+:root[data-appearance="paper"] .chat-composer-form .chat-input-placeholder { font-family: var(--font-text); font-size: var(--chat-font-size, 16px); line-height: 1.7; }
+:root[data-appearance="paper"] .chat-composer-form textarea:focus-visible { outline: none; }
+:root[data-appearance="paper"] .chat-composer-form [data-slot="prompt-input-footer"] { border-top-color: hsl(var(--border) / 45%); background: hsl(var(--muted) / 30%); }
+:root[data-appearance="paper"] .chat-composer-form [data-slot="prompt-input-submit"] { border-radius: 3px; box-shadow: none; }
+:root[data-appearance="paper"] .chat-goal-panel { border-bottom-color: hsl(var(--border) / 55%); }
+:root[data-appearance="paper"] :is(.settings-dialog, .auth-card, [data-btw-panel], [data-quick-settings-panel], [role="menu"], [role="listbox"]) { border-color: hsl(var(--border)); border-radius: 4px; background-color: hsl(var(--card)); box-shadow: 0 14px 44px rgb(20 16 10 / 15%); }
+:root[data-appearance="paper"] .settings-dialog aside { background: hsl(var(--secondary)); }
+:root[data-appearance="paper"] :is([data-slot="settings-card"], .appearance-style-option) { border-radius: 3px; }
+
+.appearance-style-preview[data-preview="paper"] { padding: 5px; border-color: #d2c7b6; border-radius: 2px; background: #eee9df; }
+[data-preview="paper"] .appearance-preview-sidebar { border: 0; background: transparent; }
+[data-preview="paper"] .appearance-preview-sidebar i { border-radius: 0; background: #c9bdaa; }
+[data-preview="paper"] .appearance-preview-sidebar i:first-child { background: #795469; }
+[data-preview="paper"] .appearance-preview-main { padding: 4px 9px; border: 1px solid #ddd3c3; background: #fffdf7; box-shadow: 2px 2px 0 #d9d0c3; }
+[data-preview="paper"] .appearance-preview-type { font: 500 16px/1.05 "Orbit Newsreader", "Source Han Serif SC VF", serif; color: #51473d; }
+[data-preview="paper"] .appearance-preview-main i { background: #d9d0c3; }
+[data-preview="paper"] .appearance-preview-main i:last-child { height: 7px; border: 0; border-radius: 0; background: #eee9df; }
+
+@media (max-width: 767px) {
+  :root[data-appearance="paper"] .workspace-header { padding-top: max(7px, env(safe-area-inset-top)); }
+  :root[data-appearance="paper"] .workspace-header [role="tablist"] { gap: 4px; }
+  :root[data-appearance="paper"] .chat-messages-pane { padding: 8px 6px; }
+  :root[data-appearance="paper"] .chat-transcript-content { padding: 14px 0 10px; }
+  :root[data-appearance="paper"] .chat-composer-form .chat-input-placeholder { font-size: 16px; }
+  :root[data-appearance="paper"] .chat-composer-form { border-radius: 6px; }
+}

@@ -173,7 +173,12 @@
       "claudeDescription": "暖色底、陶土色与衬线字体",
       "githubDescription": "中性灰、细边框与系统字体",
       "linearDescription": "磨砂半透明、蓝紫柔光与几何感字体",
-      "linearFonts": "英文 Manrope · 中文 MiSans · 代码 JetBrains Mono"
+      "linearFonts": "英文 Manrope · 中文 MiSans · 代码 JetBrains Mono",
+      "paperLabel": "纸页阅读",
+      "paperDescription": "独立书页、暖纸底色与墨色衬线排版",
+      "paperFonts": "英文 Newsreader · 中文思源宋体 · 代码 JetBrains Mono",
+      "raycastDescription": "紧凑命令面板、石墨灰与珊瑚红强调色",
+      "raycastFonts": "英文 IBM Plex Sans · 中文 IBM Plex Sans SC · 代码 IBM Plex Mono"
     },
     "darkMode": {
       "label": "深色模式",

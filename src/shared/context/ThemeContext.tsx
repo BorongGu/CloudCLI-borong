@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import type { ReactNode } from 'react';
 
 import type { AppearanceStyle, ThemeMode } from '@/shared/types';
+import { APPEARANCE_STYLES } from '@/shared/constants';
 import { readStoredUiPreferences } from '@/shared/uiPreferences';
 import {
   readUserPreference,
@@ -42,10 +43,21 @@ const normalizeChatFontSize = (value: unknown): string => {
 
 const readStoredChatFontSize = (): string => normalizeChatFontSize(readUserPreference('chatFontSize', 'theme'));
 
+const isAppearanceStyle = (value: unknown): value is AppearanceStyle => APPEARANCE_STYLES.some(style => style === value);
+
+/** Browser chrome follows each style's canvas while light/dark remains a separate preference. */
+const APPEARANCE_CANVAS: Record<AppearanceStyle, { light: string; dark: string }> = {
+  claude: { light: '#faf9f5', dark: '#1c1b19' },
+  github: { light: '#ffffff', dark: '#0d1117' },
+  linear: { light: '#fcfcfd', dark: '#191a1d' },
+  paper: { light: '#eee9df', dark: '#22201e' },
+  raycast: { light: '#f5f5f7', dark: '#171719' },
+};
+
 /** Existing accounts keep their Claude/GitHub choice until they explicitly select a named style. */
 const readStoredAppearanceStyle = (): AppearanceStyle => {
   const saved = readUserPreference<unknown>('appearanceStyle', null);
-  if (saved === 'claude' || saved === 'github' || saved === 'linear') return saved;
+  if (isAppearanceStyle(saved)) return saved;
   return readStoredUiPreferences().githubAppearance ? 'github' : 'claude';
 };
 
@@ -102,11 +114,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.dataset.appearance = appearanceStyle;
     document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
       ?.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
-    const canvas = appearanceStyle === 'linear'
-      ? isDarkMode ? '#191a1d' : '#fcfcfd'
-      : appearanceStyle === 'github'
-      ? isDarkMode ? '#0d1117' : '#ffffff'
-      : isDarkMode ? '#1c1b19' : '#faf9f5';
+    const canvas = APPEARANCE_CANVAS[appearanceStyle][isDarkMode ? 'dark' : 'light'];
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', canvas);
   }, [appearanceStyle, isDarkMode]);
 
@@ -147,7 +155,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setAppearanceStyle = useCallback((style: AppearanceStyle) => {
-    if (!['claude', 'github', 'linear'].includes(style)) return;
+    if (!isAppearanceStyle(style)) return;
     writeUserPreference('appearanceStyle', style);
     setAppearanceStyleState(style);
   }, []);

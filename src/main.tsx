@@ -8,6 +8,9 @@ import '@/styles/claude.css'
 import '@/styles/github.css'
 import '@/styles/linear.css'
 import '@/styles/linear-fonts.css'
+import '@/styles/paper.css'
+import '@/styles/raycast.css'
+import '@/styles/raycast-fonts.css'
 import 'katex/dist/katex.min.css'
 
 // Initialize i18n

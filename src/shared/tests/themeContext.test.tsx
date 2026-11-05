@@ -322,3 +322,46 @@ test('Linear arriving from another device tracks system colors and an unknown st
     assert.equal(readUserPreference('theme', null), null);
   } finally { meta.remove(); }
 });
+
+for (const [style, light, dark] of [
+  ['paper', '#eee9df', '#22201e'],
+  ['raycast', '#f5f5f7', '#171719'],
+] as const) {
+  test(`${style} persists across remounts and device updates while retaining the chosen mode and chat size`, () => {
+    writeUserPreference('theme', 'dark');
+    writeUserPreference('chatFontSize', '8');
+    const first = renderHook(() => useTheme(), { wrapper });
+    act(() => first.result.current.setAppearanceStyle(style));
+    assert.equal(document.documentElement.dataset.appearance, style);
+    assert.equal(readUserPreference('appearanceStyle', null), style);
+    assert.equal(first.result.current.themeMode, 'dark');
+    assert.equal(document.documentElement.style.getPropertyValue('--chat-font-size'), '8px');
+    first.unmount();
+
+    const restored = renderHook(() => useTheme(), { wrapper });
+    assert.equal(restored.result.current.appearanceStyle, style);
+    act(() => writeUserPreference('appearanceStyle', 'github'));
+    assert.equal(document.documentElement.dataset.appearance, 'github');
+    act(() => writeUserPreference('appearanceStyle', style));
+    assert.equal(restored.result.current.appearanceStyle, style);
+    assert.equal(restored.result.current.chatFontSize, '8');
+    assert.equal(restored.result.current.isDarkMode, true);
+  });
+
+  test(`${style} follows OS colors and updates browser chrome without persisting a forced light/dark mode`, () => {
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.appendChild(meta);
+    try {
+      writeUserPreference('appearanceStyle', style);
+      const view = renderHook(() => useTheme(), { wrapper });
+      assert.equal(meta.content, light);
+      act(() => changeSystemAppearance(true));
+      assert.equal(meta.content, dark);
+      act(() => changeSystemAppearance(false));
+      assert.equal(meta.content, light);
+      assert.equal(view.result.current.themeMode, 'system');
+      assert.equal(readUserPreference('theme', null), null);
+    } finally { meta.remove(); }
+  });
+}

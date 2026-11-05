@@ -1,0 +1,3 @@
+IBM Plex Sans variable fonts and IBM Plex Mono, from https://github.com/google/fonts/tree/main/ofl/ibmplexsans and https://github.com/google/fonts/tree/main/ofl/ibmplexmono
+Latin fonts losslessly compressed from TTF to WOFF2. SIL Open Font License 1.1 included.
+IBM Plex Sans SC original web subsets: https://github.com/IBM/plex/tree/master/packages/plex-sans-sc

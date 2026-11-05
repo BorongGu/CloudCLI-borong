@@ -173,7 +173,12 @@
       "claudeDescription": "Warm surfaces, terracotta accents and serif type.",
       "githubDescription": "Neutral surfaces, fine borders and system type.",
       "linearDescription": "Frosted surfaces, soft blue-violet light and geometric type.",
-      "linearFonts": "Manrope · MiSans for Chinese · JetBrains Mono for code"
+      "linearFonts": "Manrope · MiSans for Chinese · JetBrains Mono for code",
+      "paperLabel": "Paper",
+      "paperDescription": "A warm reading sheet, ink accents and book typography.",
+      "paperFonts": "Newsreader · Source Han Serif for Chinese · JetBrains Mono for code",
+      "raycastDescription": "Compact command panels, graphite surfaces and coral accents.",
+      "raycastFonts": "IBM Plex Sans · IBM Plex Sans SC · IBM Plex Mono"
     },
     "darkMode": {
       "label": "Dark Mode",

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 
-import type { FileStatusCode, LLMProvider, McpProvider, McpScope, McpTransport, SettingsMainTab } from '@/shared/types';
+import type { AppearanceStyle, FileStatusCode, LLMProvider, McpProvider, McpScope, McpTransport, SettingsMainTab } from '@/shared/types';
 import type { UserPreferenceKey } from '@/shared/userSettings';
 
 /** The four buckets the git changes view sorts working-tree files into. */
@@ -27,6 +27,13 @@ export const APP_NAME = 'Orbit';
  */
 export const APP_WORDMARK_FONT_FAMILY =
   'var(--font-text, "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif)';
+
+// ---------------------------
+
+//----------------- APPEARANCE ------------
+
+/** Supported workspace styles in picker order; also validates account-synced values. */
+export const APPEARANCE_STYLES = ['claude', 'github', 'linear', 'paper', 'raycast'] as const satisfies readonly AppearanceStyle[];
 
 // ---------------------------
 

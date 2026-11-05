@@ -2,12 +2,21 @@ import { useTranslation } from 'react-i18next';
 
 import { useUiPreferences, useSetUiPreference } from '@/shared/context/UiPreferencesContext';
 import { useTheme } from '@/shared/context/ThemeContext';
-import type { CodeEditorSettingsState, ProjectSortOrder, ThemeMode } from '@/shared/types';
+import type { AppearanceStyle, CodeEditorSettingsState, ProjectSortOrder, ThemeMode } from '@/shared/types';
+import { APPEARANCE_STYLES } from '@/shared/constants';
 import { LanguageSelector } from '@/modules/i18n';
 import SettingsCard from '@/modules/settings/SettingsCard';
 import SettingsRow from '@/modules/settings/SettingsRow';
 import SettingsSection from '@/modules/settings/SettingsSection';
 import SettingsToggle from '@/modules/settings/SettingsToggle';
+
+const STYLE_DETAILS: Record<AppearanceStyle, { label: string; description: string; fonts?: string }> = {
+  claude: { label: 'Claude', description: 'Warm surfaces, terracotta accents and serif type.' },
+  github: { label: 'GitHub', description: 'Neutral surfaces, fine borders and system type.' },
+  linear: { label: 'Linear', description: 'Frosted surfaces, soft blue-violet light and geometric type.', fonts: 'Manrope · MiSans for Chinese · JetBrains Mono for code' },
+  paper: { label: 'Paper', description: 'A warm reading sheet, ink accents and book typography.', fonts: 'Newsreader · Source Han Serif for Chinese · JetBrains Mono for code' },
+  raycast: { label: 'Raycast', description: 'Compact command panels, graphite surfaces and coral accents.', fonts: 'IBM Plex Sans · IBM Plex Sans SC · IBM Plex Mono' },
+};
 
 type AppearanceSettingsTabProps = {
   projectSortOrder: ProjectSortOrder;
@@ -37,29 +46,30 @@ export default function AppearanceSettingsTab({
   return (
     <div className="space-y-8">
       <SettingsSection title={t('appearanceSettings.style.label', { defaultValue: 'Interface style' })}>
-        <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-3" role="radiogroup" aria-label={t('appearanceSettings.style.label', { defaultValue: 'Interface style' })}>
-          {(['claude', 'github', 'linear'] as const).map(style => (
+        <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 xl:grid-cols-3" role="radiogroup" aria-label={t('appearanceSettings.style.label', { defaultValue: 'Interface style' })}>
+          {APPEARANCE_STYLES.map(style => (
             <label key={style} className={`appearance-style-option relative cursor-pointer rounded-xl border p-3 transition-colors focus-within:ring-2 focus-within:ring-ring ${appearanceStyle === style ? 'border-ring bg-accent/30' : 'border-border bg-card hover:bg-muted/40'}`}>
-              <input type="radio" name="interface-style" value={style} aria-label={style === 'github' ? 'GitHub' : style === 'linear' ? 'Linear' : 'Claude'}
+              <input type="radio" name="interface-style" value={style} aria-label={t(`appearanceSettings.style.${style}Label`, { defaultValue: STYLE_DETAILS[style].label })}
                 checked={appearanceStyle === style} onChange={() => setAppearanceStyle(style)} className="peer sr-only" />
               <span aria-hidden="true" className="appearance-style-preview" data-preview={style}>
                 <span className="appearance-preview-sidebar"><i /><i /><i /></span>
-                <span className="appearance-preview-main"><i /><i /><i /></span>
+                <span className="appearance-preview-main">
+                  {style === 'paper' || style === 'raycast'
+                    ? <span className="appearance-preview-type">{style === 'paper' ? 'Aa 书' : '⌘ K'}</span>
+                    : <i />}
+                  <i /><i />
+                </span>
               </span>
               <span className="mt-2.5 flex items-center justify-between gap-2 text-sm font-semibold">
-                {style === 'github' ? 'GitHub' : style === 'linear' ? 'Linear' : 'Claude'}<span aria-hidden="true" className={`h-3.5 w-3.5 rounded-full border ${appearanceStyle === style ? 'border-ring bg-ring shadow-[inset_0_0_0_3px_hsl(var(--card))]' : 'border-input'}`} />
+                {t(`appearanceSettings.style.${style}Label`, { defaultValue: STYLE_DETAILS[style].label })}<span aria-hidden="true" className={`h-3.5 w-3.5 rounded-full border ${appearanceStyle === style ? 'border-ring bg-ring shadow-[inset_0_0_0_3px_hsl(var(--card))]' : 'border-input'}`} />
               </span>
               <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                {style === 'linear'
-                  ? t('appearanceSettings.style.linearDescription', { defaultValue: 'Frosted surfaces, soft blue-violet light and geometric type.' })
-                  : style === 'github'
-                  ? t('appearanceSettings.style.githubDescription', { defaultValue: 'Neutral surfaces, fine borders and system type.' })
-                  : t('appearanceSettings.style.claudeDescription', { defaultValue: 'Warm surfaces, terracotta accents and serif type.' })}
+                {t(`appearanceSettings.style.${style}Description`, { defaultValue: STYLE_DETAILS[style].description })}
               </span>
             </label>
           ))}
         </div>
-        {appearanceStyle === 'linear' && <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t('appearanceSettings.style.linearFonts', { defaultValue: 'Manrope · MiSans for Chinese · JetBrains Mono for code' })}</p>}
+        {STYLE_DETAILS[appearanceStyle].fonts && <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t(`appearanceSettings.style.${appearanceStyle}Fonts`, { defaultValue: STYLE_DETAILS[appearanceStyle].fonts })}</p>}
       </SettingsSection>
 
       <SettingsSection title={t('appearanceSettings.theme.label')}>
