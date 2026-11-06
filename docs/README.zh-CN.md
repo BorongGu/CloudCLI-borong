@@ -1,248 +1,141 @@
 <div align="center">
- <img src="../public/logo.svg" alt="CloudCLI UI" width="64" height="64">
- <h1>Cloud CLI（又名 Claude Code UI）</h1>
- <p><a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a>、<a href="https://docs.cursor.com/en/cli/overview">Cursor CLI</a>、<a href="https://developers.openai.com/codex">Codex</a> 的桌面和移动端 UI。可在本地或远程使用，从任何地方查看激活的项目与会话。</p>
+  <img src="../public/orbit-icon.svg" alt="Orbit" width="72" height="72">
+  <h1>Orbit</h1>
+  <p>面向桌面和手机的 coding agent 工作台。</p>
+  <p><strong>基于 <a href="https://github.com/siteboon/claudecodeui">CloudCLI（又名 Claude Code UI）</a> 的独立维护 fork。</strong></p>
 </div>
 
 <p align="center">
- <a href="https://cloudcli.ai">CloudCLI Cloud</a> · <a href="https://cloudcli.ai/docs">文档</a> · <a href="https://discord.gg/buxwujPNRE">Discord</a> · <a href="https://github.com/siteboon/claudecodeui/issues">Bug 报告</a> · <a href="../CONTRIBUTING.md">贡献指南</a>
+  <a href="https://github.com/BorongGu/Orbit">项目仓库</a> ·
+  <a href="https://github.com/BorongGu/Orbit/issues">问题反馈</a> ·
+  <a href="../README.md">English</a> ·
+  <a href="architecture/README.md">架构文档</a> ·
+  <a href="../LICENSE">AGPL-3.0-or-later</a>
 </p>
 
-<p align="center">
- <a href="https://cloudcli.ai"><img src="https://img.shields.io/badge/☁️_CloudCLI_Cloud-Try_Now-0066FF?style=for-the-badge" alt="CloudCLI Cloud"></a>
- <a href="https://discord.gg/buxwujPNRE"><img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="加入 Discord 社区"></a>
- <br><br>
- <a href="https://trendshift.io/repositories/15586" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15586" alt="siteboon%2Fclaudecodeui | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</p>
+Orbit 沿用 CloudCLI 的 agent 集成、聊天、终端、文件管理和 Git 工具，并持续开发自己的主题、阅读体验、会话工作流和多 agent 协作功能。原项目及贡献者的署名保留在下方。
 
-<div align="right"><i><a href="../README.md">English</a> · <a href="./README.ru.md">Русский</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.ko.md">한국어</a> · <b>简体中文</b> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.tr.md">Türkçe</a> · <a href="./README.id.md">Bahasa Indonesia</a></i></div>
+## 支持的 agent
 
----
+- Claude Code
+- OpenAI Codex
+- OpenCode，包括 OpenCode Go 账号路由
+- Cursor CLI
 
-## 截图
+在运行 Orbit 的电脑上安装并登录需要使用的 CLI。模型列表从各 provider 的模型目录加载。
 
-<div align="center">
+## 主要功能
 
-<table>
-<tr>
-<td align="center">
-<h3>桌面视图</h3>
-<img src="../public/screenshots/desktop-main.png" alt="桌面界面" width="400">
-<br>
-<em>显示项目概览和聊天的主界面</em>
-</td>
-<td align="center">
-<h3>移动体验</h3>
-<img src="../public/screenshots/mobile-chat.png" alt="移动界面" width="250">
-<br>
-<em>具有触控导航的响应式移动设计</em>
-</td>
-</tr>
-<tr>
-<td align="center" colspan="2">
-<h3>CLI 选择</h3>
-<img src="../public/screenshots/cli-selection.png" alt="CLI 选择" width="400">
-<br>
-<em>在 Claude Code、Cursor CLI 与 Codex 之间进行选择</em>
-</td>
-</tr>
-</table>
+- **桌面与手机会话管理**：项目与对话视图、会话置顶、运行状态、历史搜索和阅读位置暂存。
+- **聊天与阅读**：流式 Markdown、表格、行内和行外 LaTeX、公式选中复制、图片附件和全屏阅读。
+- **五种外观**：Claude、GitHub、Linear、纸页阅读和 Raycast，支持明暗模式和聊天字号设置。
+- **上下文与额度**：显示 context 窗口用量、自动压缩状态和订阅剩余额度。
+- **旁支对话**：`/btw <问题>` 为 Codex 或 OpenCode 开启继承上下文的临时对话。每个主会话分别保留窗口、草稿和旁支消息，支持切换会话及刷新后恢复。
+- **Agent 协作**：群组讨论、同伴输入、任务分发，以及会话上下文传递和交接。
+- **工作区工具**：终端、文件编辑、Git 操作、插件、浏览器任务和可选的 TaskMaster 集成。
 
-</div>
+## 从源码运行 Orbit
 
-## 功能
-
-- **响应式设计** - 在桌面、平板和移动设备上无缝运行，让您随时随地使用 Agents
-- **交互聊天界面** - 内置聊天 UI，轻松与 Agents 交流
-- **集成 Shell 终端** - 通过内置 shell 功能直接访问 Agents CLI
-- **文件浏览器** - 交互式文件树，支持语法高亮与实时编辑
-- **Git 浏览器** - 查看、暂存并提交更改，还可切换分支
-- **会话管理** - 恢复对话、管理多个会话并跟踪历史记录
-- **插件系统** - 通过自定义选项卡、后端服务与集成扩展 CloudCLI。 [开始构建 →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)
-- **TaskMaster AI 集成** *(可选)* - 结合 AI 任务规划、PRD 分析与工作流自动化，实现高级项目管理
-- **模型兼容性** - 支持 Claude、GPT 模型家族（完整支持列表可通过 `GET /api/providers/:provider/models` 接口获取）
-
-## 快速开始
-
-### CloudCLI Cloud（推荐）
-
-无需本地设置即可快速启动。提供可通过网络浏览器、移动应用、API 或喜欢的 IDE 访问的完全集装式托管开发环境。
-
-**[立即开始 CloudCLI Cloud](https://cloudcli.ai)**
-
-### 自托管（开源）
-
-#### npm
-
-启动 CloudCLI UI，只需一行 `npx`（需要 Node.js v22+）：
+准备 Node.js 22 或更高版本、npm、Git，以及需要使用的 agent CLI。
 
 ```bash
-npx @cloudcli-ai/cloudcli
+git clone https://github.com/BorongGu/Orbit.git
+cd Orbit
+npm ci
+npm run build
 ```
 
-或进行全局安装，便于日常使用：
+以 localhost 模式启动：
 
 ```bash
-npm install -g @cloudcli-ai/cloudcli
-cloudcli
+HOST=127.0.0.1 SERVER_PORT=3001 npm run server
 ```
 
-打开 `http://localhost:3001`，系统会自动发现所有现有会话。
+打开 **http://localhost:3001**，完成网页账号设置。
 
-更多配置选项、PM2、远程服务器设置等，请参阅 **[文档 →](https://cloudcli.ai/docs)**。
+通过 Tailscale 供其他设备访问时，将服务绑定到本机的 Tailnet 地址：
 
-#### Docker Sandboxes（实验性）
-
-在隔离的沙箱中运行代理，具有虚拟机管理程序级别的隔离。默认启动 Claude Code。需要 [`sbx` CLI](https://docs.docker.com/ai/sandboxes/get-started/)。
-
-```
-npx @cloudcli-ai/cloudcli@latest sandbox ~/my-project
+```bash
+orbit_tailnet_ip="$(tailscale ip -4)" &&
+  test -n "$orbit_tailnet_ip" &&
+  HOST="$orbit_tailnet_ip" SERVER_PORT=3001 npm run server
 ```
 
-支持 Claude Code 和 Codex。详情请参阅 [沙箱文档](../docker/)。
+在同一 Tailnet 中的设备打开服务输出的地址。远程使用期间，运行 Orbit 的电脑和服务进程保持运行。
 
----
+现有包名 `@cloudcli-ai/cloudcli` 和命令名 `cloudcli` 沿用 CloudCLI 的命名以兼容已有工具。使用 Orbit 的改动请构建本仓库；公开发布的 CloudCLI npm 包和 CloudCLI Cloud 由上游项目维护。
 
-## 哪个选项更适合你？
+### 配置
 
-CloudCLI UI 是 CloudCLI Cloud 的开源 UI 层。你可以在本地机器上自托管它，也可以使用提供团队功能与深入集成的 CloudCLI Cloud。
+配置选项见 [`.env.example`](../.env.example)。
 
-| | CloudCLI UI（自托管） | CloudCLI Cloud |
-|---|---|---|
-| **适合对象** | 需要为本地代理会话提供完整 UI 的开发者 | 需要部署在云端，随时从任何地方访问代理的团队与开发者 |
-| **访问方式** | 通过 `[yourip]:port` 在浏览器中访问 | 浏览器、任意 IDE、REST API、n8n |
-| **设置** | `npx @cloudcli-ai/cloudcli` | 无需设置 |
-| **机器需保持开机吗** | 是 | 否 |
-| **移动端访问** | 网络内任意浏览器 | 任意设备（原生应用即将推出） |
-| **可用会话** | 自动发现 `~/.claude` 中的所有会话 | 云端环境内的会话 |
-| **支持的 Agents** | Claude Code、Cursor CLI、Codex | Claude Code、Cursor CLI、Codex |
-| **文件浏览与 Git** | 内置于 UI | 内置于 UI |
-| **MCP 配置** | UI 管理，与本地 `~/.claude` 配置同步 | UI 管理 |
-| **IDE 访问** | 本地 IDE | 任何连接到云环境的 IDE |
-| **REST API** | 是 | 是 |
-| **n8n 节点** | 否 | 是 |
-| **团队共享** | 否 | 是 |
-| **平台费用** | 免费开源 | 起价 €7/月 |
+| 环境变量 | 用途 |
+| --- | --- |
+| `HOST` | 服务监听地址，例如 `127.0.0.1` 或本机的 Tailnet 地址 |
+| `SERVER_PORT` | HTTP 和 WebSocket 端口，默认 `3001` |
+| `DATABASE_PATH` | 可选的本地应用数据库路径 |
+| `CLAUDE_CLI_PATH` | 可选的 Claude Code 可执行文件路径 |
 
-> 两种方式都使用你自己的 AI 订阅（Claude、Cursor 等）— CloudCLI 提供环境，而非 AI。
+采用仓库内[本地部署脚本](../scripts/local-deployment/)的 Linux 安装，可以在启动已配置的 systemd 服务时选择访问模式：
 
----
+```bash
+python3 scripts/local-deployment/cloudcli-start.py
+# 也可以直接指定：
+python3 scripts/local-deployment/cloudcli-start.py localhost
+python3 scripts/local-deployment/cloudcli-start.py tailnet
+```
 
-## 安全与工具配置
+该辅助脚本使用已有的 `codex-web.service` 和 `~/.config/cloudcli/server.env` 配置。
 
-**🔒 重要提示**: 所有 Claude Code 工具默认**禁用**，可防止潜在的有害操作自动运行。
+## 开发
 
-### 启用工具
+后续开发统一在 **`main`** 上进行，修改前先拉取最新提交：
 
-1. **打开工具设置** - 点击侧边栏齿轮图标
-2. **选择性启用** - 仅启用所需工具
-3. **应用设置** - 偏好设置保存在本地
+```bash
+git switch main
+git pull --ff-only origin main
+npm ci
+HOST=127.0.0.1 npm run dev
+```
 
-<div align="center">
+开发前端使用 `5173` 端口，并将 API 和 WebSocket 请求代理到 `3001` 端口的后端。
 
-![工具设置弹窗](../public/screenshots/tools-modal.png)
-*工具设置界面 - 只启用你需要的内容*
+常用检查：
 
-</div>
+```bash
+npm run test:client
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
 
-**推荐做法**: 先启用基础工具，再根据需要添加其他工具。随时可以调整。
+更新源码安装时，拉取 `main`、安装当前依赖并重新构建，再按选定的访问模式启动新版本服务。
 
----
+## 文档
 
-## 插件
+- [架构总览](architecture/README.md)
+- [消息存储与懒加载](architecture/04-message-store-and-lazy-loading.md)
+- [滚动与阅读位置](architecture/05-scrolling.md)
+- [Agent 群组](architecture/07-groups.md)
+- [上下文传递](architecture/08-context-transfer.md)
+- [Provider 集成](../server/modules/providers/README.md)
+- [WebSocket 协议](../server/modules/websocket/README.md)
+- [OpenCode Go 账号路由](../plugins/opencode-go-account-router/README.md)
+- [贡献指南](../CONTRIBUTING.md)
 
-CloudCLI 配备插件系统，允许你添加带自定义前端 UI 和可选 Node.js 后端的选项卡。在 Settings > Plugins 中直接从 Git 仓库安装插件，或自行开发。
+上游 CloudCLI 的[文档](https://cloudcli.ai/docs)与[插件模板](https://github.com/cloudcli-ai/cloudcli-plugin-starter)提供更多平台背景和扩展说明。
 
-### 可用插件
+## Fork 来源与致谢
 
-| 插件 | 描述 |
-|---|---|
-| **[Project Stats](https://github.com/cloudcli-ai/cloudcli-plugin-starter)** | 展示当前项目的文件数、代码行数、文件类型分布、最大文件以及最近修改的文件 |
-| **[Web Terminal](https://github.com/cloudcli-ai/cloudcli-plugin-terminal)** | 支持多标签页的完整 xterm.js 终端 |
-| **[CloudCLI Scheduler](https://github.com/grostim/cloudcli-cron)** | 创建工作区范围的定时提示词，并通过 Codex、Claude Code 等本地 CLI 执行 |
-| **[PRISM CloudCLI](https://github.com/jakeefr/cloudcli-plugin-prism)** | 在 CloudCLI 中提供 Claude Code 会话智能分析，包括 token 消耗可视化 |
-| **[Sessions](https://github.com/strykereye2/cloudcli-plugin-session-manager)** | 查看、管理并终止活动的 Claude Code 会话 |
-| **[Token Cost Calculator](https://github.com/NightmareAway/cloudcli-plugin-token-cost-calculator)** | 根据模型价格和 token 用量计算 API 成本，并支持模型价格预设 |
-| **[Task Queue](https://github.com/TadMSTR/cloudcli-plugin-task-queue)** | 用于查看、筛选和启动代理任务的任务队列仪表板 |
-| **[GitHub Issues Board](https://github.com/szmidtpiotr/claude-github-issue)** | 用于 GitHub Issues 的看板，支持 TaskMaster 双向同步和 /github-task CLI 技能自动安装 |
+**Orbit 是 [CloudCLI / Claude Code UI](https://github.com/siteboon/claudecodeui) 的 fork，原项目由 Siteboon 和 CloudCLI 贡献者开发。** 本仓库在他们的工作基础上持续迭代。
 
-### 自行构建
+- 上游项目：[`siteboon/claudecodeui`](https://github.com/siteboon/claudecodeui)
+- 当前 fork：[`BorongGu/Orbit`](https://github.com/BorongGu/Orbit)
+- 上游官网：[cloudcli.ai](https://cloudcli.ai)
 
-**[Plugin Starter Template →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)** — Fork 该仓库以构建自己的插件。示例包括前端渲染、实时上下文更新和 RPC 通信。
-
-**[插件文档 →](https://cloudcli.ai/docs/plugin-overview)** — 提供插件 API、清单格式、安全模型等完整指南。
-
----
-
-## 常见问题
-
-<details>
-<summary>与 Claude Code Remote Control 有何不同？</summary>
-
-Claude Code Remote Control 让你发送消息到本地终端中已经运行的会话。该方式要求你的机器保持开机，终端保持开启，断开网络后约 10 分钟会话会超时。
-
-CloudCLI UI 与 CloudCLI Cloud 是对 Claude Code 的扩展，而非旁观 — MCP 服务器、权限、设置、会话与 Claude Code 完全一致。
-
-- **覆盖全部会话** — CloudCLI UI 会自动扫描 `~/.claude` 文件夹中的每个会话。Remote Control 只暴露当前活动的会话。
-- **设置统一** — 在 CloudCLI UI 中修改的 MCP、工具权限等设置会立即写入 Claude Code。
-- **支持更多 Agents** — Claude Code、Cursor CLI、Codex。
-- **完整 UI** — 除了聊天界面，还包括文件浏览器、Git 集成、MCP 管理和 Shell 终端。
-- **CloudCLI Cloud 保持运行于云端** — 关闭本地设备也不会中断代理运行，无需监控终端。
-
-</details>
-
-<details>
-<summary>需要额外购买 AI 订阅吗？</summary>
-
-需要。CloudCLI 只提供环境。你仍需自行获取 Claude、Cursor 或 Codex 订阅。CloudCLI Cloud 从 €7/月起提供托管环境。
-
-</details>
-
-<details>
-<summary>能在手机上使用 CloudCLI UI 吗？</summary>
-
-可以。自托管时，在你的设备上运行服务器，然后在网络中的任意浏览器打开 `[yourip]:port`。CloudCLI Cloud 可从任意设备访问，内置原生应用也在开发中。
-
-</details>
-
-<details>
-<summary>UI 中的更改会影响本地 Claude Code 配置吗？</summary>
-
-会的。自托管模式下，CloudCLI UI 读取并写入 Claude Code 使用的 `~/.claude` 配置。通过 UI 添加的 MCP 服务器会立即在 Claude Code 中可见。
-
-</details>
-
----
-
-## 社区与支持
-
-- **[文档](https://cloudcli.ai/docs)** — 安装、配置、功能与故障排除指南
-- **[Discord](https://discord.gg/buxwujPNRE)** — 获取帮助并与社区交流
-- **[GitHub Issues](https://github.com/siteboon/claudecodeui/issues)** — 报告 Bug 与建议功能
-- **[贡献指南](../CONTRIBUTING.md)** — 如何参与项目贡献
+感谢 React、Vite、Tailwind CSS、CodeMirror、xterm.js、KaTeX 及各 agent SDK。字体许可证与来源说明保存在 [`public/fonts/`](../public/fonts/)。
 
 ## 许可证
 
-GNU Affero 通用公共许可证 v3.0 或更高版本 (AGPL-3.0-or-later) - 详见 [LICENSE](../LICENSE) 文件。
-
-该项目为开源软件，在 GNU Affero 通用公共许可证 v3.0 或更高版本 (AGPL-3.0-or-later) 下可自由使用、修改与分发。
-
-## 致谢
-
-### 使用技术
-- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** - Anthropic 官方 CLI
-- **[Cursor CLI](https://docs.cursor.com/en/cli/overview)** - Cursor 官方 CLI
-- **[Codex](https://developers.openai.com/codex)** - OpenAI Codex
-- **[React](https://react.dev/)** - 用户界面库
-- **[Vite](https://vitejs.dev/)** - 快速构建工具与开发服务器
-- **[Tailwind CSS](https://tailwindcss.com/)** - 实用先行 CSS 框架
-- **[CodeMirror](https://codemirror.net/)** - 高级代码编辑器
-- **[TaskMaster AI](https://github.com/eyaltoledano/claude-task-master)** *(可选)* - AI 驱动的项目管理与任务规划
-
-### 赞助商
-- [Siteboon - AI powered website builder](https://siteboon.ai)
----
-
-<div align="center">
- <strong>为 Claude Code、Cursor 和 Codex 社区精心打造。</strong>
-</div>
+沿用 [GNU Affero General Public License v3.0 or later](../LICENSE)（**AGPL-3.0-or-later**），包含现有的第 7 节附加条款。原始许可证和版权声明予以保留。

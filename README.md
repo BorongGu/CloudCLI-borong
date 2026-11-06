@@ -1,287 +1,141 @@
 <div align="center">
- <img src="public/logo.svg" alt="CloudCLI UI" width="64" height="64">
- <h1>Cloud CLI (aka Claude Code UI)</h1>
- <p>A desktop and mobile UI for <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a>, <a href="https://docs.cursor.com/en/cli/overview">Cursor CLI</a>, and <a href="https://developers.openai.com/codex">Codex</a>.<br>Use it locally or remotely to view your active projects and sessions from everywhere.</p>
+  <img src="public/orbit-icon.svg" alt="Orbit" width="72" height="72">
+  <h1>Orbit</h1>
+  <p>A desktop and mobile workspace for coding agents.</p>
+  <p><strong>An independently maintained fork of <a href="https://github.com/siteboon/claudecodeui">CloudCLI (Claude Code UI)</a>.</strong></p>
 </div>
 
 <p align="center">
- <a href="https://cloudcli.ai">CloudCLI Cloud</a> · <a href="https://cloudcli.ai/docs">Documentation</a> · <a href="https://discord.gg/buxwujPNRE">Discord</a> · <a href="https://github.com/siteboon/claudecodeui/issues">Bug Reports</a> · <a href="CONTRIBUTING.md">Contributing</a>
+  <a href="https://github.com/BorongGu/Orbit">Repository</a> ·
+  <a href="https://github.com/BorongGu/Orbit/issues">Issues</a> ·
+  <a href="docs/README.zh-CN.md">简体中文</a> ·
+  <a href="docs/architecture/README.md">Architecture</a> ·
+  <a href="LICENSE">AGPL-3.0-or-later</a>
 </p>
 
-<p align="center">
- <a href="https://cloudcli.ai"><img src="https://img.shields.io/badge/☁️_CloudCLI_Cloud-Try_Now-0066FF?style=for-the-badge" alt="CloudCLI Cloud"></a>
- <a href="https://discord.gg/buxwujPNRE"><img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join our Discord"></a>
- <br><br>
- <a href="https://trendshift.io/repositories/15586" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15586" alt="siteboon%2Fclaudecodeui | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</p>
+Orbit builds on CloudCLI's agent integrations, chat interface, terminal, file explorer and Git tools. This fork develops its own appearance, reading experience, session workflows and multi-agent collaboration. The original project and its contributors are credited below.
 
-<div align="right"><i><b>English</b> · <a href="./docs/README.ru.md">Русский</a> · <a href="./docs/README.de.md">Deutsch</a> · <a href="./docs/README.ko.md">한국어</a> · <a href="./docs/README.zh-CN.md">简体中文</a> · <a href="./docs/README.zh-TW.md">繁體中文</a> · <a href="./docs/README.ja.md">日本語</a> · <a href="./docs/README.tr.md">Türkçe</a> · <a href="./docs/README.id.md">Bahasa Indonesia</a></i></div>
+## Supported agents
 
----
+- Claude Code
+- OpenAI Codex
+- OpenCode, including OpenCode Go account routing
+- Cursor CLI
 
-## Screenshots
+Install and authenticate the CLI providers you intend to use on the machine running Orbit. Available models are loaded from each provider's model catalog.
 
-<div align="center">
+## Highlights
 
-<table>
-<tr>
-<td align="center">
-<h3>Desktop View</h3>
-<img src="public/screenshots/desktop-main.png" alt="Desktop Interface" width="400">
-<br>
-<em>Main interface showing project overview and chat</em>
-</td>
-<td align="center">
-<h3>Mobile Experience</h3>
-<img src="public/screenshots/mobile-chat.png" alt="Mobile Interface" width="250">
-<br>
-<em>Responsive mobile design with touch navigation</em>
-</td>
-</tr>
-<tr>
-<td align="center" colspan="2">
-<h3>CLI Selection</h3>
-<img src="public/screenshots/cli-selection.png" alt="CLI Selection" width="400">
-<br>
-<em>Select between Claude Code, Cursor CLI and Codex</em>
-</td>
-</tr>
-</table>
+- **Sessions across desktop and mobile:** project and conversation views, pinned sessions, running-session indicators, history search and saved reading positions.
+- **Reading and writing:** streamed Markdown, tables, inline and display LaTeX, formula-aware copying, image attachments and fullscreen reading.
+- **Five appearance styles:** Claude, GitHub, Linear, Paper and Raycast, with light/dark modes and adjustable chat font size.
+- **Context and subscriptions:** context-window usage, compaction status and remaining subscription quotas.
+- **Side conversations:** `/btw <question>` opens a Codex or OpenCode side conversation with inherited context. Each main session retains its own window, draft and side conversation across navigation and refresh.
+- **Agent collaboration:** group discussions, peer input, shared task dispatch, and conversation context transfer and handoff.
+- **Workspace tools:** integrated terminal, file editing, Git operations, plugins, browser tasks and optional TaskMaster integration.
 
+## Run Orbit from source
 
+Requirements: Node.js 22 or later, npm, Git, and the agent CLIs you want to use.
 
-</div>
-
-## Features
-
-- **Responsive Design** - Works seamlessly across desktop, tablet, and mobile so you can also use Agents from mobile 
-- **Interactive Chat Interface** - Built-in chat interface for seamless communication with the Agents
-- **Integrated Shell Terminal** - Direct access to the Agents CLI through built-in shell functionality
-- **File Explorer** - Interactive file tree with syntax highlighting and live editing
-- **Git Explorer** - View, stage and commit your changes. You can also switch branches 
-- **Browser Use** - Open browser sessions for web research, testing, and agent-driven browser tasks
-- **Session Management** - Resume conversations, manage multiple sessions, and track history
-- **Pinned Sessions** - Pin a session from its options menu for quick access at the top of the sidebar. Pins follow your account across devices and remain available when older sessions fall outside the loaded history pages.
-- **Codex and OpenCode side questions** - Use `/btw <question>` to open a smaller temporary chat with the main conversation's context, including while the main task runs. Each main session retains its own BTW window, conversation, draft and size across navigation and refresh. Hidden windows continue receiving replies. Questions and answers support inline and display math. Use **Finish**, **×**, or **Esc** to clear the current window's temporary context. The window shows provider progress and elapsed time.
-- **Plugin System** - Extend CloudCLI with custom plugins — add new tabs, backend services, and integrations. [Build your own →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)
-- **TaskMaster AI Integration** *(Optional)* - Advanced project management with AI-powered task planning, PRD parsing, and workflow automation
-- **Model Compatibility** - Works with Claude and GPT model families (the full list of supported models is available at runtime via `GET /api/providers/:provider/models`)
-
-The Codex `/btw` window uses native `thread/fork` with `ephemeral: true` in its own `codex app-server` process. Explicitly finishing the window reaps that process and clears the in-memory fork. Refresh and connection loss detach the viewer; the server retains the temporary conversation for up to 30 minutes for reconnection. It stays outside the saved-session list. The `codex` executable on the server's PATH must support ephemeral forks (verified with Codex CLI 0.164.0); set `CODEX_BTW_BIN` to use a specific executable.
-
-Codex forks through the most recent completed turn, carries subsequent activity as read-only context, and inherits the selected model's context capacity from the local model catalog. While the first main turn is still running, a fresh ephemeral context receives that turn's snapshot. This lets side questions start while tools run in the main conversation and avoids premature compaction caused by a smaller fallback context window.
-
-Running-session markers also read the shared Codex daemon's live status, so native tasks remain visible across web-service restarts. Opening a running session reattaches its output stream; pending asynchronous questions are restored from native history, including questions whose turn has already completed.
-
-OpenCode uses native export/import and session fork in a private temporary data directory served by its own local process. It reuses the installed OpenCode configuration and authentication, including OpenCode Go subscriptions and account routing. Inherited messages remain available as model context; the BTW transcript displays new side-conversation messages. Explicitly finishing the window also removes that private directory. Verified with OpenCode 1.18.32; set `OPENCODE_BTW_BIN` to select an executable or wrapper.
-
-
-## Quick Start
-
-### CloudCLI Cloud (Recommended)
-
-The fastest way to get started — no local setup required. Get a fully managed, containerized development environment accessible from the web, mobile app, API, or your favorite IDE.
-
-**[Get started with CloudCLI Cloud](https://cloudcli.ai)**
-
-### Self-Hosted (Open source)
-
-#### npm
-
-Try CloudCLI UI instantly with **npx** (requires **Node.js** v22+):
-
-```
-npx @cloudcli-ai/cloudcli
+```bash
+git clone https://github.com/BorongGu/Orbit.git
+cd Orbit
+npm ci
+npm run build
 ```
 
-Or install **globally** for regular use:
+Start in localhost mode:
 
-```
-npm install -g @cloudcli-ai/cloudcli
-cloudcli
-```
-
-Open `http://localhost:3001` — all your existing sessions are discovered automatically.
-
-Visit the **[documentation →](https://cloudcli.ai/docs)** for full configuration options, PM2, remote server setup and more.
-
-#### Docker Sandboxes (Experimental)
-
-Run agents in isolated sandboxes with hypervisor-level isolation. Starts Claude Code by default. Requires the [`sbx` CLI](https://docs.docker.com/ai/sandboxes/get-started/).
-
-```
-npx @cloudcli-ai/cloudcli@latest sandbox ~/my-project
+```bash
+HOST=127.0.0.1 SERVER_PORT=3001 npm run server
 ```
 
-Supports Claude Code and Codex. See the [sandbox docs](docker/) for setup and advanced options.
+Open **http://localhost:3001** and complete the web account setup.
 
-### Desktop Companion App
+For access from your other devices through Tailscale, start the server on its Tailnet address:
 
-CloudCLI Desktop is an optional native companion for CloudCLI Cloud and Local CloudCLI. It ships from this repository's GitHub Releases and keeps CloudCLI available from your menu bar or tray.
+```bash
+orbit_tailnet_ip="$(tailscale ip -4)" &&
+  test -n "$orbit_tailnet_ip" &&
+  HOST="$orbit_tailnet_ip" SERVER_PORT=3001 npm run server
+```
 
-- **[macOS](https://cloudcli.ai/download/macos)**
-- **[Windows](https://cloudcli.ai/download/windows)**
-- **[Download page](https://cloudcli.ai/download)** · **[GitHub Releases and checksums](https://github.com/siteboon/claudecodeui/releases)**
+Open the printed server address from a device in the same Tailnet. The host machine and server process stay running while you use Orbit remotely.
 
-Use it to open CloudCLI Cloud environments, switch between local and remote workspaces, and copy mobile/browser URLs. To work locally, choose **Local CloudCLI** in the desktop app; it will use your running local server or start one for you.
+The existing package and command identifiers, `@cloudcli-ai/cloudcli` and `cloudcli`, retain CloudCLI naming for compatibility. Build this repository to use Orbit's changes. Published CloudCLI packages and CloudCLI Cloud are maintained by the upstream project.
 
+### Configuration
 
----
+See [`.env.example`](.env.example) for configuration options:
 
-## Which option is right for you?
+| Variable | Purpose |
+| --- | --- |
+| `HOST` | Address the server listens on, such as `127.0.0.1` or the machine's Tailnet address |
+| `SERVER_PORT` | HTTP and WebSocket port; default `3001` |
+| `DATABASE_PATH` | Optional path for Orbit's local application database |
+| `CLAUDE_CLI_PATH` | Optional path to the Claude Code executable |
 
-CloudCLI UI is the open source UI layer that powers CloudCLI Cloud. You can self-host it on your own machine, run it in a Docker sandbox for isolation, or use CloudCLI Cloud for a fully managed environment.
+Linux installations using the supplied [local deployment scripts](scripts/local-deployment/) can choose localhost or Tailnet when starting their configured systemd service:
 
-| | Self-Hosted (npm) | Self-Hosted (Docker Sandbox) *(Experimental)* | CloudCLI Cloud |
-|---|---|---|---|
-| **Best for** | Local agent sessions on your own machine | Isolated agents with web/mobile IDE | Teams who want agents in the cloud |
-| **How you access it** | Browser via `[yourip]:port` | Browser via `localhost:port` | Browser, any IDE, REST API, n8n |
-| **Setup** | `npx @cloudcli-ai/cloudcli` | `npx @cloudcli-ai/cloudcli@latest sandbox ~/project` | No setup required |
-| **Isolation** | Runs on your host | Hypervisor-level sandbox (microVM) | Full cloud isolation |
-| **Machine needs to stay on** | Yes | Yes | No |
-| **Mobile access** | Any browser on your network | Any browser on your network | Any device |
-| **Desktop companion** | Optional. Choose Local CloudCLI | Optional. Choose Local CloudCLI | Optional. Opens cloud environments |
-| **Agents supported** | Claude Code, Cursor CLI, Codex | Claude Code, Codex | Claude Code, Cursor CLI, Codex |
-| **File explorer and Git** | Yes | Yes | Yes |
-| **MCP configuration** | Synced with `~/.claude` | Managed via UI | Managed via UI |
-| **REST API** | Yes | Yes | Yes |
-| **Team sharing** | No | No | Yes |
-| **Platform cost** | Free, open source | Free, open source | Starts at €7/month |
+```bash
+python3 scripts/local-deployment/cloudcli-start.py
+# Or choose explicitly:
+python3 scripts/local-deployment/cloudcli-start.py localhost
+python3 scripts/local-deployment/cloudcli-start.py tailnet
+```
 
-> All options use your own AI subscriptions (Claude, Cursor, etc.) — CloudCLI provides the environment, not the AI.
+That helper uses an existing `codex-web.service` and `~/.config/cloudcli/server.env` configuration.
 
----
+## Development
 
-## Security & Tools Configuration
+Ongoing development happens on **`main`**. Pull the latest commits before making changes:
 
-**🔒 Important Notice**: All Claude Code tools are **disabled by default**. This prevents potentially harmful operations from running automatically.
+```bash
+git switch main
+git pull --ff-only origin main
+npm ci
+HOST=127.0.0.1 npm run dev
+```
 
-### Enabling Tools
+The development frontend uses port `5173` and proxies API/WebSocket traffic to the backend on port `3001`.
 
-To use Claude Code's full functionality, you'll need to manually enable tools:
+Common checks:
 
-1. **Open Tools Settings** - Click the gear icon in the sidebar
-2. **Enable Selectively** - Turn on only the tools you need
-3. **Apply Settings** - Your preferences are saved locally
+```bash
+npm run test:client
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
 
-<div align="center">
+To update a source installation, pull `main`, install the current dependencies, rebuild, then start the updated server using your chosen access mode.
 
-![Tools Settings Modal](public/screenshots/tools-modal.png)
-*Tools Settings interface - enable only what you need*
+## Documentation
 
-</div>
+- [Architecture overview](docs/architecture/README.md)
+- [Message storage and lazy loading](docs/architecture/04-message-store-and-lazy-loading.md)
+- [Scrolling and reading positions](docs/architecture/05-scrolling.md)
+- [Agent groups](docs/architecture/07-groups.md)
+- [Context transfer](docs/architecture/08-context-transfer.md)
+- [Provider integration](server/modules/providers/README.md)
+- [WebSocket protocol](server/modules/websocket/README.md)
+- [OpenCode Go account router](plugins/opencode-go-account-router/README.md)
+- [Contributing guide](CONTRIBUTING.md)
 
-**Recommended approach**: Start with basic tools enabled and add more as needed. You can always adjust these settings later.
+CloudCLI's [documentation](https://cloudcli.ai/docs) and [plugin starter](https://github.com/cloudcli-ai/cloudcli-plugin-starter) provide additional background on the upstream platform.
 
----
+## Fork origin and acknowledgments
 
-## Plugins
+**Orbit is a fork of [CloudCLI / Claude Code UI](https://github.com/siteboon/claudecodeui), originally developed by Siteboon and the CloudCLI contributors.** Their work provides the foundation for this repository.
 
-CloudCLI has a plugin system that lets you add custom tabs with their own frontend UI and optional Node.js backend. Install plugins from git repos directly in **Settings > Plugins**, or build your own.
+- Upstream: [`siteboon/claudecodeui`](https://github.com/siteboon/claudecodeui)
+- This fork: [`BorongGu/Orbit`](https://github.com/BorongGu/Orbit)
+- Upstream website: [cloudcli.ai](https://cloudcli.ai)
 
-### Available Plugins
-
-| Plugin | Description |
-|---|---|
-| **[Project Stats](https://github.com/cloudcli-ai/cloudcli-plugin-starter)** | Shows file counts, lines of code, file-type breakdown, largest files, and recently modified files for your current project |
-| **[Web Terminal](https://github.com/cloudcli-ai/cloudcli-plugin-terminal)** | Full xterm.js terminal with multi-tab support |
-| **[CloudCLI Scheduler](https://github.com/grostim/cloudcli-cron)** | Create workspace-scoped scheduled prompts and execute them through a local CLI such as Codex or Claude Code |
-| **[PRISM CloudCLI](https://github.com/jakeefr/cloudcli-plugin-prism)** | Session intelligence for Claude Code inside CloudCLI, including token burn visibility |
-| **[Sessions](https://github.com/strykereye2/cloudcli-plugin-session-manager)** | View, manage, and kill active Claude Code sessions |
-| **[Token Cost Calculator](https://github.com/NightmareAway/cloudcli-plugin-token-cost-calculator)** | Calculate API costs from model prices and token usage, with preset model pricing support |
-| **[Task Queue](https://github.com/TadMSTR/cloudcli-plugin-task-queue)** | Task queue dashboard to view, filter, and launch agent tasks |
-| **[GitHub Issues Board](https://github.com/szmidtpiotr/claude-github-issue)** | Kanban board for GitHub Issues with bidirectional TaskMaster sync and /github-task CLI skill auto-install |
-
-### Build Your Own
-
-**[Plugin Starter Template →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)** — fork this repo to create your own plugin. It includes a working example with frontend rendering, live context updates, and RPC communication to a backend server.
-
-**[Plugin Documentation →](https://cloudcli.ai/docs/plugin-overview)** — full guide to the plugin API, manifest format, security model, and more.
-
-### Private Repositories
-
-The server installs and updates plugins with `git clone` and `git pull`, using the git credentials of the operating-system user it runs as (for a systemd service, the unit's `User=`). The server cannot answer a password or passphrase prompt during an install, so set up credentials for that user before installing from a private repository:
-
-- **`https://` URLs:** configure a git credential helper, for example `gh auth login` followed by `gh auth setup-git`, or a token in `~/.git-credentials` with `git config --global credential.helper store`.
-- **`git@` URLs:** give that user an SSH key the git host accepts and that works without a prompt: either it has no passphrase, or it is loaded into an `ssh-agent` whose `SSH_AUTH_SOCK` the server process inherits. Also add the host to that user's `~/.ssh/known_hosts`, for example by running `ssh -T git@github.com` once as that user.
-
-Without credentials, an `https://` install fails with a message saying that the repository is private or does not exist. Most git hosts, GitHub included, answer the same way for both. If the host rejects the credentials (wrong, expired or revoked), or ssh cannot log in for a `git@` URL, the message says so.
-
----
-## FAQ
-
-<details>
-<summary>How is this different from Claude Code Remote Control?</summary>
-
-Claude Code Remote Control lets you send messages to a session already running in your local terminal. Your machine has to stay on, your terminal has to stay open, and sessions time out after roughly 10 minutes without a network connection.
-
-CloudCLI UI and CloudCLI Cloud extend Claude Code rather than sit alongside it — your MCP servers, permissions, settings, and sessions are the exact same ones Claude Code uses natively. Nothing is duplicated or managed separately.
-
-Here's what that means in practice:
-
-- **All your sessions, not just one** — CloudCLI UI auto-discovers every session from your `~/.claude` folder. Remote Control only exposes the single active session to make it available in the Claude mobile app.
-- **Your settings are your settings** — MCP servers, tool permissions, and project config you change in CloudCLI UI are written directly to your Claude Code config and take effect immediately, and vice versa.
-- **Works with more agents** — Claude Code, Cursor CLI and Codex, not just Claude Code.
-- **Full UI, not just a chat window** — file explorer, Git integration, MCP management, and a shell terminal are all built in.
-- **CloudCLI Cloud runs in the cloud** — close your laptop, the agent keeps running. No terminal to babysit, no machine to keep awake.
-
-</details>
-
-<details>
-<summary>Do I need to pay for an AI subscription separately?</summary>
-
-Yes. CloudCLI provides the environment, not the AI. You bring your own Claude, Cursor, or Codex subscription. CloudCLI Cloud starts at €7/month for the hosted environment on top of that.
-
-</details>
-
-<details>
-<summary>Can I use CloudCLI UI on my phone?</summary>
-
-Yes. For self-hosted, run the server on your machine and open `[yourip]:port` in any browser on your network. For CloudCLI Cloud, open it from any device — no VPN, no port forwarding, no setup. A native app is also in the works.
-
-</details>
-
-<details>
-<summary>Will changes I make in the UI affect my local Claude Code setup?</summary>
-
-Yes, for self-hosted. CloudCLI UI reads from and writes to the same `~/.claude` config that Claude Code uses natively. MCP servers you add via the UI show up in Claude Code immediately and vice versa.
-
-</details>
-
----
-
-## Community & Support
-
-- **[Documentation](https://cloudcli.ai/docs)** — installation, configuration, features, and troubleshooting
-- **[Discord](https://discord.gg/buxwujPNRE)** — get help and connect with other users
-- **[GitHub Issues](https://github.com/siteboon/claudecodeui/issues)** — bug reports and feature requests
-- **[Contributing Guide](CONTRIBUTING.md)** — how to contribute to the project
+Orbit also builds on React, Vite, Tailwind CSS, CodeMirror, xterm.js, KaTeX and the supported agent SDKs. Font licenses and source acknowledgments are included under [`public/fonts/`](public/fonts/).
 
 ## License
 
-GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later) — see [LICENSE](LICENSE) for the full text, including additional terms under Section 7.
-
-This project is open source and free to use, modify, and distribute under the AGPL-3.0-or-later license. If you modify this software and run it as a network service, you must make your modified source code available to users of that service.
-
-CloudCLI UI - (https://cloudcli.ai).
-
-## Acknowledgments
-
-### Built With
-- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** - Anthropic's official CLI
-- **[Cursor CLI](https://docs.cursor.com/en/cli/overview)** - Cursor's official CLI
-- **[Codex](https://developers.openai.com/codex)** - OpenAI Codex
-- **[React](https://react.dev/)** - User interface library
-- **[Vite](https://vitejs.dev/)** - Fast build tool and dev server
-- **[Tailwind CSS](https://tailwindcss.com/)** - Utility-first CSS framework
-- **[CodeMirror](https://codemirror.net/)** - Advanced code editor
-- **[TaskMaster AI](https://github.com/eyaltoledano/claude-task-master)** *(Optional)* - AI-powered project management and task planning
-
-
-### Sponsors
-- [Siteboon - AI powered website builder](https://siteboon.ai)
----
-
-<div align="center">
- <strong>Made with care for the Claude Code, Cursor and Codex community.</strong>
-</div>
+[GNU Affero General Public License v3.0 or later](LICENSE) (**AGPL-3.0-or-later**), including the existing additional terms under Section 7. The original license and copyright notices are retained.

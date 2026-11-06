@@ -2,7 +2,7 @@
   "name": "@cloudcli-ai/cloudcli",
   "version": "1.37.5",
   "productName": "CloudCLI",
-  "description": "A web-based UI for Claude Code CLI",
+  "description": "Orbit — a desktop and mobile workspace for coding agents, forked from CloudCLI",
   "type": "module",
   "main": "dist-server/server/index.js",
   "bin": {
@@ -19,13 +19,13 @@
     "scripts/",
     "README.md"
   ],
-  "homepage": "https://cloudcli.ai",
+  "homepage": "https://github.com/BorongGu/Orbit",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/siteboon/claudecodeui.git"
+    "url": "git+https://github.com/BorongGu/Orbit.git"
   },
   "bugs": {
-    "url": "https://github.com/siteboon/claudecodeui/issues"
+    "url": "https://github.com/BorongGu/Orbit/issues"
   },
   "scripts": {
     "dev": "concurrently --kill-others \"npm run server:dev\" \"npm run client\"",
