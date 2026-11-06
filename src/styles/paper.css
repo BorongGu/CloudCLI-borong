@@ -18,17 +18,17 @@
   --font-text: "Orbit Newsreader", "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif;
   --font-code: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
   --paper-ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
-  --background: 40 30.6% 90.4%;
+  --background: 41.538 37.143% 93.137%;
   --foreground: 30 11% 20%;
-  --card: 45 100% 98.4%;
+  --card: 43.636 57.895% 96.275%;
   --card-foreground: var(--foreground);
   --popover: 45 65% 97%;
   --popover-foreground: var(--foreground);
   --primary: 326 18% 40.2%;
   --primary-foreground: 45 100% 98.4%;
-  --secondary: 39 25% 92%;
+  --secondary: 39 25% 94%;
   --secondary-foreground: var(--foreground);
-  --muted: 39 22% 92%;
+  --muted: 39 22% 94%;
   --muted-foreground: 30 8% 43%;
   --chat-placeholder-color: hsl(var(--muted-foreground) / 85%);
   --accent: 36 24% 86%;
@@ -39,17 +39,17 @@
   --input: 35 15% 73%;
   --ring: 326 18% 40.2%;
   --radius: 0.25rem;
-  --surface-sidebar: #e8e2d7;
-  --surface-user: #f4efe5;
-  --surface-code: #f4f0e7;
+  --surface-sidebar: #f0ece2;
+  --surface-user: #f6f2e9;
+  --surface-code: #f5f1e8;
   --surface-shadow: 0 2px 6px rgb(56 45 30 / 5%);
   --brand-terracotta: #795469;
   --paper-grain: url("../assets/textures/paper-grain.svg");
-  --paper-binding: rgb(89 65 34 / 13%);
-  --paper-highlight: rgb(255 255 255 / 70%);
-  --paper-edge: rgb(151 113 54 / 7%);
-  --paper-sheet-shadow: inset 1px 0 0 var(--paper-highlight), 0 10px 28px rgb(56 45 30 / 9%), 2px 2px 0 hsl(var(--card)), 3px 3px 0 hsl(var(--border) / 75%), 5px 5px 0 hsl(var(--card)), 6px 6px 0 hsl(var(--border) / 55%);
-  --nav-glass-bg: 39 25% 88% / 1;
+  --paper-binding: rgb(89 65 34 / 5%);
+  --paper-highlight: rgb(255 255 255 / 28%);
+  --paper-edge: rgb(151 113 54 / 3%);
+  --paper-sheet-shadow: inset 1px 0 0 var(--paper-highlight), 0 5px 16px rgb(56 45 30 / 4%), 1px 1px 0 hsl(var(--card)), 2px 2px 0 hsl(var(--border) / 35%);
+  --nav-glass-bg: 42 30% 92% / 1;
   --nav-tab-glow: 326 18% 40% / 0.04;
   --nav-tab-ring: 326 18% 40% / 0.15;
   --nav-divider-color: 35 17% 79% / 0.7;
@@ -58,7 +58,7 @@
 }
 
 :root[data-appearance="paper"].dark {
-  --background: 30 6.2% 12.5%;
+  --background: 34.286 10.145% 13.529%;
   --foreground: 38 24% 85%;
   --card: 34.3 8.9% 15.5%;
   --popover: 33 8% 18%;
@@ -72,15 +72,15 @@
   --border: 32 10% 30%;
   --input: 32 9% 37%;
   --ring: 330 24% 72%;
-  --surface-sidebar: #25221f;
+  --surface-sidebar: #27241f;
   --surface-user: #343029;
   --surface-code: #24221f;
   --surface-shadow: 0 2px 8px rgb(0 0 0 / 12%);
   --brand-terracotta: #c9a6b8;
-  --paper-binding: rgb(0 0 0 / 32%);
-  --paper-highlight: rgb(235 212 173 / 7%);
-  --paper-edge: rgb(0 0 0 / 10%);
-  --paper-sheet-shadow: inset 1px 0 0 var(--paper-highlight), 0 12px 30px rgb(0 0 0 / 25%), 2px 2px 0 hsl(var(--card)), 3px 3px 0 hsl(var(--border) / 85%), 5px 5px 0 hsl(var(--card)), 6px 6px 0 hsl(var(--border) / 60%);
+  --paper-binding: rgb(0 0 0 / 15%);
+  --paper-highlight: rgb(235 212 173 / 4%);
+  --paper-edge: rgb(0 0 0 / 5%);
+  --paper-sheet-shadow: inset 1px 0 0 var(--paper-highlight), 0 6px 18px rgb(0 0 0 / 12%), 1px 1px 0 hsl(var(--card)), 2px 2px 0 hsl(var(--border) / 40%);
   --nav-glass-bg: 30 8% 14% / 1;
   --nav-tab-glow: 330 24% 72% / 0.04;
   --nav-tab-ring: 330 24% 72% / 0.16;
@@ -112,10 +112,10 @@
 :root[data-appearance="paper"] .chat-transcript-content {
   position: relative;
   padding: 24px 36px 22px;
-  border: 1px solid hsl(var(--border) / 65%);
+  border: 1px solid hsl(var(--border) / 40%);
   border-radius: 2px;
   background-color: hsl(var(--card));
-  background-image: linear-gradient(90deg, var(--paper-binding), transparent 8px, var(--paper-highlight) 18px, transparent 38px),
+  background-image: linear-gradient(90deg, var(--paper-binding), transparent 6px, var(--paper-highlight) 12px, transparent 26px),
     linear-gradient(0deg, var(--paper-edge), transparent 35px, transparent calc(100% - 25px), var(--paper-highlight)), var(--paper-grain);
   background-size: 100% 100%, 100% 100%, 256px 256px;
   background-repeat: no-repeat, no-repeat, repeat;
@@ -126,8 +126,8 @@
   content: "";
   position: absolute;
   inset: 0 auto 0 15px;
-  width: 8px;
-  border-left: 1px solid hsl(var(--border) / 40%);
+  width: 5px;
+  border-left: 1px solid hsl(var(--border) / 18%);
   border-right: 1px solid var(--paper-highlight);
   pointer-events: none;
 }
@@ -161,21 +161,21 @@
 :root[data-appearance="paper"] .settings-dialog aside { background: hsl(var(--secondary)); }
 :root[data-appearance="paper"] :is([data-slot="settings-card"], .appearance-style-option) { border-radius: 3px; }
 
-.appearance-style-preview[data-preview="paper"] { padding: 5px; border-color: #d2c7b6; border-radius: 2px; background: #eee9df; }
+.appearance-style-preview[data-preview="paper"] { padding: 5px; border-color: #d2c7b6; border-radius: 2px; background: #f4f0e7; }
 [data-preview="paper"] .appearance-preview-sidebar { border: 0; background: transparent; }
 [data-preview="paper"] .appearance-preview-sidebar i { border-radius: 0; background: #c9bdaa; }
 [data-preview="paper"] .appearance-preview-sidebar i:first-child { background: #795469; }
-[data-preview="paper"] .appearance-preview-main { padding: 4px 9px; border: 1px solid #ddd3c3; background: url("../assets/textures/paper-grain.svg"), linear-gradient(90deg, #e3d8c5, #fffdf7 12px); box-shadow: 2px 2px 0 #fffdf7, 3px 3px 0 #c8baa5; }
+[data-preview="paper"] .appearance-preview-main { padding: 4px 9px; border: 1px solid #e1dacd; background: url("../assets/textures/paper-grain.svg"), linear-gradient(90deg, #f0eade, #fbf8f0 12px); box-shadow: 1px 1px 0 #fbf8f0, 2px 2px 0 #e1dacd; }
 [data-preview="paper"] .appearance-preview-type { font: 500 16px/1.05 "Orbit Newsreader", "Source Han Serif SC VF", serif; color: #51473d; }
 [data-preview="paper"] .appearance-preview-main i { background: #d9d0c3; }
-[data-preview="paper"] .appearance-preview-main i:last-child { height: 7px; border: 0; border-radius: 0; background: #eee9df; }
+[data-preview="paper"] .appearance-preview-main i:last-child { height: 7px; border: 0; border-radius: 0; background: #f4f0e7; }
 
 @media (max-width: 767px) {
   :root[data-appearance="paper"] .workspace-header { padding-top: max(7px, env(safe-area-inset-top)); }
   :root[data-appearance="paper"] .workspace-header [role="tablist"] { gap: 4px; }
   :root[data-appearance="paper"] .chat-messages-pane { padding: 8px 6px; }
-  :root[data-appearance="paper"] .chat-transcript-content { padding: 14px 0 10px; background-position: -12px 0, 0 0, 0 0; box-shadow: 2px 2px 0 hsl(var(--card)), 3px 3px 0 hsl(var(--border) / 70%); }
-  :root[data-appearance="paper"] .chat-transcript-content::before { left: 3px; width: 3px; opacity: .65; }
+  :root[data-appearance="paper"] .chat-transcript-content { padding: 14px 0 10px; background-position: -12px 0, 0 0, 0 0; box-shadow: 1px 1px 0 hsl(var(--card)), 2px 2px 0 hsl(var(--border) / 35%); }
+  :root[data-appearance="paper"] .chat-transcript-content::before { left: 3px; width: 3px; opacity: .4; }
   :root[data-appearance="paper"] .chat-composer-form .chat-input-placeholder { font-size: 16px; }
   :root[data-appearance="paper"] .chat-composer-form { border-radius: 6px; }
 }

@@ -37,7 +37,11 @@
   --raycast-panel-edge: rgb(255 255 255 / 80%);
   --raycast-panel-shadow: 0 14px 40px -14px rgb(18 18 22 / 22%), 0 2px 7px rgb(18 18 22 / 5%);
   --raycast-frame: linear-gradient(115deg, hsl(var(--primary) / 38%), hsl(var(--border) / 65%) 36%, hsl(var(--border)) 72%, hsl(var(--primary) / 22%));
-  --raycast-panel-fill: linear-gradient(145deg, hsl(var(--card)), hsl(var(--background)));
+  --raycast-glass-top: .9;
+  --raycast-glass-bottom: .88;
+  --raycast-glass-popup: .94;
+  --raycast-glass-filter: blur(10px) saturate(108%);
+  --raycast-panel-fill: linear-gradient(145deg, hsl(var(--card) / var(--raycast-glass-top)), hsl(var(--background) / var(--raycast-glass-bottom)));
   --raycast-atmosphere: radial-gradient(ellipse at 100% 0, hsl(var(--primary) / 4%), transparent 55%);
   --raycast-action-fill: linear-gradient(135deg, #cf3454, #b92e59);
   --raycast-action-glow: 0 4px 16px rgb(207 52 84 / 18%);
@@ -72,7 +76,7 @@
   --raycast-panel-edge: rgb(209 220 255 / 9%);
   --raycast-panel-shadow: 0 20px 48px -10px rgb(0 0 0 / 70%), 0 2px 10px rgb(0 0 0 / 35%);
   --raycast-frame: linear-gradient(115deg, hsl(var(--primary) / 65%), hsl(var(--border) / 55%) 34%, hsl(var(--border)) 72%, hsl(var(--primary) / 30%));
-  --raycast-panel-fill: linear-gradient(145deg, hsl(225 15% 10%), hsl(225 18% 6%));
+  --raycast-panel-fill: linear-gradient(145deg, hsl(225 15% 10% / var(--raycast-glass-top)), hsl(225 18% 6% / var(--raycast-glass-bottom)));
   --raycast-atmosphere: radial-gradient(ellipse at 95% 0, rgb(255 69 112 / 9%), transparent 52%), radial-gradient(ellipse at 0 100%, rgb(255 106 75 / 4%), transparent 45%);
   --raycast-action-glow: 0 0 0 1px rgb(255 124 146 / 18%), 0 5px 22px rgb(246 50 102 / 23%);
   --nav-glass-bg: 220 20% 6% / 1;
@@ -97,7 +101,25 @@
 :root[data-appearance="raycast"] .sidebar-session-row[data-selected="true"]::before { position: absolute; top: 11px; bottom: 11px; left: 0; width: 2px; border-radius: 2px; background: hsl(var(--primary)); box-shadow: 0 0 8px hsl(var(--primary) / 55%); content: ""; }
 
 /* Framed controls, keycaps and a shallow toolbar give the workspace a command-palette rhythm. */
-:root[data-appearance="raycast"] .workspace-header { min-height: 46px; margin: 10px 12px 0; padding-block: 6px; border: 1px solid transparent; border-radius: 10px; background: var(--raycast-panel-fill) padding-box, var(--raycast-frame) border-box; box-shadow: inset 0 1px 0 var(--raycast-panel-edge), var(--surface-shadow); }
+:root[data-appearance="raycast"] .workspace-header { position: relative; min-height: 46px; margin: 10px 12px 0; padding-block: 6px; border: 1px solid transparent; border-radius: 10px; background: var(--raycast-panel-fill); box-shadow: inset 0 1px 0 var(--raycast-panel-edge), var(--surface-shadow); }
+/* The rim is masked to its edge so the translucent fill can reveal the backdrop. */
+:root[data-appearance="raycast"] :is(.workspace-header, .chat-composer-form)::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--raycast-frame);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+:root[data-appearance="raycast"] :is(.workspace-header, .chat-composer-form, .settings-dialog, .auth-card, [data-btw-panel], [data-quick-settings-panel], [role="menu"], [role="listbox"]) {
+  -webkit-backdrop-filter: var(--raycast-glass-filter);
+  backdrop-filter: var(--raycast-glass-filter);
+}
 :root[data-appearance="raycast"] .workspace-header [role="tablist"] { gap: 2px; padding: 3px; border-color: transparent; border-radius: 6px; background: hsl(var(--muted)); box-shadow: none; }
 :root[data-appearance="raycast"] .workspace-header [role="tab"] { height: 27px; border-radius: 4px; font-size: 12px; font-weight: 500; }
 :root[data-appearance="raycast"] .workspace-header [role="tab"][aria-selected="true"] { color: hsl(var(--primary)); background: linear-gradient(180deg, hsl(var(--primary) / 12%), hsl(var(--card))); box-shadow: inset 0 1px 0 hsl(var(--primary) / 18%), 0 1px 3px rgb(0 0 0 / 10%); }
@@ -121,7 +143,7 @@
 /* Prism supplies an inline fallback family; keep command samples in the theme's Plex Mono face. */
 :root[data-appearance="raycast"] [data-slot="code-block"] code { font-family: var(--font-code) !important; }
 :root[data-appearance="raycast"] .chat-empty-state h2 { font-size: 23px; font-weight: 600; letter-spacing: -0.03em; }
-:root[data-appearance="raycast"] .chat-composer-form { position: relative; border: 1px solid transparent; border-radius: 12px; background: var(--raycast-panel-fill) padding-box, var(--raycast-frame) border-box; box-shadow: var(--raycast-panel-shadow), inset 0 1px 0 var(--raycast-panel-edge); }
+:root[data-appearance="raycast"] .chat-composer-form { position: relative; border: 1px solid transparent; border-radius: 12px; background: var(--raycast-panel-fill); box-shadow: var(--raycast-panel-shadow), inset 0 1px 0 var(--raycast-panel-edge); }
 :root[data-appearance="raycast"] .chat-composer-form:focus-within { border-color: transparent; box-shadow: var(--raycast-panel-shadow), 0 0 0 1px hsl(var(--primary) / 30%), 0 0 30px hsl(var(--primary) / 9%); }
 :root[data-appearance="raycast"] .chat-composer-form::before { content: ""; position: absolute; top: 0; left: 14px; right: 14px; height: 1px; background: linear-gradient(90deg, transparent, hsl(var(--primary) / 65%) 16%, hsl(var(--foreground) / 24%) 46%, transparent 85%); pointer-events: none; }
 :root[data-appearance="raycast"] .chat-composer-form .chat-input-placeholder { min-height: 64px; font-family: var(--font-text); font-size: var(--chat-font-size, 14px); line-height: 1.6; }
@@ -130,7 +152,7 @@
 :root[data-appearance="raycast"] .chat-composer-form [data-slot="prompt-input-submit"] { border-radius: 6px; }
 :root[data-appearance="raycast"] .chat-composer-form [data-slot="prompt-input-tools"] button { border-radius: 5px; }
 :root[data-appearance="raycast"] .chat-goal-panel { border-bottom-color: hsl(var(--border) / 55%); font-family: var(--font-text); }
-:root[data-appearance="raycast"] :is(.settings-dialog, .auth-card, [data-btw-panel], [data-quick-settings-panel], [role="menu"], [role="listbox"]) { border: 1px solid hsl(var(--border)); border-radius: 10px; background-color: hsl(var(--popover)); box-shadow: var(--raycast-panel-shadow), inset 0 1px 0 var(--raycast-panel-edge); }
+:root[data-appearance="raycast"] :is(.settings-dialog, .auth-card, [data-btw-panel], [data-quick-settings-panel], [role="menu"], [role="listbox"]) { border: 1px solid hsl(var(--border)); border-radius: 10px; background-color: hsl(var(--popover) / var(--raycast-glass-popup)); box-shadow: var(--raycast-panel-shadow), inset 0 1px 0 var(--raycast-panel-edge); }
 :root[data-appearance="raycast"] .settings-dialog aside { background: hsl(var(--background)); }
 :root[data-appearance="raycast"] :is([data-slot="settings-card"], .appearance-style-option) { border-radius: 7px; }
 
@@ -144,12 +166,22 @@
 [data-preview="raycast"] .appearance-preview-main i:last-child { border-color: #a83e5c; border-radius: 4px; background: linear-gradient(130deg, #23131d, #101218); box-shadow: 0 0 5px #ff536926; }
 
 @media (max-width: 767px) {
+  :root[data-appearance="raycast"] { --raycast-glass-filter: blur(6px) saturate(105%); }
   :root[data-appearance="raycast"] .workspace-header { margin: 0; padding-top: max(7px, env(safe-area-inset-top)); border-width: 0 0 1px; border-radius: 0; }
   :root[data-appearance="raycast"] .chat-composer-form .chat-input-placeholder { min-height: 40px; font-size: 16px; }
   :root[data-appearance="raycast"] .chat-empty-state h2 { font-size: 20px; }
 }
 
 @media (forced-colors: active) {
+  :root[data-appearance="raycast"] :is(.workspace-header, .chat-composer-form)::after,
   :root[data-appearance="raycast"] .chat-composer-form::before { display: none; }
+  :root[data-appearance="raycast"] :is(.workspace-header, .chat-composer-form) { border-color: CanvasText; background: Canvas; }
   :root[data-appearance="raycast"] .chat-activity-spinner { filter: none; }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-appearance="raycast"] { --raycast-glass-top: 1; --raycast-glass-bottom: 1; --raycast-glass-popup: 1; --raycast-glass-filter: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-appearance="raycast"] { --raycast-glass-top: 1; --raycast-glass-bottom: 1; --raycast-glass-popup: 1; --raycast-glass-filter: none; }
 }

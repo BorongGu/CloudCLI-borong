@@ -50,7 +50,7 @@ const APPEARANCE_CANVAS: Record<AppearanceStyle, { light: string; dark: string }
   claude: { light: '#faf9f5', dark: '#1c1b19' },
   github: { light: '#ffffff', dark: '#0d1117' },
   linear: { light: '#fcfcfd', dark: '#191a1d' },
-  paper: { light: '#eee9df', dark: '#22201e' },
+  paper: { light: '#f4f0e7', dark: '#26231f' },
   raycast: { light: '#f5f5f7', dark: '#080a0d' },
 };
 
