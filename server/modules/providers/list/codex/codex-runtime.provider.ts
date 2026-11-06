@@ -17,6 +17,7 @@ import { SharedCodex as Codex } from '@/modules/providers/list/codex/codex-share
 import { codexQuestions } from '@/modules/providers/list/codex/codex-questions.provider.js';
 import { parseCodexGoalCommand } from '@/modules/providers/list/codex/codex-goals.provider.js';
 import { codexActivityService } from '@/modules/providers/services/codex-activity.service.js';
+import { codexSteeringService } from '@/modules/providers/services/codex-steering.service.js';
 import type { SharedCodexThread as Thread } from '@/modules/providers/list/codex/codex-shared-sdk.js';
 import {
   appendFilesInputTag,
@@ -27,7 +28,8 @@ import {
 } from '@/shared/index.js';
 import { notifyRunFailed, notifyRunStopped } from '@/modules/notifications/index.js';
 import type { AnyRecord, ProviderRuntimeContext, ProviderRuntimeWriter } from '@/shared/index.js';
-import { getCodexContextDefaults } from '@/shared/utils.js';
+import { AppError, getCodexContextDefaults } from '@/shared/utils.js';
+import type { ProviderSteerResult } from '@/shared/types.js';
 
 type ActiveCodexSession = {
   thread: Thread;
@@ -316,7 +318,8 @@ async function queryCodex(
   try {
     codex = new Codex();
 
-    const threadOptions: ThreadOptions = {
+    const threadOptions: ThreadOptions & { developerInstructions?: string } = {
+      ...(typeof options.groupSystemPrompt === 'string' ? { developerInstructions: options.groupSystemPrompt } : {}),
       workingDirectory,
       skipGitRepoCheck: true,
       sandboxMode,
@@ -554,6 +557,15 @@ function abortCodexSession(sessionId: string) {
 export const codexRuntime = {
   run: queryCodex,
   abort: abortCodexSession,
+  async steer(sessionId: string, content: string): Promise<ProviderSteerResult> {
+    try {
+      const result = await codexSteeringService.steer(sessionId, content);
+      return { status: 'accepted', turnId: result.turnId };
+    } catch (error) {
+      if (error instanceof AppError && error.code === 'CODEX_NO_ACTIVE_TURN') return { status: 'idle' };
+      throw error;
+    }
+  },
   permissions: codexQuestions,
   listRunningSessions: codexActivityService.listRunningSessions,
 };

@@ -1912,30 +1912,35 @@ export type OrbitGroup = {
 export type OrbitGroupMember = {
   id: string; name: string; sessionId: string; provider: LLMProvider; model: string | null; busy: boolean;
   permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions';
+  effort?: string | null;
+  pendingApprovals?: number;
 };
 /** Immutable conversation or publication with explicit sender and reply linkage. */
 export type OrbitGroupMessage = {
   id: string; seq: number; senderId: string | null; recipientId: string | null;
   kind: 'send' | 'publish' | 'request' | 'reply' | 'task'; content: string;
   title: string | null; replyTo: string | null; assignments: Record<string, string>; createdAt: string;
+  mentions: string[];
 };
 /** Delivery outcomes reported separately from message contents. */
 export type OrbitGroupDelivery = {
-  messageId: string; memberId: string; status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted'; error: string | null;
+  messageId: string; memberId: string; status: 'queued' | 'delivering' | 'delivered' | 'running' | 'completed' | 'failed' | 'interrupted'; error: string | null;
 };
 /** Snapshot used by the group page; member sessions retain their full provider transcripts. */
 export type OrbitGroupSnapshot = {
   group: OrbitGroup; members: OrbitGroupMember[]; messages: OrbitGroupMessage[];
   publications: OrbitGroupMessage[]; deliveries: OrbitGroupDelivery[];
+  project?: Project | null; currentTask?: OrbitGroupMessage | null; systemPrompt?: string;
+  pendingReplies?: Array<{ messageId: string; memberId: string; senderId: string | null; content: string }>;
 };
 /** User-configured group creation, shared between the form and API transport. */
 export type OrbitGroupCreateInput = {
   name: string; projectPath: string;
-  members: Array<{ name: string; provider: LLMProvider; model?: string; permissionMode?: OrbitGroupMember['permissionMode'] }>;
+  members: Array<{ name: string; provider: LLMProvider; model?: string; effort?: string; permissionMode?: OrbitGroupMember['permissionMode'] }>;
 };
 /** Idempotent human communication sent from the group composer. */
 export type OrbitGroupPostInput = {
   kind: 'send' | 'publish' | 'request' | 'reply'; content: string; requestId: string;
-  to?: string; title?: string; replyTo?: string;
+  to?: string; mentions?: string[]; title?: string; replyTo?: string;
 };
 // ---------------------------

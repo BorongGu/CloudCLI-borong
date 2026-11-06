@@ -49,6 +49,18 @@ class FakeConnection extends EventEmitter {
   }
 }
 
+test('group instructions reach native Codex thread start and resume', async () => {
+  for (const resumed of [false, true]) {
+    const client = new FakeConnection();
+    const codex = new SharedCodex(client);
+    const options = { workingDirectory: '/tmp', developerInstructions: 'Independently assess peer claims.' };
+    const thread = resumed ? codex.resumeThread('native', options) : codex.startThread(options);
+    const { events } = await thread.runStreamed('A group task');
+    for await (const event of events) void event;
+    assert.equal(client.calls.find(call => call.method === (resumed ? 'thread/resume' : 'thread/start'))?.params.developerInstructions, options.developerInstructions);
+  }
+});
+
 class GoalConnection extends FakeConnection {
   goal: any = null;
   rounds = 2;

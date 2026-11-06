@@ -10,14 +10,17 @@ import test from 'node:test';
 import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
 
-import { closeConnection, groupsDb, initializeDatabase, sessionsDb, userDb } from '@/modules/database/index.js';
-import { chatRunRegistry } from '@/modules/websocket/index.js';
+import { closeConnection, getConnection, groupsDb, initializeDatabase, sessionsDb, userDb } from '@/modules/database/index.js';
+import { chatRunRegistry, broadcastSessionUpserted, connectedClients } from '@/modules/websocket/index.js';
 import type { ProviderRuntimeGateway } from '@/modules/websocket/index.js';
 import { groupsRoutes, groupBridgeRoutes } from '@/modules/groups/groups.routes.js';
 import { groupsService } from '@/modules/groups/services/groups.service.js';
-import { dispatchGroupMessages } from '@/modules/groups/services/group-dispatcher.service.js';
+import { dispatchGroupMessages as dispatchNow } from '@/modules/groups/services/group-dispatcher.service.js';
 import { AppError } from '@/shared/index.js';
+import { sessionsService } from '@/modules/providers/index.js';
 import type { GroupMember, GroupMessage, LLMProvider, ProviderRuntimeWriter } from '@/shared/index.js';
+
+const dispatchGroupMessages = (runtime: ProviderRuntimeGateway) => dispatchNow(runtime, Date.now() + 3000);
 
 async function fixture(run: (context: { userId: number; folder: string; base: string }) => Promise<void>) {
   const previous = { DATABASE_PATH: process.env.DATABASE_PATH, SERVER_PORT: process.env.SERVER_PORT, HOST: process.env.HOST };
@@ -104,26 +107,59 @@ test('group dispatch creates independent sessions and atomically delivers the ta
   });
 });
 
-test('direct messages, public information and request/reply preserve visibility and identities', async () => {
+test('all discussion is public; mentions track expected replies and idle wakeups', async () => {
   await fixture(async ({ userId, folder }) => {
     const { group, members: [a, b, c] } = create(userId, folder);
-    const direct = groupsService.post(group.id, a.id, { kind: 'send', to: 'B', content: 'A detail for B', requestId: 'send-1' });
-    assert.deepEqual(groupsDb.deliveries(group.id).map(row => row.memberId), [b.id]);
-    assert.equal(groupsService.read(group.id, c.id, 0).messages.length, 0);
-    assert.equal(groupsService.read(group.id, a.id, 0).messages[0].id, direct.id);
-    assert.equal(groupsService.post(group.id, a.id, { kind: 'send', to: 'B', content: direct.content, requestId: 'send-1' }).id, direct.id);
-    assert.equal(groupsDb.deliveries(group.id).length, 1);
-    assert.throws(() => groupsService.post(group.id, a.id, { kind: 'send', to: 'C', content: direct.content, requestId: 'send-1' }), /requestId/);
-    const publication = groupsService.post(group.id, a.id, { kind: 'publish', title: 'Decision', content: 'Use a shared message log', requestId: 'public-1' });
-    assert.equal(groupsDb.deliveries(group.id).length, 1, 'publish stores information without starting extra turns');
-    assert.deepEqual(groupsService.read(group.id, c.id, 0).messages.map(row => row.id), [publication.id]);
-    const request = groupsService.post(group.id, a.id, { kind: 'request', to: b.id, content: 'Which interface fits?', requestId: 'request-1' });
-    assert.throws(() => groupsService.post(group.id, c.id, { kind: 'reply', replyTo: request.id, content: 'Spoofed reply', requestId: 'bad' }), /not found/);
-    const reply = groupsService.post(group.id, b.id, { kind: 'reply', replyTo: request.id, content: 'A small CLI fits', requestId: 'reply-1' });
-    assert.equal(reply.recipientId, a.id); assert.equal(reply.replyTo, request.id);
-    assert.equal(groupsService.read(group.id, c.id, publication.seq).messages.length, 0);
-    assert.equal(groupsService.read(group.id, b.id, 0, true).messages.length, 1);
-    assert.throws(() => groupsService.post(group.id, a.id, { kind: 'request', content: 'Ask anyone', requestId: 'bad-request' }), /one member/);
+    const question = groupsService.post(group.id, a.id, { kind: 'send', to: 'B', content: 'Please review this interface', requestId: 'send-1' });
+    assert.equal(groupsDb.deliveries(group.id).length, 2);
+    assert.deepEqual(groupsService.read(group.id, c.id, 0).messages.map(row => row.id), [question.id]);
+    assert.deepEqual(question.mentions, [b.id]);
+    assert.equal(groupsDb.pendingReplies(group.id)[0].memberId, b.id);
+    assert.equal(groupsService.post(group.id, a.id, { kind: 'send', to: 'B', content: question.content, requestId: 'send-1' }).id, question.id);
+    assert.throws(() => groupsService.post(group.id, a.id, { kind: 'send', to: 'C', content: question.content, requestId: 'send-1' }), /requestId/);
+    groupsService.control(userId, group.id, false, 10);
+    assert.equal(groupsDb.claim(c.id, Date.now() + 3000).length, 0, 'public context alone preserves an idle peer');
+    assert.equal(groupsDb.claim(b.id, Date.now() + 3000).length, 1, 'the mention can wake its participant');
+    const contribution = groupsService.post(group.id, c.id, { kind: 'reply', replyTo: question.id, content: 'Another viewpoint', requestId: 'c-reply' });
+    assert.deepEqual(contribution.mentions, [], 'answering a message does not create an acknowledgement obligation');
+    assert.equal(groupsDb.pendingReplies(group.id).length, 1, 'another peer can contribute while B still owes a reply');
+    assert.equal(groupsService.read(group.id, b.id, 0).messages.at(-1)?.id, contribution.id);
+    groupsService.post(group.id, b.id, { kind: 'reply', replyTo: question.id, content: 'I independently checked the interface', requestId: 'b-reply' });
+    assert.equal(groupsDb.pendingReplies(group.id).length, 0);
+    const humanQuestion = groupsService.post(group.id, b.id, { kind: 'request', to: 'user', content: 'Which scope should we use?', requestId: 'ask-user' });
+    assert.equal(groupsDb.pendingReplies(group.id)[0].memberId, 'user');
+    groupsService.post(group.id, null, { kind: 'reply', replyTo: humanQuestion.id, content: 'Use the smaller scope', requestId: 'user-reply' });
+    assert.equal(groupsDb.pendingReplies(group.id).length, 0);
+    const publication = groupsService.post(group.id, a.id, { kind: 'publish', content: 'Verified finding', requestId: 'public-1' });
+    assert.equal(groupsService.read(group.id, c.id, 0, true).messages[0].id, publication.id);
+    assert.throws(() => groupsService.post(group.id, a.id, { kind: 'request', content: 'Ask anyone', requestId: 'bad-request' }), /Mention/);
+  });
+});
+
+test('owner history can retrieve the complete discussion across page boundaries', async () => {
+  await fixture(async ({ userId, folder }) => {
+    const { group } = create(userId, folder, 2);
+    for (let index = 0; index < 120; index++) groupsService.post(group.id, null, { kind: 'publish', content: `Finding ${index}`, requestId: `history-${index}` });
+    const recent = groupsService.history(userId, group.id, Number.MAX_SAFE_INTEGER, false);
+    const earlier = groupsService.history(userId, group.id, recent.messages[0].seq, false);
+    assert.equal(recent.messages.length, 100); assert.equal(earlier.messages.length, 20);
+    assert.equal(new Set([...earlier.messages, ...recent.messages].map(message => message.id)).size, 120);
+    assert.equal(earlier.messages[0].content, 'Finding 0');
+  });
+});
+
+test('existing group databases migrate mentions and wakeup metadata without losing discussion', async () => {
+  await fixture(async ({ userId, folder }) => {
+    const { group, members: [a, b] } = create(userId, folder, 2);
+    const db = getConnection();
+    db.exec('ALTER TABLE group_messages DROP COLUMN mentions; ALTER TABLE group_messages DROP COLUMN available_at; ALTER TABLE group_deliveries DROP COLUMN wake;');
+    db.prepare("INSERT INTO group_messages(id,group_id,sender_id,recipient_id,kind,content,request_key) VALUES ('legacy',?,?,?,?,?,?)")
+      .run(group.id, a.id, b.id, 'send', 'Original discussion', 'legacy');
+    db.prepare("INSERT INTO group_deliveries(message_id,member_id) VALUES ('legacy',?)").run(b.id);
+    await initializeDatabase();
+    assert.deepEqual(groupsDb.message('legacy')?.mentions, [b.id]);
+    assert.equal(groupsService.read(group.id, a.id, 0).messages[0].content, 'Original discussion');
+    assert.equal((db.prepare("SELECT wake FROM group_deliveries WHERE message_id = 'legacy'").get() as { wake: number }).wake, 1);
   });
 });
 
@@ -233,7 +269,88 @@ test('three provider sessions use the real CLI and HTTP bridge to request, reply
     assert.ok(executed.some(call => call.member === 'B' && call.incoming.includes('request')));
     assert.ok(executed.some(call => call.member === 'A' && call.incoming.includes('reply')));
     assert.equal(groupsService.read(group.id, undefined, 0, true).messages.length, 2);
-    assert.ok(groupsDb.deliveries(group.id).every(row => row.status === 'completed'));
+    assert.ok(groupsDb.deliveries(group.id).some(row => row.status === 'completed'));
     assert.equal(executed.length, 5);
+  });
+});
+
+test('peer messages enter an active native turn while its initial task is running, without consuming a new turn', async () => {
+  await fixture(async ({ userId, folder }) => {
+    const { group, members: [a, b] } = create(userId, folder, 2);
+    groupsService.dispatch(userId, group.id, 'Work together', {}, 2, 'task');
+    groupsDb.claim(a.id); groupsDb.claim(b.id);
+    assert.equal(groupsDb.get(group.id)?.turnsRemaining, 0);
+    const sent = groupsService.post(group.id, a.id, { kind: 'request', to: b.id, content: 'Use this finding during your current work', requestId: 'urgent' });
+    const calls: string[] = [];
+    let accept!: () => void;
+    const gate = new Promise<void>(resolve => { accept = resolve; });
+    const live = runtime(async () => { throw new Error('An existing turn should receive the message'); });
+    live.steer = async (_provider, sessionId, content) => { calls.push(sessionId); assert.ok(content.includes(sent.content)); await gate; return { status: 'accepted', turnId: 'native-turn' }; };
+    const first = dispatchGroupMessages(live);
+    await new Promise(resolve => setImmediate(resolve));
+    await dispatchGroupMessages(live);
+    assert.equal(calls.length, 1);
+    assert.equal(groupsDb.deliveries(group.id).find(row => row.messageId === sent.id)?.status, 'delivering');
+    accept(); await first;
+    assert.equal(groupsDb.deliveries(group.id).find(row => row.messageId === sent.id)?.status, 'delivered');
+    assert.equal(groupsDb.get(group.id)?.turnsRemaining, 0);
+  });
+});
+
+test('idle steering falls back to one new turn; ambiguous failures remain inspectable', async () => {
+  await fixture(async ({ userId, folder }) => {
+    const { group, members: [a, b] } = create(userId, folder, 2);
+    groupsService.control(userId, group.id, false, 5);
+    const sent = groupsService.post(group.id, a.id, { kind: 'send', to: b.id, content: 'Please inspect this', requestId: 'idle' });
+    const idle = runtime(); idle.steer = async () => ({ status: 'idle' });
+    await dispatchGroupMessages(idle);
+    assert.equal(groupsDb.deliveries(group.id).find(row => row.messageId === sent.id)?.status, 'completed');
+    assert.equal(groupsDb.get(group.id)?.turnsRemaining, 4);
+    const uncertain = groupsService.post(group.id, a.id, { kind: 'send', to: b.id, content: 'Another finding', requestId: 'uncertain' });
+    idle.steer = async () => { throw new Error('Connection timed out after write'); };
+    await dispatchGroupMessages(idle);
+    assert.equal(groupsDb.deliveries(group.id).find(row => row.messageId === uncertain.id)?.status, 'failed');
+    assert.equal(groupsDb.get(group.id)?.turnsRemaining, 4);
+  });
+});
+
+
+test('group sessions stay out of ordinary conversations, search and sidebar broadcasts', async () => {
+  await fixture(async ({ userId, folder }) => {
+    const { group, members } = create(userId, folder);
+    sessionsDb.createAppSession('ordinary', 'codex', folder, 'Ordinary chat');
+    assert.deepEqual(sessionsDb.getAllSessions().map(row => row.session_id), ['ordinary']);
+    assert.deepEqual(sessionsDb.getRecentSessionsPage(20, 0).sessions.map(row => row.session_id), ['ordinary']);
+    assert.equal(sessionsDb.getRecentSessionsPage(20, 0).total, 1);
+    assert.equal(sessionsDb.countSessionsByProjectPath(folder), 1);
+    assert.deepEqual(sessionsDb.getSessionsByProjectPathPage(folder, 20, 0).map(row => row.session_id), ['ordinary']);
+    let broadcasts = 0;
+    const client = { readyState: 1, send: () => { broadcasts++; } } as never;
+    connectedClients.add(client);
+    try { await broadcastSessionUpserted(members[0].sessionId); assert.equal(broadcasts, 0); }
+    finally { connectedClients.delete(client); }
+    assert.deepEqual(sessionsService.getSessionDetailsById(members[0].sessionId).group, { groupId: group.id, memberId: members[0].id });
+    groupsService.updateMember(userId, group.id, members[0].id, 'new-model', 'high');
+    const updated = groupsDb.members(group.id)[0];
+    assert.equal(updated.model, 'new-model'); assert.equal(updated.effort, 'high');
+    sessionsDb.setSessionModel(members[0].sessionId, 'changed-from-console');
+    assert.equal(groupsDb.members(group.id)[0].model, 'changed-from-console');
+  });
+});
+
+test('short peer bursts coalesce before steering, and the group instruction requires independent considered replies', async () => {
+  await fixture(async ({ userId, folder }) => {
+    const { group, members: [a, b] } = create(userId, folder, 2);
+    groupsService.control(userId, group.id, false, 10);
+    for (let i = 0; i < 3; i++) groupsService.post(group.id, a.id, { kind: 'send', to: b.id, content: `Finding ${i}`, requestId: `burst-${i}` });
+    let count = 0;
+    const live = runtime();
+    live.steer = async (_provider, _sessionId, content) => { count++; assert.ok(content.includes('Finding 0') && content.includes('Finding 2')); return { status: 'accepted' }; };
+    await dispatchNow(live, Date.now()); assert.equal(count, 0);
+    await dispatchNow(live, Date.now() + 3000); assert.equal(count, 1);
+    const state = groupsService.snapshot(userId, group.id);
+    assert.match(state.systemPrompt, /Independently examine evidence/);
+    assert.match(state.systemPrompt, /Combine related points/);
+    assert.match(state.systemPrompt, /Base agreement on your own assessment/);
   });
 });

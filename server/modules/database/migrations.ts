@@ -558,6 +558,15 @@ export const runMigrations = (db: Database) => {
     }
 
     db.exec(LAST_SCANNED_AT_SQL);
+    if (tableExists(db, 'group_messages')) {
+      const columns = getTableInfo(db, 'group_messages').map(column => column.name);
+      addColumnToTableIfNotExists(db, 'group_messages', columns, 'mentions', "TEXT NOT NULL DEFAULT '[]'");
+      addColumnToTableIfNotExists(db, 'group_messages', columns, 'available_at', 'INTEGER NOT NULL DEFAULT 0');
+      if (!columns.includes('mentions')) db.exec("UPDATE group_messages SET mentions = json_array(recipient_id) WHERE recipient_id IS NOT NULL");
+    }
+    if (tableExists(db, 'group_deliveries')) {
+      addColumnToTableIfNotExists(db, 'group_deliveries', getTableInfo(db, 'group_deliveries').map(column => column.name), 'wake', 'INTEGER NOT NULL DEFAULT 1');
+    }
     console.log('Database migrations completed successfully');
   } catch (error: any) {
     console.error('Error running migrations:', error.message);

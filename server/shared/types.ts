@@ -1718,29 +1718,33 @@ export type GroupRecord = {
 export type GroupMember = {
   id: string; groupId: string; name: string; sessionId: string;
   provider: LLMProvider; model: string | null; seenSeq: number;
+  effort: string | null;
   permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions';
 };
-/** Immutable communication event. A null recipient means public to the whole group. */
+/** Public group event. Mentions request replies; recipientId preserves the primary mention for older clients. */
 export type GroupMessage = {
   seq: number; id: string; groupId: string; senderId: string | null;
   recipientId: string | null; kind: 'send' | 'publish' | 'request' | 'reply' | 'task';
+  mentions: string[];
   content: string; title: string | null; replyTo: string | null;
   assignments: Record<string, string>; createdAt: string;
 };
 /** One event's delivery to a member; interrupted runs require an explicit retry. */
 export type GroupDelivery = {
   messageId: string; memberId: string;
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted';
+  status: 'queued' | 'delivering' | 'delivered' | 'running' | 'completed' | 'failed' | 'interrupted';
   error: string | null;
 };
+/** Native mid-turn input result; only accepted confirms delivery. Idle permits a queued new turn. */
+export type ProviderSteerResult = { status: 'accepted' | 'idle' | 'unsupported'; turnId?: string };
 /** Validated group creation input. Roles and workflows belong to task text. */
 export type CreateGroupInput = {
   name: string; projectPath: string;
-  members: Array<{ name: string; provider: LLMProvider; model?: string; permissionMode?: GroupMember['permissionMode'] }>;
+  members: Array<{ name: string; provider: LLMProvider; model?: string; effort?: string; permissionMode?: GroupMember['permissionMode'] }>;
 };
 /** Communication input shared by browser and member bridge. requestId makes retries idempotent. */
 export type GroupMessageInput = {
   kind: 'send' | 'publish' | 'request' | 'reply'; content: string;
-  to?: string; title?: string; replyTo?: string; requestId: string;
+  to?: string; mentions?: string[]; title?: string; replyTo?: string; requestId: string;
 };
 // ---------------------------

@@ -3,8 +3,11 @@ import { useMemo, useState } from 'react';
 import { MarkdownBody } from '@/modules/chat/transcript/Markdown';
 import { splitStreamingMarkdown } from '@/modules/chat/utils/streamingMarkdown';
 import { useProgressiveText } from '@/modules/chat/hooks/useProgressiveText';
+import { MarkdownWorkspaceContext } from '@/modules/chat/context/MarkdownWorkspaceContext';
 
 type StreamingMarkdownProps = {
+  /** Groups supplies its project so artifact links and images resolve in the shared workspace. */
+  workspaceProjectId?: string;
   content: string;
   /** Provider delta streams can request block splitting from their first snapshot. */
   isStreaming: boolean;
@@ -21,6 +24,7 @@ type StreamingMarkdownProps = {
  * and its split through completion preserves the reply's existing DOM.
  */
 export default function StreamingMarkdown({
+  workspaceProjectId,
   content,
   isStreaming,
   className,
@@ -42,10 +46,11 @@ export default function StreamingMarkdown({
   );
   const inkFrom = currentInk.growing ? Math.max(0, currentInk.from - settled.length) : undefined;
 
-  return (
+  const rendered = (
     <div className={className}>
       {settled && <MarkdownBody restricted={restricted}>{settled}</MarkdownBody>}
       {pending && <MarkdownBody restricted={restricted} inkFrom={inkFrom}>{pending}</MarkdownBody>}
     </div>
   );
+  return workspaceProjectId ? <MarkdownWorkspaceContext.Provider value={{ projectId: workspaceProjectId }}>{rendered}</MarkdownWorkspaceContext.Provider> : rendered;
 }

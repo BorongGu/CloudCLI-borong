@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 
-import { projectsDb, sessionsDb } from '@/modules/database/index.js';
+import { groupsDb, projectsDb, sessionsDb } from '@/modules/database/index.js';
 import { broadcastSessionUpserted, chatRunRegistry } from '@/modules/websocket/index.js';
 import { providerRegistry } from '@/modules/providers/provider.registry.js';
 import { listBusyClaudeCliSessions } from '@/modules/providers/services/claude-cli-liveness.service.js';
@@ -75,6 +75,7 @@ type RecentSessionsPage = {
 };
 
 type SessionDetails = {
+  group?: { groupId: string; memberId: string };
   /** Canonical app-facing session id (may differ from the looked-up id when a provider-native id was given). */
   sessionId: string;
   provider: LLMProvider;
@@ -160,7 +161,7 @@ export const sessionsService = {
    * This is intentionally status-only: callers that only need sidebar activity
    * indicators should not attach to chat streams or request replayed messages.
    */
-  async listRunningSessions(): Promise<RunningSessionEntry[]> {
+  async listRunningSessions(includeGroups = true): Promise<RunningSessionEntry[]> {
     const entries: RunningSessionEntry[] = chatRunRegistry.listRunningRuns();
     const runningById = new Map(entries.map((entry) => [entry.sessionId, entry]));
 
@@ -220,7 +221,7 @@ export const sessionsService = {
       runningById.set(session.session_id, entries[entries.length - 1]);
     }
 
-    return entries;
+    return includeGroups ? entries : entries.filter(entry => !groupsDb.membership(entry.sessionId));
   },
 
   /** The websocket gateway checks native work before reattaching a status/permission observer. */
@@ -648,6 +649,7 @@ export const sessionsService = {
     const project = projectPath ? projectsDb.getProjectPath(projectPath) : null;
 
     return {
+      ...(groupsDb.membership(session.session_id) ? { group: groupsDb.membership(session.session_id) } : {}),
       sessionId: session.session_id,
       provider: session.provider as LLMProvider,
       summary: session.custom_name?.trim() || '',

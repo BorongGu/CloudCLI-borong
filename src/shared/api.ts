@@ -161,6 +161,8 @@ export const groupsApi = {
   dispatch: (id: string, input: { content: string; assignments: Record<string, string>; turns: number; requestId: string }) =>
     groupRequest<OrbitGroupMessage>(`/${encodeURIComponent(id)}/dispatch`, 'POST', input),
   control: (id: string, input: { paused: boolean; turns?: number; retry?: boolean }) => groupRequest<OrbitGroupSnapshot>(`/${encodeURIComponent(id)}`, 'PATCH', input),
+  updateMember: (id: string, memberId: string, model: string, effort: string) => groupRequest<OrbitGroupSnapshot>(`/${encodeURIComponent(id)}/members/${encodeURIComponent(memberId)}`, 'PATCH', { model, effort }),
+  history: (id: string, before: number, publishedOnly: boolean) => groupRequest<{ messages: OrbitGroupMessage[]; hasMore: boolean }>(`/${encodeURIComponent(id)}/messages?before=${before}&publishedOnly=${publishedOnly}`),
 };
 
 function uploadAssetForm(form: FormData, options: AssetUploadOptions): Promise<Response> {
@@ -424,7 +426,7 @@ export const api = {
   // owning project — used when a /session/<id> URL isn't in loaded payloads.
   sessionDetails: (sessionId: string) =>
     get(`/api/providers/sessions/${encodeURIComponent(sessionId)}`),
-  runningSessions: () => get('/api/providers/sessions/running'),
+  runningSessions: (includeGroups = false) => get(`/api/providers/sessions/running${includeGroups ? '?includeGroups=true' : ''}`),
   recentConversations: ({ limit = 40, offset = 0 }: { limit?: number; offset?: number } = {}) =>
     get(`/api/providers/sessions/recent${query({ limit, offset })}`),
   providerSessionId: (sessionId: string) =>

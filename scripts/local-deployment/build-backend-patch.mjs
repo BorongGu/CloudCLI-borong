@@ -7,6 +7,13 @@ import ts from 'typescript';
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const output = process.env.CLOUDCLI_PATCH_DIR || path.join(os.homedir(), '.config/cloudcli/backend-patch');
 const files = [
+  'server/modules/database/migrations.ts',
+  'server/modules/database/repositories/sessions.db.ts',
+  'server/modules/websocket/services/session-upsert-broadcast.service.ts',
+  'server/modules/providers/list/claude/claude.provider.ts',
+  'server/modules/providers/list/claude/claude-group-runtime.provider.ts',
+  'server/modules/providers/list/opencode/opencode.provider.ts',
+  'server/modules/providers/list/opencode/opencode-group-runtime.provider.ts',
   'server/index.ts',
   'server/shared/index.ts',
   'server/modules/database/schema.ts',

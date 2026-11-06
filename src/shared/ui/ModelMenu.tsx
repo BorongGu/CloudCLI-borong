@@ -5,17 +5,18 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 
 import type { ProviderModelOption } from '@/shared/types';
 import { DEFAULT_EFFORT_VALUE } from '@/shared/constants';
-import { useComposerMenuAnchor } from '@/modules/chat/hooks/useComposerMenuAnchor';
+import { useComposerMenuAnchor } from '@/shared/hooks/useComposerMenuAnchor';
 import {
   ComposerMenuHeading,
   ComposerMenuItem,
   ComposerMenuSeparator,
   ComposerMenuSurface,
-} from '@/modules/chat/composer/ComposerMenuPrimitives';
+} from '@/shared/ui/ComposerMenuPrimitives';
 
 type EffortOption = NonNullable<ProviderModelOption['effort']>['values'][number];
 
 type ComposerModelMenuProps = {
+  ariaLabel?: string;
   effort: string;
   /** Effort values the active provider/model actually accepts; empty hides the section. */
   effortOptions: EffortOption[];
@@ -28,10 +29,11 @@ type ComposerModelMenuProps = {
 };
 
 /**
- * Rendered by chat's ChatComposer as the popover for choosing the active
+ * Used by ChatComposer and Groups as the shared popover for choosing the active
  * provider's model and reasoning effort for the next turn.
  */
 function ComposerModelMenu({
+  ariaLabel: suppliedAriaLabel,
   effort,
   effortOptions,
   onSelectEffort,
@@ -41,7 +43,9 @@ function ComposerModelMenu({
   modelsLoading,
 }: ComposerModelMenuProps) {
   const { t } = useTranslation('chat');
+  // Open state tracks whether this trigger owns the visible menu.
   const [isOpen, setIsOpen] = useState(false);
+  // The model subsection expands independently of the reasoning choices.
   const [isModelSectionOpen, setIsModelSectionOpen] = useState(false);
   const close = useCallback(() => setIsOpen(false), []);
   const { triggerRef, menuRef, anchor, updateAnchor } = useComposerMenuAnchor(isOpen, close);
@@ -74,7 +78,7 @@ function ComposerModelMenu({
   }
 
   const triggerLabel = hasModelSection ? modelLabel : effortLabel;
-  const ariaLabel = t('composer.modelMenu', {
+  const ariaLabel = suppliedAriaLabel || t('composer.modelMenu', {
     defaultValue: 'Select model and reasoning effort',
   });
 

@@ -252,7 +252,8 @@ async function spawnOpenCode(command: string, options: AnyRecord, ws: ProviderRu
       const resolvedEffort = resolveOpenCodeEffort(resolvedModel, effort, effortModels);
       const major = getOpenCodeMajorVersion();
       const args = ['run', '--format', 'json'];
-      if (major >= 2) args.push('--standalone');
+      if (options.groupAttachUrl) args.push('--attach', String(options.groupAttachUrl));
+      else if (major >= 2) args.push('--standalone');
       // V1 requires --dir; V2 resolves the workspace from cwd and PWD.
       if (major < 2) args.push('--dir', workingDir);
       if (providerSessionId) {
@@ -284,7 +285,8 @@ async function spawnOpenCode(command: string, options: AnyRecord, ws: ProviderRu
       opencodeProcess = spawnFunction('opencode', args, {
         cwd: workingDir,
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, PWD: workingDir, ...permissionOptions.env },
+        env: { ...process.env, PWD: workingDir, ...permissionOptions.env,
+          ...(options.groupServerPassword ? { OPENCODE_SERVER_PASSWORD: String(options.groupServerPassword) } : {}) },
       });
 
       activeOpenCodeProcesses.set(processKey, opencodeProcess);

@@ -892,8 +892,8 @@ router.get('/usage', asyncHandler(async (req: Request, res: Response) => {
 
 router.get(
   '/sessions/running',
-  asyncHandler(async (_req: Request, res: Response) => {
-    const sessions = await sessionsService.listRunningSessions();
+  asyncHandler(async (req: Request, res: Response) => {
+    const sessions = await sessionsService.listRunningSessions(req.query.includeGroups === 'true');
     res.json(createApiSuccessResponse({ sessions }));
   }),
 );

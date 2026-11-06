@@ -1,109 +1,110 @@
-# Groups: peer communication primitives
+# Groups: public peer collaboration
 
-Groups provide 2–5 persistent, equal members. Each member owns a dedicated Orbit
-session using Claude Code, Codex, Cursor, or OpenCode. A group task contains shared
-instructions and optional per-member notes; all members receive the complete task
-and the roster of notes. Roles, research methods, and workflows are task content.
+Groups contain 2–5 equal members with independent provider sessions. A shared task
+and optional per-member notes define the current objective and division of work.
+The human owner can inspect the full public discussion, published knowledge,
+member transcripts, tool calls/results, pending approvals, and workspace artifacts.
 
-Open **Groups** from either sidebar layout, create members and select their
-workspace, harness, optional model ID, and execution permissions. Creation only
-allocates sessions. **Dispatch to all members** queues the actual model turns.
-Members' full transcripts and permission requests are available through their
-session links.
+## Public discussion and mentions
 
-## Communication
+Every group message is public. Mentions identify participants expected to respond;
+`to` remains an alias for a primary mention for CLI compatibility. `mentions`
+accepts member names/IDs, `user` for the human, and `*` for all other members.
+The discussion composer also recognizes explicit `@name`, `@user`, and `@all`.
 
-| Operation | Visibility | Delivery |
-| --- | --- | --- |
-| `send` | Recipient and sender; `to: "*"` shares with the group | Queues a turn for recipients |
-| `publish` | Entire group | Durable shared information; supplied with subsequent group turns and available via `read` |
-| `request` | One recipient and sender | Queues a turn; its message ID links subsequent replies |
-| `reply` | Original sender and replying member | Queues a turn for the original sender; replies to the human remain on the group timeline |
-| `read` | Public messages and that member's direct messages | Read-only; supports `after`, `publishedOnly`, `nextCursor`, and `hasMore` |
+| Primitive | Purpose |
+| --- | --- |
+| `send` | Contribute to the public discussion, optionally mentioning participants. |
+| `publish` | Preserve an important shared finding, decision, or correction. |
+| `request` | Ask one or more mentioned participants, including the human, for a considered reply. |
+| `reply` | Publicly answer a specific message using `replyTo`. A participant's reply closes their pending response. |
+| `read` | Read the public discussion or published information; paginate with `after` and `nextCursor`. |
 
-The human owner can inspect all group messages. The group timeline contains
-explicit communication; each member's ordinary assistant output stays in its
-provider conversation. Published information is immutable; publish a correction
-or an updated finding as another item. Requests can receive follow-up replies.
+An active member receives other members' public updates during work through the
+harness's live-input adapter. An idle member starts a new turn for a mention or a
+shared task. Other public information remains available for their next participation.
+A reply to a member wakes that member when needed. Publishing contributes context
+without creating an automatic round of responses from idle peers.
 
-Each write has a caller-scoped `requestId`. Repeating the same request returns the
-existing event and preserves its deliveries. A changed payload requires a new ID.
-The CLI generates IDs and prints them on success and on ambiguous transport errors
-so a retry can reuse the original identity.
+Peer messages have a two-second coalescing window. Their delivery is batched;
+human messages and task updates are immediately eligible. Mid-turn updates carry
+the new information and participant identities instead of repeating the full
+bootstrap instructions.
 
-## Harness-independent CLI
+The concise English instruction is `GROUP_MODE_SYSTEM_PROMPT` in
+`server/shared/utils.ts`, also visible in the group's settings. It requires
+independent examination of evidence, critical assessment of peer claims, agreement
+based on one's own judgment, and delayed, substantive replies. It encourages
+combining related points while leaving acknowledgements, repeated agreement and
+unchanged opinions silent. Task-specific roles and workflows remain user input.
 
-Every group turn includes the member roster, primitive descriptions, the command
-for the member's private connection file, incoming messages, and a bounded batch
-of newly published information. For example:
+## Console and human interaction
 
-```sh
-node /path/to/orbit/scripts/orbit-group.mjs --connection /private/member.json request <<'GROUP_JSON'
-{"to":"B","content":"Which interface fits?","requestId":"interface-question-1"}
-GROUP_JSON
-```
+`/groups/:groupId` owns the public discussion, the current task, member cards,
+model/reasoning menus, published information and pending responses. Questions for
+the human appear prominently. Sending a discussion message and formally updating
+the task are separate composer actions.
 
-The connection file contains a member-scoped bearer credential and this server's
-local address. Files use mode 0600 under the database's adjacent `groups/`
-directory; the database stores credential hashes. The bridge resolves identity
-and group from that credential, checks direct-message visibility, and validates
-reply targets. All members run as the local OS user; this credential scoping is
-an API boundary, while shell access follows each harness's selected permissions.
+`/groups/:groupId/members/:memberId` presents the full native transcript, tools,
+approvals, activity and Stop control within the group console. Discussion input
+stays in the public group composer. Workspace artifacts open in the shared file
+viewer. Model choices use ordinary chat's catalog and menu, and are stored against
+the member session for subsequent turns.
 
-The CLI uses the existing shell tool in each harness. The runtime adapters keep
-their existing model execution and permission behavior. A future native MCP
-adapter can expose these same primitives over the same service.
+Ordinary conversation lists, search, archived lists, project session counts and
+sidebar broadcasts exclude group members. Legacy `/session/:sessionId` links
+resolve group membership and redirect to the member console. The ordinary running
+list excludes group members; Groups requests the complete activity list.
 
-## Dispatch and recovery
+Recent snapshots contain 150 discussion messages and 100 publications. The owner
+can page backward through the persisted history. The member CLI can page forward
+through all public messages. Display limits affect initial presentation; stored
+records remain available through pagination and the member console.
 
-`agent_groups`, `group_members`, `group_messages`, and `group_deliveries` live in
-Orbit's SQLite database. Message insertion and recipient creation are atomic.
-The server dispatcher claims a chronological batch for each idle member, reserves
-one group turn, and invokes `runDetachedChatTurn`. Live transcripts retain the
-normal websocket subscription and replay behavior.
+## Delivery and execution
 
-Busy sessions and sessions with background work retain their queued messages.
-Claims and the run registry prevent overlapping turns; a reservation race returns
-the batch to the queue. Explicit sends, requests, and replies can resume peers.
-Publishing alone leaves peers at their current activity.
+| Harness | Working-member delivery |
+| --- | --- |
+| Codex | Native `turn/steer` with the expected active turn ID. |
+| Claude Code | Priority input merged into the SDK's held input stream. |
+| OpenCode | Authenticated native session input through an owned local server, retaining the CLI stream. |
+| Cursor | Input on the next execution turn; the creation form labels this behavior. |
 
-The task's run allowance counts provider-turn starts, including later message
-wakeups. It is an invocation limit rather than token accounting. Reaching zero
-retains queued work. **Continue dispatching** sets a fresh allowance; **Pause
-dispatching** stops future dispatches while current turns continue. Stop a current
-turn from its member session.
+Codex receives the group instruction as native developer instructions. Claude
+receives it through the SDK system-prompt extension. The group bootstrap carries
+identity, the common task, member notes, and communication-tool usage. The
+provider-neutral CLI uses a private member-scoped connection file; the database
+stores credential hashes and resolves each caller's identity from its credential.
 
-Delivery states are `queued`, `running`, `completed`, `failed`, and `interrupted`.
-`completed` records that the provider turn ended successfully, not that a request
-has been answered. Replies are separate events linked by `replyTo`. Provider
-errors remain visible. After a server restart, queued messages are retained and
-running deliveries become interrupted. Inspect the member transcript before
-explicitly retrying an interrupted turn because its previous execution may have
-produced side effects.
+Delivery states distinguish `queued`, `delivering`, `delivered`, `running`,
+`completed`, `failed`, and `interrupted`. `delivered` records acceptance into the
+harness's input channel. A response is a separate public message. Passive context
+for idle members is shown as available for later reading.
 
-## Boundaries and endpoints
+The automatic-start limit counts newly started member executions. Starting three
+members uses three starts; inserting input into their active work uses the current
+executions. Reaching zero retains pending work, while active turns can still
+receive updates. Pause stops further dispatch. Current executions can be stopped
+from their member consoles.
 
-- `server/modules/groups`: validated user/member endpoints, communication service,
-  connection-file provisioning, and server-owned dispatcher.
-- `server/modules/database/repositories/groups.db.ts`: transactional persistence.
-- `src/modules/groups`: group creation, shared task dispatch, conversation and
-  publication views. Recent snapshots contain 150 messages and 100 publications;
-  the read endpoint paginates the full persisted history.
-- `scripts/orbit-group.mjs`: provider-neutral JSON CLI.
+SQLite claims prevent duplicate concurrent deliveries. Each write has a
+caller-scoped `requestId` for idempotent retries. An explicit native idle response
+permits a new queued turn. Ambiguous transport failures remain inspectable rather
+than being automatically resent. On restart, queued work is retained and an
+in-flight delivery is marked interrupted for inspection before retry.
 
-User-authenticated routes:
+## Implementation and verification
 
-```text
-GET/POST /api/groups
-GET/PATCH /api/groups/:id
-GET/POST /api/groups/:id/messages
-POST /api/groups/:id/dispatch
-```
+- `server/modules/groups`: public discussion semantics, task input, connection
+  files, history, pending responses and dispatcher.
+- `server/modules/database/repositories/groups.db.ts`: atomic event/delivery
+  persistence, mention wakeups, coalescing and session membership.
+- Provider runtime adapters: native instructions and live input.
+- `src/modules/groups`: separate group console and owner controls.
+- `scripts/orbit-group.mjs`: `send`, `publish`, `request`, `reply`, and `read` over JSON stdin.
 
-Member-authenticated route: `POST /group-bridge/:operation`.
-
-Run the Groups backend tests for persistence, visibility, idempotency, runtime
-reservation, pause/allowance, recovery, HTTP validation, and the three-member CLI
-request/reply/publication loop. Run the Groups frontend tests for task notes,
-retry identity, publishing, and group creation. Real model behavior remains a
-separate smoke test from these deterministic runtime tests.
+Tests cover public visibility, mention/reply relationships, native-input routing,
+continued execution during delivery, batching, idle wakeups, model persistence,
+ordinary-list isolation, replay/idempotency, recovery, and browser interactions.
+Native adapter tests exercise scripted transports and local test servers so the
+suite remains deterministic and independent of model quotas.

@@ -62,6 +62,7 @@ type RegisterOptimisticSessionArgs = {
  */
 type SessionDetailsApiPayload = {
   data?: {
+    group?: { groupId: string; memberId: string };
     sessionId?: string;
     provider?: string;
     summary?: string;
@@ -980,6 +981,11 @@ export function useProjectsState({
           __projectId: fallbackProject.projectId,
           summary: '',
         });
+        return;
+      }
+
+      if (details.group) {
+        navigate(`/groups/${details.group.groupId}/members/${details.group.memberId}`, { replace: true });
         return;
       }
 

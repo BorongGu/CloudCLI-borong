@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { projectsDb, sessionsDb } from '@/modules/database/index.js';
+import { groupsDb, projectsDb, sessionsDb } from '@/modules/database/index.js';
 import { generateDisplayName } from '@/modules/projects/index.js';
 import { connectedClients, WS_OPEN_STATE } from '@/modules/websocket/services/websocket-state.service.js';
 import type { SessionUpsertedEvent } from '@/shared/types.js';
@@ -27,7 +27,7 @@ async function buildSessionUpsertedEvent(
   // existed — both lookups land on the same row anyway.
   const row = sessionsDb.getSessionByProviderSessionId(sessionIdOrProviderSessionId)
     ?? sessionsDb.getSessionById(sessionIdOrProviderSessionId);
-  if (!row || row.isArchived) {
+  if (!row || row.isArchived || groupsDb.membership(row.session_id)) {
     return null;
   }
 

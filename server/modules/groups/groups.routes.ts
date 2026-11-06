@@ -37,6 +37,7 @@ function userId(req: Request): number {
 function message(body: Record<string, unknown>): GroupMessageInput {
   if (!['send', 'publish', 'request', 'reply'].includes(String(body.kind))) invalid('kind');
   return {
+    mentions: body.mentions === undefined ? undefined : Array.isArray(body.mentions) && body.mentions.length <= 6 ? body.mentions.map(value => text(value, 'mention', 128)) : invalid('mentions'),
     kind: body.kind as GroupMessageInput['kind'], content: text(body.content, 'content'),
     requestId: text(body.requestId, 'requestId', 128), to: optional(body.to, 'to'),
     title: optional(body.title, 'title'), replyTo: optional(body.replyTo, 'replyTo'),
@@ -58,7 +59,7 @@ groupsRoutes.post('/', asyncHandler(async (req, res) => {
     if (!['claude', 'codex', 'cursor', 'opencode'].includes(String(member.provider))) invalid('provider');
     const permissionMode = member.permissionMode ?? 'default';
     if (!['default', 'acceptEdits', 'bypassPermissions'].includes(String(permissionMode))) invalid('permissionMode');
-    return { name: text(member.name, 'member name', 48), provider: member.provider as LLMProvider, model: optional(member.model, 'model'), permissionMode: permissionMode as GroupMember['permissionMode'] };
+    return { name: text(member.name, 'member name', 48), provider: member.provider as LLMProvider, model: optional(member.model, 'model'), effort: optional(member.effort, 'effort', 32), permissionMode: permissionMode as GroupMember['permissionMode'] };
   });
   res.status(201).json(createApiSuccessResponse(groupsService.create(userId(req), {
     name: text(body.name, 'name', 100), projectPath: text(body.projectPath, 'projectPath', 4096), members,
@@ -69,9 +70,19 @@ groupsRoutes.get('/:id', asyncHandler(async (req, res) => {
   res.json(createApiSuccessResponse(groupsService.snapshot(userId(req), text(req.params.id, 'group id', 128))));
 }));
 
+groupsRoutes.patch('/:id/members/:memberId', asyncHandler(async (req, res) => {
+  const body = record(req.body);
+  res.json(createApiSuccessResponse(groupsService.updateMember(userId(req), text(req.params.id, 'group id', 128),
+    text(req.params.memberId, 'member id', 128), text(body.model, 'model', 200), text(body.effort || 'default', 'effort', 32))));
+}));
+
 groupsRoutes.get('/:id/messages', asyncHandler(async (req, res) => {
   const id = text(req.params.id, 'group id', 128);
   groupsService.owned(userId(req), id);
+  if (req.query.before !== undefined) {
+    res.json(createApiSuccessResponse(groupsService.history(userId(req), id, integer(Number(req.query.before), 'before', 1, Number.MAX_SAFE_INTEGER), req.query.publishedOnly === 'true')));
+    return;
+  }
   res.json(createApiSuccessResponse(groupsService.read(id, undefined, integer(Number(req.query.after ?? 0), 'after', 0, Number.MAX_SAFE_INTEGER), req.query.publishedOnly === 'true')));
 }));
 

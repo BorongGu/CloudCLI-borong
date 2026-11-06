@@ -18,6 +18,7 @@ import type {
   ProviderRuntimeContext,
   ProviderRuntimePermissionGateway,
   ProviderRuntimeWriter,
+  ProviderSteerResult,
   UpsertProviderMcpServerInput,
   WorkflowAgentActivity,
 } from '@/shared/types.js';
@@ -38,6 +39,8 @@ export interface IProviderRuntime {
     context: ProviderRuntimeContext,
   ): Promise<unknown>;
   abort(sessionId: string): boolean | Promise<boolean>;
+  /** Append peer input to a native active turn, preserving its ongoing tools and execution. */
+  steer?(sessionId: string, content: string): Promise<ProviderSteerResult>;
   permissions?: ProviderRuntimePermissionGateway;
   /** Native turns that survive a web-service restart or are driven by another client. */
   listRunningSessions?(): Promise<NativeSessionActivity[]>;

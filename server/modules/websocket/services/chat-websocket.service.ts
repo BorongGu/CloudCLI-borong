@@ -32,6 +32,9 @@ export function filterImagesToUploadStore(
 
 /** Application boundary for dispatching provider runs and approvals. */
 export type ProviderRuntimeGateway = {
+  supportsSteering?(provider: LLMProvider): boolean;
+  /** Groups use native mid-turn delivery when the selected harness supports it. */
+  steer?(provider: LLMProvider, sessionId: string, content: string): Promise<import('@/shared/types.js').ProviderSteerResult>;
   hasRuntime(provider: string): boolean;
   run(
     provider: LLMProvider,

@@ -528,7 +528,7 @@ export const sessionsDb = {
       .prepare(
         `SELECT ${SESSION_ROW_COLUMNS}
          FROM sessions
-         WHERE isArchived = 0`
+         WHERE isArchived = 0 AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.session_id = sessions.session_id)`
       )
       .all() as SessionRow[];
 
@@ -547,6 +547,7 @@ export const sessionsDb = {
     const db = getConnection();
     const visibilityClause = `
       sessions.isArchived = 0
+      AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.session_id = sessions.session_id)
       AND (projects.isArchived IS NULL OR projects.isArchived = 0)
     `;
     const rows = db
@@ -585,7 +586,7 @@ export const sessionsDb = {
       .prepare(
         `SELECT ${SESSION_ROW_COLUMNS}
          FROM sessions
-         WHERE isArchived = 1
+         WHERE isArchived = 1 AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.session_id = sessions.session_id)
          ORDER BY datetime(COALESCE(updated_at, created_at)) DESC, session_id DESC`
       )
       .all() as SessionRow[];
@@ -601,7 +602,7 @@ export const sessionsDb = {
         `SELECT ${SESSION_ROW_COLUMNS}
          FROM sessions
          WHERE project_path = ?
-           AND isArchived = 0`
+           AND isArchived = 0 AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.session_id = sessions.session_id)`
       )
       .all(normalizedProjectPath) as SessionRow[];
 
@@ -634,7 +635,7 @@ export const sessionsDb = {
         `SELECT ${SESSION_ROW_COLUMNS}
          FROM sessions
          WHERE project_path = ?
-           AND isArchived = 0
+           AND isArchived = 0 AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.session_id = sessions.session_id)
          ORDER BY datetime(COALESCE(updated_at, created_at)) DESC, session_id DESC
          LIMIT ? OFFSET ?`
       )
@@ -651,7 +652,7 @@ export const sessionsDb = {
         `SELECT COUNT(*) AS count
          FROM sessions
          WHERE project_path = ?
-           AND isArchived = 0`
+           AND isArchived = 0 AND NOT EXISTS (SELECT 1 FROM group_members gm WHERE gm.session_id = sessions.session_id)`
       )
       .get(normalizedProjectPath) as { count: number } | undefined;
 

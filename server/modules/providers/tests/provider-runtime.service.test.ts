@@ -47,6 +47,7 @@ function createProvider(id: LLMProvider, runtime: IProviderRuntime): IProvider {
 function createService(providers: IProvider[]) {
   const providerMap = new Map(providers.map((provider) => [provider.id, provider]));
   return createProviderRuntimeService({
+    groupInstructions: () => undefined,
     listProviders: () => providers,
     resolveProvider(providerName) {
       const provider = providerMap.get(providerName as LLMProvider);

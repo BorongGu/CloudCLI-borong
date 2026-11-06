@@ -4,13 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { Clock } from 'lucide-react';
 
 import { cn } from '@/shared/utils';
-import { useComposerMenuAnchor } from '@/modules/chat/hooks/useComposerMenuAnchor';
+import { useComposerMenuAnchor } from '@/shared/hooks/useComposerMenuAnchor';
 import {
   ComposerMenuHeading,
   ComposerMenuItem,
   ComposerMenuSeparator,
   ComposerMenuSurface,
-} from '@/modules/chat/composer/ComposerMenuPrimitives';
+} from '@/shared/ui/ComposerMenuPrimitives';
 
 type ScheduleMessagePopoverProps = {
   disabled: boolean;

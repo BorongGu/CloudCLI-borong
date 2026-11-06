@@ -30,12 +30,16 @@ import {
 } from '@/shared/context/SessionProtectionContext';
 import ChatMessagesPane from '@/modules/chat/transcript/ChatMessagesPane';
 import ChatComposer from '@/modules/chat/composer/ChatComposer';
+import PermissionRequestsBanner from '@/modules/chat/composer/PermissionRequestsBanner';
+import ActivityIndicator from '@/modules/chat/composer/ActivityIndicator';
 import { CodexGoalPanel } from '@/modules/chat/composer/CodexGoalPanel';
 import CommandResultModal from '@/modules/chat/modals/CommandResultModal';
 import { BtwPanel } from '@/modules/chat/modals/BtwPanel';
 import '@/modules/chat/reading-mode.css';
 
 type ChatInterfaceProps = {
+  /** Groups exposes the complete transcript and approvals, with public messaging in its own composer. */
+  consoleOnly?: boolean;
   isActive: boolean;
   selectedProject: Project | null;
   selectedSession: ProjectSession | null;
@@ -78,6 +82,7 @@ function readSavedBtwRequests(): BtwRequest[] {
  * composer state that ChatMessagesPane and ChatComposer render.
  */
 function ChatInterface({
+  consoleOnly = false,
   isActive,
   selectedProject,
   selectedSession,
@@ -542,8 +547,8 @@ function ChatInterface({
               // Editing replaces the turn and everything after it, so it is only
               // offered when the session is idle — a half-truncated transcript with
               // a live stream writing into it is not recoverable.
-              onEditMessage={supportsMessageEditing && !isProcessing && !reading.isReading ? beginEditMessage : undefined}
-              onForkFromMessage={supportsSessionForking && !reading.isReading ? handleForkFromMessage : undefined}
+              onEditMessage={!consoleOnly && supportsMessageEditing && !isProcessing && !reading.isReading ? beginEditMessage : undefined}
+              onForkFromMessage={!consoleOnly && supportsSessionForking && !reading.isReading ? handleForkFromMessage : undefined}
               onLoadFullTranscript={loadFullTranscript}
             />
           </TranscriptSessionContext.Provider>
@@ -565,7 +570,10 @@ function ChatInterface({
           )}
 
           <div hidden={reading.isReading} className={reading.isReading ? 'hidden' : undefined} data-chat-composer>
-          <ChatComposer
+          {consoleOnly ? <div className="border-t border-border p-3">
+            <PermissionRequestsBanner pendingPermissionRequests={pendingPermissionRequests} handlePermissionDecision={handlePermissionDecision} handleGrantToolPermission={handleGrantToolPermission} />
+            <ActivityIndicator activity={sessionActivity} onAbort={handleAbortSession} />
+          </div> : <ChatComposer
           goalPanel={provider === 'codex' ? <CodexGoalPanel sessionId={selectedSession?.id || currentSessionId || null} /> : undefined}
           pendingPermissionRequests={pendingPermissionRequests}
           handlePermissionDecision={handlePermissionDecision}
@@ -644,7 +652,7 @@ function ChatInterface({
           placeholder={t('input.placeholder', { provider: selectedProviderLabel })}
           isTextareaExpanded={isTextareaExpanded}
           sendByCtrlEnter={sendByCtrlEnter}
-        />
+        />}
         </div>
         </div>
       </div>

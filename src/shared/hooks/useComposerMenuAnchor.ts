@@ -7,7 +7,7 @@ const VIEWPORT_MARGIN = 8;
 const MENU_GAP = 8;
 
 /**
- * Positions a composer popover above its trigger and right-aligned to it.
+ * Used by Chat and Groups. Positions a composer popover above its trigger and right-aligned to it.
  *
  * Anchoring with `right`/`bottom` rather than `left`/`top` lets the menu grow
  * upward and leftward without measuring itself first, so it never paints in the
@@ -21,6 +21,7 @@ export function useComposerMenuAnchor(
 ) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // Geometry is measured from the live trigger and follows viewport changes.
   const [anchor, setAnchor] = useState<ComposerMenuAnchor | null>(null);
 
   const updateAnchor = useCallback(() => {

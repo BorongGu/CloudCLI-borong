@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { ActivityIcon, Gauge, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { useComposerMenuAnchor } from '@/modules/chat/hooks/useComposerMenuAnchor';
+import { useComposerMenuAnchor } from '@/shared/hooks/useComposerMenuAnchor';
 import { api } from '@/shared/api';
 import type { LLMProvider, ProviderUsageSnapshot, ProviderUsageWindow } from '@/shared/types';
 

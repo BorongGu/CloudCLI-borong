@@ -56,7 +56,7 @@ export class SharedCodexThread {
   id: string | null;
 
   constructor(private readonly client: CodexRpcConnection, threadId: string | null,
-    private readonly options: ThreadOptions = {}) { this.id = threadId; }
+    private readonly options: ThreadOptions & { developerInstructions?: string } = {}) { this.id = threadId; }
 
   async runStreamed(input: Input, options: RunOptions = {}) {
     return { events: this.events(input, options) };
@@ -189,12 +189,13 @@ export class SharedCodexThread {
       const threadOptions = this.options;
       const contextConfig = { model_context_window: getCodexContextDefaults().contextWindow };
       const nativeOptions = {
+        ...(threadOptions.developerInstructions ? { developerInstructions: threadOptions.developerInstructions } : {}),
         cwd: threadOptions.workingDirectory, model: threadOptions.model,
         sandbox: threadOptions.sandboxMode, approvalPolicy: threadOptions.approvalPolicy,
         config: { ...contextConfig, ...(threadOptions.modelReasoningEffort ? { model_reasoning_effort: threadOptions.modelReasoningEffort } : {}) },
       };
       const session = this.id
-        ? await this.client.call('thread/resume', { threadId: this.id, excludeTurns: true, config: contextConfig, ...(goalCommand ? nativeOptions : {}) })
+        ? await this.client.call('thread/resume', { threadId: this.id, excludeTurns: true, config: contextConfig, ...(goalCommand ? nativeOptions : {}), ...(threadOptions.developerInstructions ? { developerInstructions: threadOptions.developerInstructions } : {}) })
         : await this.client.call('thread/start', nativeOptions);
       this.id = session.thread.id;
       push({ type: 'thread.started', thread_id: this.id });

@@ -1,6 +1,8 @@
 import { providerRegistry } from '@/modules/providers/provider.registry.js';
 import { providerModelsService } from '@/modules/providers/services/provider-models.service.js';
 import { sessionsService } from '@/modules/providers/services/sessions.service.js';
+import { groupsDb } from '@/modules/database/index.js';
+import { GROUP_MODE_SYSTEM_PROMPT } from '@/shared/index.js';
 import type { IProvider } from '@/shared/interfaces.js';
 import type {
   AnyRecord,
@@ -9,9 +11,11 @@ import type {
   ProviderRunFunction,
   ProviderRuntimeContext,
   ProviderRuntimeWriter,
+  ProviderSteerResult,
 } from '@/shared/types.js';
 
 type ProviderRuntimeServiceDependencies = {
+  groupInstructions(sessionId: string): string | undefined;
   listProviders(): IProvider[];
   resolveProvider(provider: string): IProvider;
   resolveProviderSessionId(sessionId: string | null | undefined): string | null;
@@ -24,6 +28,7 @@ type ProviderRuntimeServiceDependencies = {
 };
 
 const defaultDependencies: ProviderRuntimeServiceDependencies = {
+  groupInstructions: sessionId => groupsDb.membership(sessionId) ? GROUP_MODE_SYSTEM_PROMPT : undefined,
   listProviders: () => providerRegistry.listProviders(),
   resolveProvider: (provider) => providerRegistry.resolveProvider(provider),
   resolveProviderSessionId: (sessionId) => sessionsService.resolveProviderSessionId(sessionId),
@@ -69,11 +74,21 @@ export function createProviderRuntimeService(
     writer: ProviderRuntimeWriter,
   ): Promise<unknown> => {
     const provider = dependencies.resolveProvider(providerName);
-    return provider.runtime.run(command, options, writer, createRuntimeContext(provider));
+    const instructions = typeof options.sessionId === 'string' ? dependencies.groupInstructions(options.sessionId) : undefined;
+    return provider.runtime.run(command, { ...options, ...(instructions ? { groupSystemPrompt: instructions } : {}) }, writer, createRuntimeContext(provider));
   };
 
   return {
     run,
+
+    supportsSteering(providerName: LLMProvider): boolean {
+      return Boolean(dependencies.resolveProvider(providerName).runtime.steer);
+    },
+
+    async steer(providerName: LLMProvider, sessionId: string, content: string): Promise<ProviderSteerResult> {
+      const runtime = dependencies.resolveProvider(providerName).runtime;
+      return runtime.steer ? runtime.steer(sessionId, content) : { status: 'unsupported' };
+    },
 
     hasRuntime(providerName: string): boolean {
       try {

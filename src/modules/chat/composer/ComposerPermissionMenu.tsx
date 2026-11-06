@@ -12,13 +12,13 @@ import {
 } from 'lucide-react';
 
 import type { PermissionMode } from '@/shared/types';
-import { useComposerMenuAnchor } from '@/modules/chat/hooks/useComposerMenuAnchor';
+import { useComposerMenuAnchor } from '@/shared/hooks/useComposerMenuAnchor';
 import { usePermissionNameFit } from '@/modules/chat/hooks/usePermissionNameFit';
 import {
   ComposerMenuHeading,
   ComposerMenuItem,
   ComposerMenuSurface,
-} from '@/modules/chat/composer/ComposerMenuPrimitives';
+} from '@/shared/ui/ComposerMenuPrimitives';
 
 type ModeAppearance = {
   icon: LucideIcon;

@@ -126,6 +126,7 @@ export default function App() {
                       <Route path="/session/:sessionId" element={<ProjectWorkspaceRoute />} />
                       <Route path="/groups" element={<GroupsPage />} />
                       <Route path="/groups/:groupId" element={<GroupsPage />} />
+                      <Route path="/groups/:groupId/members/:memberId" element={<GroupsPage />} />
                     </Routes>
                   </Router>
                 </ProtectedRoute>
