@@ -55,6 +55,7 @@ import browserUseMcpRoutes from './modules/browser-use/browser-use-mcp.routes.js
 import { browserUseService } from './modules/browser-use/browser-use.service.js';
 import { initializeDatabase, sessionsDb } from './modules/database/index.js';
 import { configureWebPush } from './modules/notifications/index.js';
+import { groupsRoutes, groupBridgeRoutes, initializeGroupDispatcher, closeGroupDispatcher } from './modules/groups/index.js';
 
 const __dirname = getModuleDirectory(import.meta.url);
 // The server source runs from /server, while the compiled output runs from /dist-server/server.
@@ -149,6 +150,7 @@ app.get('/health', (req, res) => {
 });
 
 // Optional API key validation (if configured)
+app.use('/group-bridge', groupBridgeRoutes);
 app.use('/api', validateApiKey);
 
 // Authentication routes (public)
@@ -197,6 +199,7 @@ app.use('/api/browser-use', authenticateToken, browserUseRoutes);
 // Unified provider MCP routes (protected)
 app.use('/api/providers', authenticateToken, providerRoutes);
 app.use('/api/scheduled-messages', authenticateToken, scheduledMessagesRoutes);
+app.use('/api/groups', authenticateToken, groupsRoutes);
 
 // Agent API Routes (uses API key authentication)
 app.use('/api/agent', agentRoutes);
@@ -372,6 +375,7 @@ async function startServer() {
             // Sends anything that came due while the server was not running,
             // then keeps polling.
             initializeScheduledMessageDispatcher(providerRuntimeService);
+            initializeGroupDispatcher(providerRuntimeService);
 
             // Start server-side plugin processes for enabled plugins
             startEnabledPluginServers().catch(err => {
@@ -383,6 +387,7 @@ async function startServer() {
         closeScheduledMessageDispatcher();
         // Clean up plugin processes on shutdown
         const shutdownRuntimeServices = async () => {
+            closeGroupDispatcher();
             try {
                 await browserUseService.stopAllSessions();
             } catch (err) {

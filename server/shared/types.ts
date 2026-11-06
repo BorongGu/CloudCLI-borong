@@ -1708,3 +1708,39 @@ export type ProviderUsageAccount = {
 
 /** Context and subscription response consumed by the composer usage panel. */
 export type ProviderUsageSnapshot = { context: SessionContextUsage; accounts: ProviderUsageAccount[]; fetchedAt: string };
+//----------------- GROUP COLLABORATION ------------
+/** Persistent peer group owned by one Orbit user; turnsRemaining bounds automatic wakeups. */
+export type GroupRecord = {
+  id: string; userId: number; name: string; projectPath: string;
+  paused: boolean; turnsRemaining: number; createdAt: string;
+};
+/** Public member identity bound to one dedicated provider session; credentials stay server-side. */
+export type GroupMember = {
+  id: string; groupId: string; name: string; sessionId: string;
+  provider: LLMProvider; model: string | null; seenSeq: number;
+  permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions';
+};
+/** Immutable communication event. A null recipient means public to the whole group. */
+export type GroupMessage = {
+  seq: number; id: string; groupId: string; senderId: string | null;
+  recipientId: string | null; kind: 'send' | 'publish' | 'request' | 'reply' | 'task';
+  content: string; title: string | null; replyTo: string | null;
+  assignments: Record<string, string>; createdAt: string;
+};
+/** One event's delivery to a member; interrupted runs require an explicit retry. */
+export type GroupDelivery = {
+  messageId: string; memberId: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted';
+  error: string | null;
+};
+/** Validated group creation input. Roles and workflows belong to task text. */
+export type CreateGroupInput = {
+  name: string; projectPath: string;
+  members: Array<{ name: string; provider: LLMProvider; model?: string; permissionMode?: GroupMember['permissionMode'] }>;
+};
+/** Communication input shared by browser and member bridge. requestId makes retries idempotent. */
+export type GroupMessageInput = {
+  kind: 'send' | 'publish' | 'request' | 'reply'; content: string;
+  to?: string; title?: string; replyTo?: string; requestId: string;
+};
+// ---------------------------

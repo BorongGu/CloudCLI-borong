@@ -41,6 +41,8 @@ one of those two paths disagreeing with the other.
 
 ## Reading order
 
+Group collaboration is described in [Groups: peer communication primitives](./07-groups.md).
+
 | # | Document | Why it comes here |
 | --- | --- | --- |
 | 1 | [WebSocket transport](./01-websocket-transport.md) | The pipe everything rides on. Read first — the frame tables below are its vocabulary. |

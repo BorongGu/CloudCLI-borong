@@ -1,4 +1,5 @@
-import { Settings, Bug, AlertTriangle } from 'lucide-react';
+import { Settings, Bug, AlertTriangle, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { TFunction } from 'i18next';
 
 import { IS_PLATFORM } from '@/shared/utils';
@@ -49,6 +50,7 @@ export default function SidebarFooter({
 
       {/* Community + Settings */}
       <div className="nav-divider" />
+      <div className="px-2 py-1.5"><Link to="/groups" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"><Users className="h-4 w-4" />Groups</Link></div>
 
       {/* Desktop Report Issue */}
       <div className="hidden px-2 pt-1.5 md:block">

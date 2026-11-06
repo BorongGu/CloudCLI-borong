@@ -1903,3 +1903,39 @@ export type ProviderUsageAccount = {
 
 /** Context and subscription response consumed by the composer usage panel. */
 export type ProviderUsageSnapshot = { context: SessionContextUsage; accounts: ProviderUsageAccount[]; fetchedAt: string };
+//----------------- GROUP COLLABORATION ------------
+/** A persistent group and its remaining automatic member turns. */
+export type OrbitGroup = {
+  id: string; name: string; projectPath: string; paused: boolean; turnsRemaining: number; createdAt: string;
+};
+/** A peer's dedicated provider conversation, shown as a link from the group. */
+export type OrbitGroupMember = {
+  id: string; name: string; sessionId: string; provider: LLMProvider; model: string | null; busy: boolean;
+  permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions';
+};
+/** Immutable conversation or publication with explicit sender and reply linkage. */
+export type OrbitGroupMessage = {
+  id: string; seq: number; senderId: string | null; recipientId: string | null;
+  kind: 'send' | 'publish' | 'request' | 'reply' | 'task'; content: string;
+  title: string | null; replyTo: string | null; assignments: Record<string, string>; createdAt: string;
+};
+/** Delivery outcomes reported separately from message contents. */
+export type OrbitGroupDelivery = {
+  messageId: string; memberId: string; status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted'; error: string | null;
+};
+/** Snapshot used by the group page; member sessions retain their full provider transcripts. */
+export type OrbitGroupSnapshot = {
+  group: OrbitGroup; members: OrbitGroupMember[]; messages: OrbitGroupMessage[];
+  publications: OrbitGroupMessage[]; deliveries: OrbitGroupDelivery[];
+};
+/** User-configured group creation, shared between the form and API transport. */
+export type OrbitGroupCreateInput = {
+  name: string; projectPath: string;
+  members: Array<{ name: string; provider: LLMProvider; model?: string; permissionMode?: OrbitGroupMember['permissionMode'] }>;
+};
+/** Idempotent human communication sent from the group composer. */
+export type OrbitGroupPostInput = {
+  kind: 'send' | 'publish' | 'request' | 'reply'; content: string; requestId: string;
+  to?: string; title?: string; replyTo?: string;
+};
+// ---------------------------

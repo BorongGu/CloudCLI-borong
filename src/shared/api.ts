@@ -6,6 +6,7 @@ import {
 import { IS_PLATFORM } from '@/shared/utils';
 import { readVoiceConfig, voiceConfigHeaders } from '@/shared/voiceConfig';
 import type { GuestChatBootstrap, GuestChatSnapshot, GuestChatSummary } from '@/shared/types';
+import type { OrbitGroup, OrbitGroupCreateInput, OrbitGroupMessage, OrbitGroupPostInput, OrbitGroupSnapshot } from '@/shared/types';
 
 async function guestRequest<T>(url: string, payload?: unknown, signal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
@@ -142,6 +143,26 @@ export const authenticatedFetch = (
 };
 
 type AssetUploadOptions = { onProgress: (percent: number) => void; signal: AbortSignal; requestId: string };
+async function groupRequest<T>(endpoint: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
+  const response = await authenticatedFetch(`/api/groups${endpoint}`, {
+    method, signal, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.success) throw new Error(result.error?.message || '小组请求失败，请重试。');
+  return result.data as T;
+}
+
+/** Used by the Groups module; keeps all group endpoint and authentication details here. */
+export const groupsApi = {
+  list: (signal?: AbortSignal) => groupRequest<OrbitGroup[]>('', 'GET', undefined, signal),
+  create: (input: OrbitGroupCreateInput) => groupRequest<OrbitGroupSnapshot>('', 'POST', input),
+  read: (id: string, signal?: AbortSignal) => groupRequest<OrbitGroupSnapshot>(`/${encodeURIComponent(id)}`, 'GET', undefined, signal),
+  post: (id: string, input: OrbitGroupPostInput) => groupRequest<OrbitGroupMessage>(`/${encodeURIComponent(id)}/messages`, 'POST', input),
+  dispatch: (id: string, input: { content: string; assignments: Record<string, string>; turns: number; requestId: string }) =>
+    groupRequest<OrbitGroupMessage>(`/${encodeURIComponent(id)}/dispatch`, 'POST', input),
+  control: (id: string, input: { paused: boolean; turns?: number; retry?: boolean }) => groupRequest<OrbitGroupSnapshot>(`/${encodeURIComponent(id)}`, 'PATCH', input),
+};
+
 function uploadAssetForm(form: FormData, options: AssetUploadOptions): Promise<Response> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();const abort = () => xhr.abort();const cleanup = () => options.signal.removeEventListener('abort', abort);

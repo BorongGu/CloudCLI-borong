@@ -1,16 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '@/shared/api';
-import { optimizeChatImage } from '@/shared/utils';
+import { createClientRequestId, optimizeChatImage } from '@/shared/utils';
 import type { ChatAttachment, ChatAttachmentProgress } from '@/shared/types';
 
 type UploadRecord = { id: string; file?: File; result?: ChatAttachment; promise?: Promise<ChatAttachment>; controller?: AbortController };
-
-function requestId() {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));bytes[6] = (bytes[6] & 15) | 64;bytes[8] = (bytes[8] & 63) | 128;
-  const hex = [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
 
 /** The workspace composer prepares/uploads selected files ahead of sending and reuses successful descriptors. */
 export function useChatAttachmentUploads(files: File[]) {
@@ -33,7 +27,7 @@ export function useChatAttachmentUploads(files: File[]) {
     let record = records.current.get(source);
     if (record?.result) return Promise.resolve(record.result);
     if (record?.promise) return record.promise;
-    record ||= { id: requestId() };records.current.set(source, record);
+    record ||= { id: createClientRequestId() };records.current.set(source, record);
     const entry = record;const controller = new AbortController();entry.controller = controller;controllers.current.add(controller);
     update(source, { phase: 'preparing', percent: 0 });
     const pump = () => { while (running.current < 2 && waiting.current.length) waiting.current.shift()?.(); };

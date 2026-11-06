@@ -310,4 +310,32 @@ ${USER_PREFERENCES_TABLE_SCHEMA_SQL}
 ${SESSION_DRAFTS_TABLE_SCHEMA_SQL}
 
 ${SUPERSEDED_PROVIDER_SESSIONS_TABLE_SCHEMA_SQL}
+
+CREATE TABLE IF NOT EXISTS agent_groups (
+  id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, project_path TEXT NOT NULL, paused INTEGER NOT NULL DEFAULT 1,
+  turns_remaining INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS group_members (
+  id TEXT PRIMARY KEY, group_id TEXT NOT NULL REFERENCES agent_groups(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, session_id TEXT NOT NULL UNIQUE,
+  provider TEXT NOT NULL, model TEXT, permission_mode TEXT NOT NULL DEFAULT 'default', token_hash TEXT NOT NULL UNIQUE,
+  seen_seq INTEGER NOT NULL DEFAULT 0, UNIQUE(group_id, name)
+);
+CREATE TABLE IF NOT EXISTS group_messages (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+  group_id TEXT NOT NULL REFERENCES agent_groups(id) ON DELETE CASCADE,
+  sender_id TEXT, recipient_id TEXT, kind TEXT NOT NULL, content TEXT NOT NULL,
+  title TEXT, reply_to TEXT, assignments TEXT NOT NULL DEFAULT '{}',
+  request_key TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(group_id, request_key)
+);
+CREATE INDEX IF NOT EXISTS idx_group_messages_group_seq ON group_messages(group_id, seq);
+CREATE TABLE IF NOT EXISTS group_deliveries (
+  message_id TEXT NOT NULL REFERENCES group_messages(id) ON DELETE CASCADE,
+  member_id TEXT NOT NULL REFERENCES group_members(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'queued', error TEXT,
+  PRIMARY KEY(message_id, member_id)
+);
+CREATE INDEX IF NOT EXISTS idx_group_delivery_status ON group_deliveries(status, member_id);
 `;

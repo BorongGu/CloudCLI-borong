@@ -80,6 +80,13 @@ pending_alias.write_text('''<!doctype html>
 pending_alias.replace(alias_index)
 
 patches = (Path.home() / '.config/cloudcli/backend-patch')
+group_cli = patches / 'orbit-group.mjs'
+if group_cli.exists():
+    target_cli = dist.parent / 'scripts/orbit-group.mjs'
+    target_cli.parent.mkdir(parents=True, exist_ok=True)
+    pending_cli = target_cli.with_suffix('.mjs.next')
+    shutil.copy2(group_cli, pending_cli)
+    pending_cli.replace(target_cli)
 backend = dist.parent / 'dist-server/server/modules/providers/list/codex'
 if patches.exists():
     for patch in patches.glob('*.js'):

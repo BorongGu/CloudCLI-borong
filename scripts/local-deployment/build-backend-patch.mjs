@@ -7,6 +7,15 @@ import ts from 'typescript';
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const output = process.env.CLOUDCLI_PATCH_DIR || path.join(os.homedir(), '.config/cloudcli/backend-patch');
 const files = [
+  'server/index.ts',
+  'server/shared/index.ts',
+  'server/modules/database/schema.ts',
+  'server/modules/database/index.ts',
+  'server/modules/database/repositories/groups.db.ts',
+  'server/modules/groups/index.ts',
+  'server/modules/groups/groups.routes.ts',
+  'server/modules/groups/services/groups.service.ts',
+  'server/modules/groups/services/group-dispatcher.service.ts',
   'server/modules/assets/assets.routes.ts',
   'server/modules/assets/services/image-assets.service.ts',
   'server/modules/providers/services/sessions-watcher.service.ts',
@@ -69,3 +78,5 @@ for (const file of files) {
   fs.writeFileSync(target, js);
   console.log('Built ' + file);
 }
+
+fs.copyFileSync(path.join(root, 'scripts/orbit-group.mjs'), path.join(output, 'orbit-group.mjs'));
