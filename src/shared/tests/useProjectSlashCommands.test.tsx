@@ -59,9 +59,9 @@ test('assembles built-in, deduped skills and custom commands in that order', asy
   await waitFor(() => assert.equal(result.current.isLoading, false));
   assert.deepEqual(
     result.current.commands.map((command) => [command.name, command.type]),
-    [['/help', 'built-in'], ['/review', 'skill'], ['/commit', 'skill'], ['/deploy', 'custom']],
+    [['/context', 'built-in'], ['/handoff', 'built-in'], ['/help', 'built-in'], ['/review', 'skill'], ['/commit', 'skill'], ['/deploy', 'custom']],
   );
-  const review = result.current.commands[1];
+  const review = result.current.commands.find(command => command.name === '/review')!;
   assert.equal(review.namespace, 'skill');
   assert.equal(review.path, '/a');
   assert.deepEqual(review.metadata, {
@@ -94,7 +94,7 @@ test('a failed command request yields an empty list and the error flag', async (
   const { result } = renderHook(() => useProjectSlashCommands(project, 'claude'));
 
   await waitFor(() => assert.equal(result.current.error, true));
-  assert.deepEqual(result.current.commands, []);
+  assert.deepEqual(result.current.commands.map(command => command.name), ['/context', '/handoff']);
   assert.equal(result.current.isLoading, false);
 });
 
@@ -106,7 +106,7 @@ test('a failed skills request keeps the server commands', async () => {
   const { result } = renderHook(() => useProjectSlashCommands(project, 'claude'));
 
   await waitFor(() => assert.equal(result.current.isLoading, false));
-  assert.deepEqual(result.current.commands.map((command) => command.name), ['/clear']);
+  assert.deepEqual(result.current.commands.map((command) => command.name), ['/context', '/handoff', '/clear']);
   assert.equal(result.current.error, false);
 });
 
@@ -121,9 +121,9 @@ test('a disabled consumer does not request until it is enabled', async () => {
   );
 
   assert.equal(listCommands.mock.calls.length, 0);
-  assert.deepEqual(result.current.commands, []);
+  assert.deepEqual(result.current.commands.map(command => command.name), ['/context', '/handoff']);
 
   rerender({ enabled: true });
-  await waitFor(() => assert.equal(result.current.commands.length, 1));
+  await waitFor(() => assert.equal(result.current.commands.length, 3));
   assert.equal(listCommands.mock.calls.length, 1);
 });

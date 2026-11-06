@@ -18,6 +18,26 @@ export type LazyRowObserver = {
 };
 
 // ---------------------------
+//----------------- CONTEXT TRANSFER COMMANDS ------------
+/** Captured source when the user opens /context or /handoff, stable across later session navigation. */
+export type ContextTransferCommand = {
+  sessionId: string; title: string; provider: LLMProvider; model: string; effort: string;
+  permissionMode: PermissionMode; command: 'context' | 'handoff'; instruction: string;
+};
+/** Choices submitted by the context dialog; semantic package authoring runs in the source agent. */
+export type ContextTransferInput = {
+  sourceSessionId: string; requestId: string; scope: 'all_topics' | 'recent_topic'; granularity: 'coarse' | 'fine';
+  instruction: string; mode: 'attach' | 'start' | 'steer'; sourceModel?: string; sourceEffort?: string; permissionMode: PermissionMode;
+  target: { kind: 'existing'; sessionId: string } | { kind: 'new'; provider: LLMProvider; model: string; effort?: string };
+};
+/** Persisted preparation status polled by the dialog, including the resulting package and target receipt. */
+export type ContextTransferRequest = {
+  id: string; input: ContextTransferInput; status: 'queued' | 'preparing' | 'analyzing' | 'ready' | 'delivering' | 'completed' | 'failed' | 'cancelled';
+  targetSessionId: string | null; packageId: string | null; error: string | null;
+  delivery?: { status: string; error: string | null } | null; package?: { text: string } | null;
+};
+
+// ---------------------------
 
 //----------------- ISOLATED GUEST CHAT ------------
 /** Public guest API message; image identifiers resolve only through its authenticated image endpoint. */

@@ -57,10 +57,10 @@ describe('group primitives', () => {
     const state = snapshot();
     state.publications = [{ id: 'public', seq: 1, senderId: 'a', recipientId: null, kind: 'publish', title: 'A useful finding', content: 'Evidence to reuse', replyTo: null, assignments: {}, mentions: [], createdAt: '' }];
     render(<MemoryRouter><GroupWorkspace snapshot={state} refresh={async () => {}} /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: '公开信息 · 1' }));
+    fireEvent.click(screen.getByRole('button', { name: '关键结论发布 · 1' }));
     expect(screen.getByText('Evidence to reuse')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('操作'), { target: { value: 'publish' } });
-    fireEvent.change(screen.getByLabelText('信息标题'), { target: { value: 'Updated context' } });
+    fireEvent.change(screen.getByLabelText('结论标题'), { target: { value: 'Updated context' } });
     fireEvent.change(screen.getByLabelText('内容'), { target: { value: 'The shared interface is ready' } });
     fireEvent.click(screen.getByRole('button', { name: '发送' }));
     await waitFor(() => expect(groupsApi.post).toHaveBeenCalledOnce());

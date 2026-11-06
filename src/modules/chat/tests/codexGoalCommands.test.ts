@@ -27,6 +27,7 @@ afterEach(() => { cleanup();vi.unstubAllGlobals(); });
 function composer(isLoading = false, provider: LLMProvider = 'codex') {
   const sent: any[] = [];
   const sideQuestions: string[] = [];
+  const transfers: Array<{ command: string; instruction: string }> = [];
   const view = renderHook(() => useChatComposerState({
     selectedProject: PROJECT, selectedSession: SESSION,
     currentSessionId: 'session-existing', provider, permissionMode: 'bypassPermissions', cyclePermissionMode: () => {},
@@ -35,8 +36,9 @@ function composer(isLoading = false, provider: LLMProvider = 'codex') {
     tokenBudget: null, sendMessage: message => { sent.push(message);return true; }, onSessionEstablished: () => {},
     scrollToBottom: () => {}, addMessage: () => {}, setIsUserScrolledUp: () => {}, setPendingPermissionRequests: () => {},
     onOpenBtw: question => { sideQuestions.push(question); },
+    onOpenContextTransfer: (command, instruction) => { transfers.push({ command, instruction }); },
   }));
-  return { ...view, sent, sideQuestions };
+  return { ...view, sent, sideQuestions, transfers };
 }
 async function submit(view: ReturnType<typeof composer>, input: string) {
   await act(async () => { view.result.current.setInput(input); });
@@ -44,7 +46,7 @@ async function submit(view: ReturnType<typeof composer>, input: string) {
 }
 
 test('Codex exposes /goal and sends an idle objective to the native runtime', async () => {
-  const view = composer();await waitFor(() => assert.equal(view.result.current.slashCommandsCount, 2));
+  const view = composer();await waitFor(() => assert.equal(view.result.current.slashCommandsCount, 4));
   await submit(view, '/goal finish the migration\nand verify tests');
   assert.equal(view.sent.find(e => e.type === 'chat.send').content, '/goal finish the migration\nand verify tests');
   assert.equal(requests.some(r => r.url === '/api/commands/execute'), false);
@@ -87,7 +89,7 @@ test('selecting /btw from the command menu opens its window immediately', async 
 });
 
 test('Enter uses the exact /btw command while the menu still shows the previous query', async () => {
-  const view = composer(true);await waitFor(() => assert.equal(view.result.current.slashCommandsCount, 2));
+  const view = composer(true);await waitFor(() => assert.equal(view.result.current.slashCommandsCount, 4));
   await act(async () => { view.result.current.handleToggleCommandMenu();view.result.current.setInput('/btw'); });
   await act(async () => { view.result.current.handleCommandSelect({ name: '/goal', type: 'built-in', metadata: { type: 'codex-goal' } }, 0, true); });
   await act(async () => { view.result.current.handleKeyDown({ key: 'Enter', preventDefault() {}, nativeEvent: {} } as never); });
@@ -96,8 +98,23 @@ test('Enter uses the exact /btw command while the menu still shows the previous 
 });
 
 test('OpenCode exposes /btw and opens it during work before queuing', async () => {
-  const view = composer(true, 'opencode');await waitFor(() => assert.equal(view.result.current.slashCommandsCount, 1));
+  const view = composer(true, 'opencode');await waitFor(() => assert.equal(view.result.current.slashCommandsCount, 3));
   await submit(view, '/btw summarize the current changes');
   assert.deepEqual(view.sideQuestions, ['summarize the current changes']);assert.deepEqual(view.sent, []);
   assert.equal(requests.some(request => /steer|queued|commands\/execute/.test(request.url)), false);
+});
+
+for (const provider of ['claude', 'codex', 'cursor', 'opencode'] as const) for (const command of ['context', 'handoff']) test(`/${command} opens the transfer picker immediately for ${provider} during work`, async () => {
+  const view = composer(true, provider); await submit(view, `/${command} 继续核查缓存`);
+  assert.deepEqual(view.transfers, [{ command, instruction: '继续核查缓存' }]);
+  assert.deepEqual(view.sent, []); assert.equal(view.result.current.input, '');
+  assert.equal(requests.some(request => /steer|queued|commands\/execute/.test(request.url)), false);
+});
+
+test('an exact /handoff Enter outranks a stale command-menu selection', async () => {
+  const view = composer(true);
+  await act(async () => { view.result.current.handleToggleCommandMenu(); view.result.current.setInput('/handoff'); });
+  await act(async () => { view.result.current.handleCommandSelect({ name: '/context', type: 'built-in', metadata: { type: 'context-transfer' } }, 0, true); });
+  await act(async () => { view.result.current.handleKeyDown({ key: 'Enter', preventDefault() {}, nativeEvent: {} } as never); });
+  assert.deepEqual(view.transfers, [{ command: 'handoff', instruction: '' }]); assert.deepEqual(view.sent, []);
 });

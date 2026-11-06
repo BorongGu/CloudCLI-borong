@@ -11,8 +11,14 @@ function normalize(messages: NormalizedMessage[]): ContextRecord[] {
   const records: ContextRecord[] = [];
   let turn = 0;
   let previousUserAnchor: string | undefined;
+  let preparationTurn = false;
   for (const message of messages) {
     const content = message.content || message.text || message.displayText || '';
+    if (message.kind === 'text' && message.role === 'user' && !message.isCompactSummary) {
+      preparationTurn = /^\[Orbit context preparation [a-f0-9-]{36}\]/.test(content);
+    }
+    // A previous /handoff's bookkeeping is outside the user's substantive topic history.
+    if (preparationTurn) continue;
     const kind = message.isCompactSummary ? 'compaction' : message.kind === 'tool_use' ? 'tool'
       : message.kind === 'tool_result' ? 'tool_result' : message.kind === 'text' && message.role ? 'message' : null;
     if (!kind || (!content && kind === 'message' && !message.images && !message.files)) continue;

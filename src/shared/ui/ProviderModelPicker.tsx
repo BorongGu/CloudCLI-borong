@@ -18,8 +18,8 @@ function loadCatalog(provider: LLMProvider) {
   return promise;
 }
 
-/** Groups creation and member cards use the same model/effort menu and catalog as ordinary chat. */
-export function GroupModelPicker({ provider, model, effort, label, onChange }: {
+/** Groups and context transfer use the same model/effort menu and catalog as ordinary chat. */
+export function ProviderModelPicker({ provider, model, effort, label, onChange }: {
   provider: LLMProvider; model?: string | null; effort?: string | null; label: string;
   onChange: (model: string, effort: string) => void;
 }) {

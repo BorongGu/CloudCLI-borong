@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '@/shared/api';
 import type { LLMProvider, Project, SlashCommand } from '@/shared/types';
@@ -157,5 +157,10 @@ export function useProjectSlashCommands(
     };
   }, [enabled, selectedProject, provider]);
 
-  return { commands, isLoading, error };
+  const availableCommands = useMemo<SlashCommand[]>(() => selectedProject ? [
+    { name: '/context', description: '传递当前会话上下文 · 信息融合', namespace: 'orbit', type: 'built-in', metadata: { type: 'context-transfer' } },
+    { name: '/handoff', description: '移交当前任务与执行状态 · 任务交接', namespace: 'orbit', type: 'built-in', metadata: { type: 'context-transfer' } },
+    ...commands.filter(command => command.name !== '/context' && command.name !== '/handoff'),
+  ] : [], [commands, selectedProject]);
+  return { commands: availableCommands, isLoading, error };
 }

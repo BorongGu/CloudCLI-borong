@@ -3,7 +3,7 @@ import { Plus, X } from 'lucide-react';
 
 import { groupsApi } from '@/shared/api';
 import type { LLMProvider, OrbitGroupCreateInput, OrbitGroupSnapshot } from '@/shared/types';
-import { GroupModelPicker } from '@/modules/groups/GroupModelPicker';
+import { ProviderModelPicker } from '@/shared/ui/ProviderModelPicker';
 
 const FIELD = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm';
 
@@ -36,7 +36,7 @@ export function CreateGroupForm({ onCreate, onCancel }: { onCreate: (snapshot: O
         </select></label>
         <button type="button" aria-label={`移除成员 ${index + 1}`} disabled={input.members.length <= 2} className="rounded-lg p-2 disabled:opacity-30" onClick={() => setInput(old => ({ ...old, members: old.members.filter((_, i) => i !== index) }))}><X size={18} /></button>
       </div>
-      <div className="mt-3 space-y-1"><span className="text-xs">模型与推理强度</span><GroupModelPicker provider={member.provider} model={member.model} effort={member.effort} label={`成员 ${index + 1} 模型与推理强度`} onChange={(model, effort) => updateMember(index, { model, effort })} /></div>
+      <div className="mt-3 space-y-1"><span className="text-xs">模型与推理强度</span><ProviderModelPicker provider={member.provider} model={member.model} effort={member.effort} label={`成员 ${index + 1} 模型与推理强度`} onChange={(model, effort) => updateMember(index, { model, effort })} /></div>
       {member.provider === 'cursor' && <p className="mt-2 text-xs text-muted-foreground">Cursor 当前通过下一轮执行接收讨论消息。</p>}
       <label className="mt-3 block space-y-1"><span className="text-xs">执行权限</span><select aria-label={`成员 ${index + 1} 执行权限`} className={FIELD} value={member.permissionMode || 'default'} onChange={event => updateMember(index, { permissionMode: event.target.value as NonNullable<typeof member.permissionMode> })}><option value="default">标准权限 · 在成员会话处理授权</option><option value="acceptEdits">自动接受编辑</option><option value="bypassPermissions">完全访问</option></select></label>
     </fieldset>)}</div>

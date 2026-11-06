@@ -2,12 +2,13 @@ import express from 'express';
 import type { Request } from 'express';
 
 import { authenticateToken } from '@/modules/auth/index.js';
-import { apiKeysDb } from '@/modules/database/index.js';
+import { apiKeysDb, contextRequestsDb } from '@/modules/database/index.js';
 import { contextSnapshotService } from '@/modules/context-transfer/services/context-snapshot.service.js';
 import { contextPackageService } from '@/modules/context-transfer/services/context-package.service.js';
 import { contextDeliveryService } from '@/modules/context-transfer/services/context-delivery.service.js';
+import { contextRequestService } from '@/modules/context-transfer/services/context-request.service.js';
 import { AppError, asyncHandler, createApiSuccessResponse } from '@/shared/index.js';
-import type { ContextBriefing, ContextDelivery, ContextPackageInput, ContextScope } from '@/shared/index.js';
+import type { ContextBriefing, ContextDelivery, ContextPackageInput, ContextRequestInput, ContextScope } from '@/shared/index.js';
 
 function invalid(field: string): never { throw new AppError(`Invalid ${field}.`, { code: 'INVALID_CONTEXT_INPUT', statusCode: 400 }); }
 function object(value: unknown): Record<string, unknown> {
@@ -69,6 +70,20 @@ function page<T>(entries: T[], req: Request) {
   return { items: entries.slice(offset, offset + limit), total: entries.length, offset, limit, hasMore: offset + limit < entries.length };
 }
 
+function requestInput(value: unknown): ContextRequestInput {
+  const body = object(value), target = object(body.target);
+  const targetKind = choice(target.kind, 'target.kind', ['existing', 'new']);
+  const optional = (value: unknown, name: string) => value === undefined ? undefined : text(value, name, 200);
+  return { sourceSessionId: text(body.sourceSessionId, 'sourceSessionId'), requestId: text(body.requestId, 'requestId'),
+    scope: choice(body.scope, 'scope', ['all_topics', 'recent_topic']), granularity: choice(body.granularity, 'granularity', ['coarse', 'fine']),
+    instruction: text(body.instruction, 'instruction', 16000), mode: choice(body.mode, 'mode', ['attach', 'start', 'steer']),
+    sourceModel: optional(body.sourceModel, 'sourceModel'), sourceEffort: optional(body.sourceEffort, 'sourceEffort'),
+    permissionMode: choice(body.permissionMode ?? 'default', 'permissionMode', ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan']),
+    target: targetKind === 'existing' ? { kind: 'existing', sessionId: text(target.sessionId, 'target.sessionId') }
+      : { kind: 'new', provider: choice(target.provider, 'target.provider', ['claude', 'codex', 'opencode', 'cursor']), model: text(target.model, 'target.model', 200), effort: optional(target.effort, 'target.effort') },
+  };
+}
+
 /** Mounted by server/index; browser JWT and existing Orbit API keys share the same owned transfer resources. */
 export const contextTransferRoutes = express.Router();
 contextTransferRoutes.use((req, res, next) => {
@@ -80,6 +95,23 @@ contextTransferRoutes.use((req, res, next) => {
   }
   void authenticateToken(req, res, next);
 });
+contextTransferRoutes.post('/requests', asyncHandler(async (req, res) => {
+  const request = await contextRequestService.create(owner(req), requestInput(req.body));
+  res.status(202).json(createApiSuccessResponse(contextRequestService.view(owner(req), request.id)));
+}));
+contextTransferRoutes.get('/requests', asyncHandler(async (req, res) => {
+  const request = contextRequestsDb.latest(owner(req), text(req.query.sourceSessionId, 'sourceSessionId'));
+  res.json(createApiSuccessResponse(request ? contextRequestService.view(owner(req), request.id) : null));
+}));
+contextTransferRoutes.get('/requests/:id', asyncHandler(async (req, res) => {
+  res.json(createApiSuccessResponse(contextRequestService.view(owner(req), text(req.params.id, 'requestId'))));
+}));
+contextTransferRoutes.delete('/requests/:id', asyncHandler(async (req, res) => {
+  res.json(createApiSuccessResponse(contextRequestService.cancel(owner(req), text(req.params.id, 'requestId'))));
+}));
+contextTransferRoutes.post('/requests/:id/retry', asyncHandler(async (req, res) => {
+  res.json(createApiSuccessResponse(await contextRequestService.retry(owner(req), text(req.params.id, 'requestId'))));
+}));
 contextTransferRoutes.post('/prepare', asyncHandler(async (req, res) => {
   const snapshot = await contextSnapshotService.prepare(owner(req), text(object(req.body).sessionId, 'sessionId'));
   const { records, ...metadata } = snapshot;
@@ -124,4 +156,31 @@ contextTransferRoutes.get('/deliveries/:id', asyncHandler(async (req, res) => {
 }));
 contextTransferRoutes.delete('/deliveries/:id', asyncHandler(async (req, res) => {
   res.json(createApiSuccessResponse(contextDeliveryService.cancel(owner(req), text(req.params.id, 'deliveryId'))));
+}));
+
+/** The current source agent receives a short-lived capability scoped to this snapshot and package creation. */
+export const contextBridgeRoutes = express.Router();
+contextBridgeRoutes.use('/:requestId', (req, res, next) => {
+  try {
+    const token = /^Bearer (\S+)$/i.exec(req.headers.authorization || '')?.[1] || '';
+    res.locals.contextRequest = contextRequestService.authenticate(text(req.params.requestId, 'requestId'), token);
+    next();
+  } catch (error) { next(error); }
+});
+contextBridgeRoutes.get('/:requestId/snapshots/:id/:operation', asyncHandler(async (req, res) => {
+  const { userId, request } = res.locals.contextRequest as { userId: number; request: ReturnType<typeof contextRequestService.read> };
+  if (req.params.id !== request.snapshotId) throw new AppError('Snapshot is outside this request.', { statusCode: 403, code: 'CONTEXT_SCOPE' });
+  const snapshot = contextSnapshotService.read(userId, req.params.id);
+  if (req.params.operation === 'outline') res.json(createApiSuccessResponse(page(contextSnapshotService.outline(snapshot), req)));
+  else if (req.params.operation === 'records') {
+    let records = snapshot.records;
+    if (req.query.turn !== undefined) records = records.filter(record => record.turn === integer(Number(req.query.turn), 'turn'));
+    if (req.query.ref !== undefined) records = records.filter(record => record.ref === text(req.query.ref, 'ref'));
+    res.json(createApiSuccessResponse(page(records, req)));
+  } else invalid('operation');
+}));
+contextBridgeRoutes.post('/:requestId/packages', asyncHandler(async (req, res) => {
+  const { userId, request } = res.locals.contextRequest as { userId: number; request: ReturnType<typeof contextRequestService.read> };
+  const value = await contextRequestService.completePackage(userId, request.id, packageInput(req.body));
+  res.status(201).json(createApiSuccessResponse({ id: value.id, snapshotId: value.snapshotId, selectedRecords: value.selectedRefs.length, status: 'prepared' }));
 }));

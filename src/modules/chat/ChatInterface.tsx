@@ -35,6 +35,8 @@ import ActivityIndicator from '@/modules/chat/composer/ActivityIndicator';
 import { CodexGoalPanel } from '@/modules/chat/composer/CodexGoalPanel';
 import CommandResultModal from '@/modules/chat/modals/CommandResultModal';
 import { BtwPanel } from '@/modules/chat/modals/BtwPanel';
+import { ContextTransferDialog } from '@/modules/context-transfer';
+import type { ContextTransferCommand } from '@/shared/types';
 import '@/modules/chat/reading-mode.css';
 
 type ChatInterfaceProps = {
@@ -232,6 +234,17 @@ function ChatInterface({
     setBtwRequests(requests => [...requests.filter(previous => previous.sessionId !== sessionId || previous.provider !== provider), request]);
   }, [selectedSession?.id, selectedProject?.projectId, currentSessionId, currentProviderModel, currentProviderEffort, provider, permissionMode, addMessage, t]);
 
+  // Capture the source at command invocation so navigation cannot retarget an open handoff dialog.
+  const [contextTransferCommand, setContextTransferCommand] = useState<ContextTransferCommand | null>(null);
+  const openContextTransfer = useCallback((command: 'context' | 'handoff', instruction: string) => {
+    const sessionId = selectedSession?.id || currentSessionId;
+    if (!sessionId) { addMessage({ type: 'error', content: '先在当前会话完成一轮对话，即可传递上下文。', timestamp: new Date() }); return; }
+    setContextTransferCommand({ sessionId, title: selectedSession?.summary || '当前会话', provider, model: currentProviderModel, effort: currentProviderEffort, permissionMode, command, instruction });
+  }, [selectedSession?.id, selectedSession?.summary, currentSessionId, provider, currentProviderModel, currentProviderEffort, permissionMode, addMessage]);
+  const observeContextPreparation = useCallback((sessionId: string) => {
+    sendMessage({ type: 'chat.subscribe', sessions: [{ sessionId, lastSeq: lastSeqRef.current.get(sessionId) ?? 0 }] });
+  }, [sendMessage]);
+
   const {
     input,
     setInput,
@@ -304,6 +317,7 @@ function ChatInterface({
     onFileOpen,
     onShowSettings,
     onOpenBtw: openBtw,
+    onOpenContextTransfer: openContextTransfer,
     scrollToBottom,
     addMessage,
     setIsUserScrolledUp,
@@ -378,7 +392,7 @@ function ChatInterface({
     }
 
     const handleGlobalEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.repeat || event.defaultPrevented || reading.suppressTaskEscape()) {
+      if (event.key !== 'Escape' || event.repeat || event.defaultPrevented || contextTransferCommand || reading.suppressTaskEscape()) {
         return;
       }
 
@@ -391,7 +405,7 @@ function ChatInterface({
     return () => {
       document.removeEventListener('keydown', handleGlobalEscape, { capture: true });
     };
-  }, [canAbortSession, handleAbortSession, reading.suppressTaskEscape]);
+  }, [canAbortSession, handleAbortSession, reading.suppressTaskEscape, contextTransferCommand]);
 
   useEffect(() => {
     return () => {
@@ -660,6 +674,7 @@ function ChatInterface({
       {btwRequests.map(request => <BtwPanel key={request.key} request={request}
         active={isActive && !reading.isReading && request.sessionId === (selectedSession?.id || currentSessionId) && request.provider === provider}
         onClose={() => closeBtw(request.key)} />)}
+      {contextTransferCommand && <ContextTransferDialog source={contextTransferCommand} onClose={() => setContextTransferCommand(null)} onNavigate={id => onNavigateToSession?.(id)} onSourceActivity={observeContextPreparation} />}
       <CommandResultModal
         payload={commandModalPayload}
         onClose={closeCommandModal}

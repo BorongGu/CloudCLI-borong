@@ -6,3 +6,4 @@ export type { CreateGroupInput, GroupDelivery, GroupMember, GroupMessage, GroupM
 export { GROUP_MODE_SYSTEM_PROMPT } from './utils.js';
 export type { ContextRecord, ContextSnapshot, ContextScope, ContextBriefing, ContextPackageInput, ContextPackage, ContextDelivery, NormalizedMessage } from './types.js';
 export type { IProvider } from './interfaces.js';
+export type { ContextRequest, ContextRequestInput } from './types.js';

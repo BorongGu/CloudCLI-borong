@@ -80,7 +80,7 @@ export function createProviderRuntimeService(
   ): Promise<unknown> => {
     const provider = dependencies.resolveProvider(providerName);
     const instructions = typeof options.sessionId === 'string' ? dependencies.groupInstructions(options.sessionId) : undefined;
-    const attachments = typeof options.sessionId === 'string' ? dependencies.claimContext(options.sessionId) : [];
+    const attachments = typeof options.sessionId === 'string' && options.contextPreparation !== true ? dependencies.claimContext(options.sessionId) : [];
     const input = attachments.length ? `${attachments.map(item => item.prompt).join('\n\n')}\n\n## Current user message\n${command}` : command;
     let completed = false;
     let failure: string | null = null;

@@ -139,3 +139,14 @@ test('routes permission decisions through provider-owned runtime capabilities', 
     { requestId: 'request-1', sessionId: 'session-1' },
   ]);
 });
+
+test('context preparation leaves incoming attachments for the next ordinary source turn', async () => {
+  let claims = 0;
+  const service = createProviderRuntimeService({ groupInstructions: () => undefined,
+    claimContext: () => { claims++; return []; }, resolveProvider: () => createProvider('codex', createRuntime()),
+  });
+  await service.run('codex', 'Prepare a handoff', { sessionId: 'source', contextPreparation: true }, { send() {} });
+  assert.equal(claims, 0);
+  await service.run('codex', 'Continue the task', { sessionId: 'source' }, { send() {} });
+  assert.equal(claims, 1);
+});

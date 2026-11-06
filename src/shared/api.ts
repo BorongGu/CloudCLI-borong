@@ -7,6 +7,7 @@ import { IS_PLATFORM } from '@/shared/utils';
 import { readVoiceConfig, voiceConfigHeaders } from '@/shared/voiceConfig';
 import type { GuestChatBootstrap, GuestChatSnapshot, GuestChatSummary } from '@/shared/types';
 import type { OrbitGroup, OrbitGroupCreateInput, OrbitGroupMessage, OrbitGroupPostInput, OrbitGroupSnapshot } from '@/shared/types';
+import type { ContextTransferInput, ContextTransferRequest } from '@/shared/types';
 
 async function guestRequest<T>(url: string, payload?: unknown, signal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
@@ -143,14 +144,24 @@ export const authenticatedFetch = (
 };
 
 type AssetUploadOptions = { onProgress: (percent: number) => void; signal: AbortSignal; requestId: string };
-async function groupRequest<T>(endpoint: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
-  const response = await authenticatedFetch(`/api/groups${endpoint}`, {
+async function moduleRequest<T>(endpoint: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
+  const response = await authenticatedFetch(endpoint, {
     method, signal, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const result = await response.json();
-  if (!response.ok || !result.success) throw new Error(result.error?.message || '小组请求失败，请重试。');
+  if (!response.ok || !result.success) throw new Error(result.error?.message || '请求失败，请重试。');
   return result.data as T;
 }
+const groupRequest = <T>(endpoint: string, method = 'GET', body?: unknown, signal?: AbortSignal) => moduleRequest<T>(`/api/groups${endpoint}`, method, body, signal);
+
+/** The context-transfer dialog uses persisted requests so preparation continues across navigation and reloads. */
+export const contextTransferApi = {
+  create: (input: ContextTransferInput) => moduleRequest<ContextTransferRequest>('/api/context/requests', 'POST', input),
+  latest: (sourceSessionId: string, signal?: AbortSignal) => moduleRequest<ContextTransferRequest | null>(`/api/context/requests?sourceSessionId=${encodeURIComponent(sourceSessionId)}`, 'GET', undefined, signal),
+  read: (id: string, signal?: AbortSignal) => moduleRequest<ContextTransferRequest>(`/api/context/requests/${encodeURIComponent(id)}`, 'GET', undefined, signal),
+  cancel: (id: string) => moduleRequest<ContextTransferRequest>(`/api/context/requests/${encodeURIComponent(id)}`, 'DELETE'),
+  retry: (id: string) => moduleRequest<ContextTransferRequest>(`/api/context/requests/${encodeURIComponent(id)}/retry`, 'POST'),
+};
 
 /** Used by the Groups module; keeps all group endpoint and authentication details here. */
 export const groupsApi = {

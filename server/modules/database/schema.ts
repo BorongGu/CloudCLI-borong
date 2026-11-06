@@ -359,4 +359,13 @@ CREATE TABLE IF NOT EXISTS context_deliveries (
   created_at TEXT NOT NULL, UNIQUE(user_id, request_id)
 );
 CREATE INDEX IF NOT EXISTS idx_context_delivery_target ON context_deliveries(target_session_id, status);
+CREATE TABLE IF NOT EXISTS context_requests (
+  id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source_session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+  request_id TEXT NOT NULL, input TEXT NOT NULL, token_hash TEXT NOT NULL, token_expires_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued', snapshot_id TEXT, package_id TEXT, target_session_id TEXT,
+  delivery_id TEXT, delivery_key TEXT NOT NULL, error TEXT, created_at TEXT NOT NULL, UNIQUE(user_id, request_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_context_request_active_source ON context_requests(source_session_id)
+  WHERE status IN ('queued','preparing','analyzing','ready','delivering');
 `;

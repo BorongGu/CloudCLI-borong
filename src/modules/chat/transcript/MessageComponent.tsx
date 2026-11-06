@@ -85,6 +85,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
 
   const formattedTime = useMemo(() => new Date(message.timestamp).toLocaleTimeString(), [message.timestamp]);
   const shouldHideThinkingMessage = Boolean(message.isThinking && !showThinking);
+  const isContextPreparation = message.type === 'user' && /^\[Orbit context preparation [a-f0-9-]{36}\]/.test(String(message.content || ''));
 
   if (shouldHideThinkingMessage) {
     return null;
@@ -112,15 +113,15 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
             {userCopyContent.trim().length > 0 || (!message.images?.length && !message.files?.length) ? (
               <div className="chat-user-bubble group max-w-full rounded-2xl rounded-br-md border border-border/60 bg-muted/60 px-3 py-2 text-foreground shadow-sm dark:bg-gray-800/60 sm:px-4">
                 <div dir="auto" className="break-words font-serif text-sm">
-                  <Markdown
+                  {isContextPreparation ? <details><summary className="cursor-pointer">整理本会话的上下文并传递给接收方</summary><pre className="mt-3 whitespace-pre-wrap break-words font-sans text-xs text-muted-foreground">{message.content}</pre></details> : <Markdown
                     breaks
                     className="prose prose-sm max-w-none font-serif dark:prose-invert"
                   >
                     {message.content}
-                  </Markdown>
+                  </Markdown>}
                 </div>
                 <div className="mt-1 flex items-center justify-end gap-1 text-xs text-muted-foreground">
-                  {onEditMessage && message.transcriptAnchorId && (
+                  {onEditMessage && message.transcriptAnchorId && !isContextPreparation && (
                     <button
                       type="button"
                       onClick={() => onEditMessage(message)}

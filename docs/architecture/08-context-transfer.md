@@ -4,6 +4,48 @@ Orbit's context-transfer module captures **one source session**, produces an
 attributed context package, and hands it to any ordinary session. It is independent
 of Group coordination. Source and target may use different harnesses.
 
+## Using slash commands in Orbit
+
+Open the source conversation and enter `/context` or `/handoff`. The command opens
+immediately from the slash menu, Enter, or the send button, including while the
+source is working. Tab completes the command so an instruction can be added:
+
+```text
+/handoff 接手当前任务，重点验证缓存一致性
+```
+
+The dialog binds the source to the conversation that opened it. Choose:
+
+- Scope: all topics of this session, or the recent topic with necessary background.
+- Detail: coarse information sharing, or fine execution handoff.
+- Recipient: an existing conversation selected by title/project, or a new
+  conversation with a harness, model and reasoning effort from the regular menu.
+- Delivery: attach to the next turn, start work when idle, or steer a working
+  existing Codex conversation.
+
+`/context` defaults to recent/coarse/attach; `/handoff` defaults to recent/fine/start.
+The trailing command text fills the recipient instruction. Orbit resolves session
+ids, creates a new recipient when requested, and exposes an “open recipient” button.
+
+“整理并传递” creates a persisted request. Once the source is idle, its existing
+agent takes one preparation turn using the selected source model and permissions.
+It reads the frozen turn index and cited records, authors the semantic selection,
+and submits the package through a request-scoped CLI credential. The normal source
+console exposes any tool approvals and execution output. The request's user bubble
+collapses the bookkeeping instructions, which remain available in its details.
+
+Progress survives closing the dialog or changing conversations. Reopening either
+command restores active/failed work. Source and recipient busy states wait for an
+idle turn. A source turn that ends without a package reports a retryable error;
+authoring validation errors remain available to the agent for correction.
+Cancellation revokes further package submission and delivery, while the source's
+current turn retains its ordinary Stop control. Completed package retries return
+the same package for the credential's remaining 24-hour lifetime.
+
+The source's later snapshots omit earlier preparation turns, keeping “recent
+topic” attached to the user's substantive task. Preparation also leaves queued
+incoming context attachments for the source's next ordinary turn.
+
 ## The two dimensions
 
 | Scope / detail | `coarse` — communication and synthesis | `fine` — handoff |
@@ -150,10 +192,12 @@ the generated request id so a retry can reuse it. `get`, `outline`, `records`,
 Package installation also exposes `orbit-context`; this host's deployment adds
 the same launcher under `~/.local/bin/`.
 
-Possible clients of the same API include a chat `/context` or `/handoff` command,
-a session menu, an MCP wrapper exposing prepare/read/create/deliver tools, and
-workflow steps. These UI/MCP wrappers can follow the same semantic authoring
-protocol and reuse the existing backend.
+The implemented slash-command client uses `/api/context/requests` (create/latest),
+`/requests/:id` (read/cancel) and `/requests/:id/retry`. A scoped
+`/context-bridge/:requestId` grants the source agent access to only its snapshot
+and package creation; the server owns recipient selection and delivery.
+Other clients can include a session menu, an MCP wrapper exposing
+prepare/read/create/deliver tools, or workflow steps using the same backend.
 
 ## Budgets, provenance and storage
 

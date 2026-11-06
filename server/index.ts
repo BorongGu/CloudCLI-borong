@@ -54,7 +54,7 @@ import { worktreesRoutes } from './modules/worktrees/index.js';
 import browserUseMcpRoutes from './modules/browser-use/browser-use-mcp.routes.js';
 import { browserUseService } from './modules/browser-use/browser-use.service.js';
 import { contextTransferDb, initializeDatabase, sessionsDb } from './modules/database/index.js';
-import { contextTransferRoutes } from './modules/context-transfer/index.js';
+import { contextTransferRoutes, contextBridgeRoutes, initializeContextRequests, closeContextRequests } from './modules/context-transfer/index.js';
 import { configureWebPush } from './modules/notifications/index.js';
 import { groupsRoutes, groupBridgeRoutes, initializeGroupDispatcher, closeGroupDispatcher } from './modules/groups/index.js';
 
@@ -152,6 +152,7 @@ app.get('/health', (req, res) => {
 
 // Optional API key validation (if configured)
 app.use('/group-bridge', groupBridgeRoutes);
+app.use('/context-bridge', contextBridgeRoutes);
 app.use('/api', validateApiKey);
 
 // Authentication routes (public)
@@ -379,6 +380,7 @@ async function startServer() {
             // then keeps polling.
             initializeScheduledMessageDispatcher(providerRuntimeService);
             initializeGroupDispatcher(providerRuntimeService);
+            initializeContextRequests();
 
             // Start server-side plugin processes for enabled plugins
             startEnabledPluginServers().catch(err => {
@@ -391,6 +393,7 @@ async function startServer() {
         // Clean up plugin processes on shutdown
         const shutdownRuntimeServices = async () => {
             closeGroupDispatcher();
+            closeContextRequests();
             try {
                 await browserUseService.stopAllSessions();
             } catch (err) {

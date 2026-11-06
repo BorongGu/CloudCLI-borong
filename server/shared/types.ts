@@ -76,6 +76,21 @@ export type ContextDelivery = {
   error: string | null; createdAt: string;
 };
 
+/** Slash-command choices bound to a single source session; the source agent authors its own cited package. */
+export type ContextRequestInput = {
+  sourceSessionId: string; requestId: string; scope: 'all_topics' | 'recent_topic'; granularity: 'coarse' | 'fine';
+  instruction: string; mode: 'attach' | 'start' | 'steer'; sourceModel?: string; sourceEffort?: string;
+  permissionMode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan';
+  target: { kind: 'existing'; sessionId: string } | { kind: 'new'; provider: LLMProvider; model: string; effort?: string };
+};
+
+/** Persisted UI request, with independently observable preparation and delivery outcomes. Tokens stay outside this response. */
+export type ContextRequest = {
+  id: string; input: ContextRequestInput; status: 'queued' | 'preparing' | 'analyzing' | 'ready' | 'delivering' | 'completed' | 'failed' | 'cancelled';
+  snapshotId: string | null; packageId: string | null; targetSessionId: string | null; deliveryId: string | null; deliveryKey: string;
+  error: string | null; createdAt: string;
+};
+
 // ---------------------------
 //----------------- CODEX NATIVE GOALS ------------
 /** Persisted Codex goal returned by App Server and forwarded to the chat client. */
