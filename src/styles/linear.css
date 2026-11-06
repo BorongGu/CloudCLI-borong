@@ -124,7 +124,9 @@
 :root[data-appearance="linear"] :is(button, input, textarea, select):focus-visible { outline-color: hsl(var(--ring)); }
 :root[data-appearance="linear"] :is(.bg-primary, .bg-primary\/90, .bg-primary\/80) { background-image: var(--linear-gradient); }
 
-:root[data-appearance="linear"] .workspace-shell {
+:root[data-appearance="linear"] .workspace-shell,
+:root[data-appearance="linear"] .chat-reading-surface[data-chat-reading-mode="true"],
+:root[data-appearance="linear"] .chat-reading-surface::backdrop {
   background-color: hsl(var(--background));
   background-image: var(--linear-atmosphere);
 }

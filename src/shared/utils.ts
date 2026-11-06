@@ -27,12 +27,19 @@ export function captureChatScrollAnchor(container: HTMLDivElement): ChatScrollAn
   };
 }
 
-/** Keeps the captured row still after a layout commit, including browsers without native scroll anchoring. */
-export function restoreChatScrollAnchor(container: HTMLDivElement, saved: ChatScrollAnchor): void {
+/** Keeps the reading row stable; manual transactions also preserve compositor-driven touch movement. */
+export function restoreChatScrollAnchor(
+  container: HTMLDivElement,
+  saved: ChatScrollAnchor,
+  preserveScrollMovement = false,
+): void {
   if (saved.anchor?.isConnected && saved.anchorOffset !== null) {
     // Reading geometry also flushes native anchoring where supported; apply only the remaining shift.
     const offset = saved.anchor.getBoundingClientRect().top - container.getBoundingClientRect().top;
-    const delta = offset - saved.anchorOffset;
+    // With native anchoring suspended, compare content coordinates: touch inertia
+    // can move scrollTop while React commits, and that movement belongs to the reader.
+    const movement = preserveScrollMovement ? container.scrollTop - saved.top : 0;
+    const delta = offset - saved.anchorOffset + movement;
     if (Math.abs(delta) > 0.5) container.scrollTop += delta;
   } else {
     const top = saved.top + Math.max(container.scrollHeight - saved.height, 0);
