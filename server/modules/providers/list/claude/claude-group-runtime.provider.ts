@@ -6,7 +6,12 @@ import type { IProviderRuntime } from '@/shared/interfaces.js';
 
 /** Claude's group adapter and its tests merge peer input into the SDK's existing held stdin stream. */
 export function createGroupPromptChannel(base: AsyncIterable<SDKUserMessage>) {
-  const queued: Array<{ message: SDKUserMessage; resolve: () => void; reject: (error: Error) => void }> = [];
+  const queued: Array<{
+    // CloudCLI adds this marker to peer input before streaming it to Claude.
+    message: SDKUserMessage & { client_composed: true };
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }> = [];
   let wake: (() => void) | undefined;
   let closed = false;
   const close = () => {
