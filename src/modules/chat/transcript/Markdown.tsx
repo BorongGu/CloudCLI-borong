@@ -14,6 +14,7 @@ import { MermaidDiagram } from '@/modules/code-editor';
 import { MarkdownImage } from '@/modules/chat/transcript/MarkdownImage';
 import { normalizeInlineCodeFences } from '@/modules/chat/utils/chatFormatting';
 import { normalizeLatexDelimiters } from '@/modules/chat/utils/latexDelimiters';
+import { copyMathSelection } from '@/modules/chat/utils/mathClipboard';
 import { copyTextToClipboard } from '@/shared/utils';
 import { SyntaxHighlighter } from '@/shared/syntaxHighlighter';
 import { usePaletteOps } from '@/modules/command-palette';
@@ -80,6 +81,10 @@ const childrenToText = (children: React.ReactNode): string => {
 const MATH_DELIMITER = /\$\$/;
 
 const EMPTY_PLUGINS: never[] = [];
+
+// One delegated listener covers the shared renderer's main chat, streaming and guest/BTW consumers.
+document.addEventListener('copy', copyMathSelection);
+if (import.meta.hot) import.meta.hot.dispose(() => document.removeEventListener('copy', copyMathSelection));
 
 /** Convert HTML break nodes to normal elements while code and other HTML keep their existing rendering. */
 function rehypeHtmlLineBreaks() {

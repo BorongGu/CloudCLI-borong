@@ -338,8 +338,8 @@ function claimDisplayDollarSpans(text: string, mask: Uint8Array, claimed: Uint8A
 
 /**
  * Pairs single `$…$` delimiters into inline `$$ … $$` math. The guards are the
- * currency heuristics `singleDollarTextMath` cannot express: a `$` followed by
- * a digit never opens ("$5"), an opener is never followed by a space, a closer
+ * currency heuristics `singleDollarTextMath` cannot express: numeric openers
+ * require a closed mathematical expression, an opener never precedes a space, a closer
  * is never preceded by a space or followed by a digit ("$x$5" stays text), and
  * a pair never crosses a paragraph break or a code span.
  */
@@ -368,6 +368,11 @@ function planInlineDollarEdits(text: string, mask: Uint8Array, claimed: Uint8Arr
       index += 1;
       continue;
     }
+    if (isDigit(text[index + 1]) && !isNumericMath(content)) {
+      // A paired price's closing dollar also stays literal. Inner dollars may start a real formula.
+      index = content.replace(/\\\$/g, '').includes('$') ? index + 1 : close + 1;
+      continue;
+    }
     // The spaces are stripped again by micromark, and they keep a `$` at the
     // edge of the formula from lengthening the delimiter run.
     edits.push({ start: index, end: index + 1, value: '$$ ' });
@@ -377,10 +382,18 @@ function planInlineDollarEdits(text: string, mask: Uint8Array, claimed: Uint8Arr
   return edits;
 }
 
-/** A `$` opens inline math only when a non-space, non-digit character follows. */
+/** Numeric formulas require math syntax or a numeric expression, keeping prose prices literal. */
+function isNumericMath(content: string): boolean {
+  if (content.replace(/\\\$/g, '').includes('$')) return false;
+  if (/\\[A-Za-z]+/.test(content)) return true;
+  return /^[0-9][0-9A-Za-z\s.,+*/=<>()[\]{}^_%|:\-]*$/.test(content)
+    && !/[A-Za-z]{2,}/.test(content);
+}
+
+/** A `$` may open math before any non-space character; paired numeric content is checked separately. */
 function isDollarOpener(text: string, index: number): boolean {
   const next = text[index + 1];
-  if (next === undefined || next === '$' || isBlank(next) || isDigit(next)) {
+  if (next === undefined || next === '$' || isBlank(next)) {
     return false;
   }
   return true;

@@ -325,7 +325,7 @@ test('Linear arriving from another device tracks system colors and an unknown st
 
 for (const [style, light, dark] of [
   ['paper', '#eee9df', '#22201e'],
-  ['raycast', '#f5f5f7', '#171719'],
+  ['raycast', '#f5f5f7', '#080a0d'],
 ] as const) {
   test(`${style} persists across remounts and device updates while retaining the chosen mode and chat size`, () => {
     writeUserPreference('theme', 'dark');

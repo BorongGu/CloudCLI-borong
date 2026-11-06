@@ -35,6 +35,15 @@ test('all five styles can be selected by their visible labels and keep dark mode
   </UiPreferencesProvider></ThemeProvider>);
 
   assert.equal(screen.getAllByRole('radio').length, 5);
+  const light = screen.getByRole('button', { name: 'Light' });
+  const dark = screen.getByRole('button', { name: 'Dark' });
+  assert.equal(dark.getAttribute('aria-pressed'), 'true');
+  fireEvent.click(light);
+  assert.equal(readUserPreference('theme', null), 'light');
+  fireEvent.click(screen.getByRole('checkbox', { name: /system/i }));
+  assert.equal(readUserPreference('theme', null), 'system');
+  fireEvent.click(dark);
+  assert.equal(readUserPreference('theme', null), 'dark');
   for (const [name, style, font] of [
     ['Paper', 'paper', /Newsreader/],
     ['Raycast', 'raycast', /IBM Plex Sans SC/],

@@ -51,7 +51,7 @@ const APPEARANCE_CANVAS: Record<AppearanceStyle, { light: string; dark: string }
   github: { light: '#ffffff', dark: '#0d1117' },
   linear: { light: '#fcfcfd', dark: '#191a1d' },
   paper: { light: '#eee9df', dark: '#22201e' },
-  raycast: { light: '#f5f5f7', dark: '#171719' },
+  raycast: { light: '#f5f5f7', dark: '#080a0d' },
 };
 
 /** Existing accounts keep their Claude/GitHub choice until they explicitly select a named style. */

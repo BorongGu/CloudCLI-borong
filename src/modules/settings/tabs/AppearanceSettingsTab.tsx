@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next';
+import { Moon, Sun } from 'lucide-react';
 
 import { useUiPreferences, useSetUiPreference } from '@/shared/context/UiPreferencesContext';
 import { useTheme } from '@/shared/context/ThemeContext';
-import type { AppearanceStyle, CodeEditorSettingsState, ProjectSortOrder, ThemeMode } from '@/shared/types';
+import type { AppearanceStyle, CodeEditorSettingsState, ProjectSortOrder } from '@/shared/types';
 import { APPEARANCE_STYLES } from '@/shared/constants';
 import { LanguageSelector } from '@/modules/i18n';
 import SettingsCard from '@/modules/settings/SettingsCard';
@@ -14,8 +15,8 @@ const STYLE_DETAILS: Record<AppearanceStyle, { label: string; description: strin
   claude: { label: 'Claude', description: 'Warm surfaces, terracotta accents and serif type.' },
   github: { label: 'GitHub', description: 'Neutral surfaces, fine borders and system type.' },
   linear: { label: 'Linear', description: 'Frosted surfaces, soft blue-violet light and geometric type.', fonts: 'Manrope · MiSans for Chinese · JetBrains Mono for code' },
-  paper: { label: 'Paper', description: 'A warm reading sheet, ink accents and book typography.', fonts: 'Newsreader · Source Han Serif for Chinese · JetBrains Mono for code' },
-  raycast: { label: 'Raycast', description: 'Compact command panels, graphite surfaces and coral accents.', fonts: 'IBM Plex Sans · IBM Plex Sans SC · IBM Plex Mono' },
+  paper: { label: 'Paper', description: 'Textured paper, bound page edges and book typography.', fonts: 'Newsreader · Source Han Serif for Chinese · JetBrains Mono for code' },
+  raycast: { label: 'Raycast', description: 'Obsidian command panels, coral glow and crisp edges.', fonts: 'IBM Plex Sans · IBM Plex Sans SC · IBM Plex Mono' },
 };
 
 type AppearanceSettingsTabProps = {
@@ -39,7 +40,7 @@ export default function AppearanceSettingsTab({
   onCodeEditorFontSizeChange,
 }: AppearanceSettingsTabProps) {
   const { t } = useTranslation('settings');
-  const { themeMode, setThemeMode, chatFontSize, setChatFontSize, appearanceStyle, setAppearanceStyle } = useTheme();
+  const { isDarkMode, themeMode, setThemeMode, chatFontSize, setChatFontSize, appearanceStyle, setAppearanceStyle } = useTheme();
   const preferences = useUiPreferences();
   const setPreference = useSetUiPreference();
 
@@ -78,16 +79,24 @@ export default function AppearanceSettingsTab({
             label={t('appearanceSettings.theme.label')}
             description={t('appearanceSettings.theme.description')}
           >
-            <select
-              value={themeMode}
-              onChange={(event) => setThemeMode(event.target.value as ThemeMode)}
-              aria-label={t('appearanceSettings.theme.label')}
-              className="w-full touch-manipulation rounded-lg border border-input bg-card p-2.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary sm:w-36"
-            >
-              <option value="light">{t('appearanceSettings.theme.light')}</option>
-              <option value="dark">{t('appearanceSettings.theme.dark')}</option>
-              <option value="system">{t('appearanceSettings.theme.system')}</option>
-            </select>
+            <div className="flex w-full flex-col gap-2 sm:w-auto">
+              <div role="group" aria-label={t('appearanceSettings.theme.label')} className="grid grid-cols-2 gap-2">
+                {(['light', 'dark'] as const).map(mode => {
+                  const Icon = mode === 'light' ? Sun : Moon;
+                  return <button key={mode} type="button" aria-pressed={themeMode === mode}
+                    onClick={() => setThemeMode(mode)}
+                    className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm transition-colors ${themeMode === mode ? 'border-primary/50 bg-primary/10 text-primary' : 'border-input bg-card text-muted-foreground hover:bg-muted'}`}>
+                    <Icon className="h-4 w-4" aria-hidden />{t(`appearanceSettings.theme.${mode}`)}
+                  </button>;
+                })}
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2 self-end text-xs text-muted-foreground">
+                <input type="checkbox" checked={themeMode === 'system'}
+                  onChange={event => setThemeMode(event.target.checked ? 'system' : (isDarkMode ? 'dark' : 'light'))}
+                  className="h-3.5 w-3.5 rounded border-input accent-[hsl(var(--primary))]" />
+                {t('appearanceSettings.theme.system')}
+              </label>
+            </div>
           </SettingsRow>
         </SettingsCard>
       </SettingsSection>

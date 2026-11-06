@@ -103,6 +103,21 @@ test('single $…$ math renders inline without becoming a display block', () => 
   assert.ok(annotations[2]?.includes('\\pi_\\theta'));
 });
 
+test('numeric formulas render inside Chinese emphasis, including the reported latency range', () => {
+  const container = renderChatMarkdown(String.raw`在边缘端运行 $\pi_{0.5}$ 时，**反馈链路延迟 $D$（约 $450\text{--}550\text{ms}$）是刚性且不可压缩的。**`);
+  assert.equal(container.querySelectorAll('.katex').length, 3);
+  assert.equal(container.querySelectorAll('strong .katex').length, 2);
+  assert.equal(container.querySelectorAll('.katex-error').length, 0);
+  assert.ok([...container.querySelectorAll('annotation')].some(node => node.textContent === String.raw`450\text{--}550\text{ms}`));
+});
+
+test('paired numeric math supports constants and arithmetic while mixed prose prices remain literal', () => {
+  const container = renderChatMarkdown(String.raw`计算 $2x+3$、$1 + 2 = 3$ 和 $0.5$。预算 $100 USD$；花费 $5 and $7；单价 $5 and $x$。`);
+  assert.deepEqual([...container.querySelectorAll('annotation')].map(node => node.textContent), ['2x+3', '1 + 2 = 3', '0.5', 'x']);
+  assert.ok(container.textContent?.includes('$100 USD$'));
+  assert.ok(container.textContent?.includes('$5 and $7'));
+});
+
 test('single $…$ stays literal in code, next to spaces and when escaped', () => {
   const spaced = renderChatMarkdown('Not math: $ x$ nor $x $ nor a lone $x');
   assert.equal(spaced.querySelectorAll('.katex').length, 0);
