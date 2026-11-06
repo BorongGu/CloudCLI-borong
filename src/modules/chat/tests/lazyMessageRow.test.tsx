@@ -114,6 +114,48 @@ afterEach(() => {
 });
 
 describe('LazyMessageRow', () => {
+  it('anchors the visible row when a batch of estimated rows above it gains real height', () => {
+    vi.stubGlobal('IntersectionObserver', StubIntersectionObserver);
+    function Transcript() {
+      const scrollContainerRef = useRef<HTMLDivElement>(null);
+      const lazyRows = useLazyRowObserver(scrollContainerRef);
+      return <div ref={scrollContainerRef} data-testid="scroll-pane">
+        {[0, 1, 2].map(index => <LazyMessageRow key={index} lazyRows={lazyRows}
+          timestamp={String(index)} initiallyNearViewport={index === 2}>
+          <span>row {index}</span>
+        </LazyMessageRow>)}
+      </div>;
+    }
+    const { getByTestId } = render(<Transcript />);
+    const container = getByTestId('scroll-pane');
+    const observer = StubIntersectionObserver.instances[0];
+    const wrappers = observer.observed as HTMLElement[];
+    const heights = wrappers.map((wrapper, index) => () => wrapper.style.height
+      ? parseFloat(wrapper.style.height) : [400.5, 650.25, 500][index]);
+    container.scrollTop = 225;
+    container.getBoundingClientRect = () => ({ top: 0, bottom: 300, width: 800, height: 300 }) as DOMRect;
+    Object.defineProperty(container, 'scrollHeight', { get: () => heights.reduce((sum, height) => sum + height(), 0) });
+    wrappers.forEach((wrapper, index) => {
+      wrapper.getBoundingClientRect = () => {
+        const top = heights.slice(0, index).reduce((sum, height) => sum + height(), 0) - container.scrollTop;
+        return { top, bottom: top + heights[index](), width: 800, height: heights[index]() } as DOMRect;
+      };
+    });
+    const offset = wrappers[2].getBoundingClientRect().top;
+    act(() => observer.callback(wrappers.slice(0, 2).map(target => ({
+      target, isIntersecting: true, boundingClientRect: target.getBoundingClientRect(),
+      intersectionRatio: 1, intersectionRect: target.getBoundingClientRect(), rootBounds: null, time: 0,
+    })), observer as unknown as IntersectionObserver));
+    expect(wrappers[2].getBoundingClientRect().top).toBe(offset);
+    expect(container.scrollTop).toBe(1075.75);
+
+    // Leaving and re-entering the band reuses exactly measured fractional heights.
+    fireIntersection(observer, wrappers[0], false);
+    expect(wrappers[2].getBoundingClientRect().top).toBe(offset);
+    fireIntersection(observer, wrappers[0], true);
+    expect(wrappers[2].getBoundingClientRect().top).toBe(offset);
+  });
+
   it('starts far rows as an addressable placeholder instead of mounting content', () => {
     vi.stubGlobal('IntersectionObserver', StubIntersectionObserver);
 

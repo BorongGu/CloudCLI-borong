@@ -54,6 +54,31 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ''; });
 
 describe('continuous upward history browsing', () => {
+  it('keeps the visible head when live replies arrive while browsing cached history', async () => {
+    vi.mocked(api.providers.sessionMessages).mockResolvedValueOnce(response(rows.slice(200), false));
+    const { result, container } = setup();
+    await waitFor(() => expect(result.current.chatMessages.length).toBe(300));
+    container.scrollTop = 4000;
+    act(() => result.current.handleScroll({ type: 'wheel', deltaY: -10 }));
+    const head = result.current.visibleMessages[0].id;
+
+    act(() => result.current.store.appendRealtime('session', {
+      ...rows[499], id: 'live-reply', content: 'A new reply while reading older messages',
+      timestamp: new Date(1700000500000).toISOString(),
+    }));
+    expect(result.current.visibleMessages[0].id).toBe(head);
+    expect(result.current.visibleMessageCount).toBe(101);
+    expect(result.current.isUserScrolledUp).toBe(true);
+
+    act(() => result.current.store.appendRealtime('session', {
+      ...rows[499], id: 'another-live-reply', content: 'Another reply',
+      timestamp: new Date(1700000501000).toISOString(),
+    }));
+    expect(result.current.visibleMessages[0].id).toBe(head);
+    expect(result.current.visibleMessageCount).toBe(102);
+    expect(api.providers.sessionMessages).toHaveBeenCalledTimes(1);
+  });
+
   it('loads 100 initially, prefetches before the top and retains the reader position at response time', async () => {
     vi.mocked(api.providers.sessionMessages).mockResolvedValueOnce(response(rows.slice(400), true));
     let resolvePage!: (value: Response) => void;

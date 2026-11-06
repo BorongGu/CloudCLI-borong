@@ -2,6 +2,23 @@ import type { TFunction } from 'i18next';
 import type { CSSProperties } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
 
+//----------------- CHAT VIEWPORT GEOMETRY ------------
+
+/** The visible row and its offset before history or lazy content changes the transcript layout. */
+export type ChatScrollAnchor = {
+  height: number;
+  top: number;
+  anchor: HTMLElement | null;
+  anchorOffset: number | null;
+};
+
+/** Shared transcript observer used by the chat hook and its lazy row wrappers. */
+export type LazyRowObserver = {
+  observe: (element: Element, onNearViewportChange: (isNearViewport: boolean) => void) => () => void;
+};
+
+// ---------------------------
+
 //----------------- ISOLATED GUEST CHAT ------------
 /** Public guest API message; image identifiers resolve only through its authenticated image endpoint. */
 export type GuestChatMessage = { id: string; role: 'user' | 'assistant'; text: string; reasoning?: string; images: string[]; createdAt: number };

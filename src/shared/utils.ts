@@ -2,7 +2,45 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { APP_NAME } from '@/shared/constants';
 
-import type { Project, ProjectSession, QuickSettingsTab, ServerEvent, SlashCommand } from '@/shared/types';
+import type { ChatScrollAnchor, Project, ProjectSession, QuickSettingsTab, ServerEvent, SlashCommand } from '@/shared/types';
+
+//----------------- CHAT VIEWPORT GEOMETRY ------------
+
+/** Chat pagination and lazy rows capture the visible wrapper before changing its surrounding layout. */
+export function captureChatScrollAnchor(container: HTMLDivElement): ChatScrollAnchor {
+  const containerBounds = container.getBoundingClientRect();
+  const wrappers = container.querySelectorAll<HTMLElement>('.chat-transcript-content > [data-message-timestamp]');
+  const rows = wrappers.length ? wrappers : container.querySelectorAll<HTMLElement>('[data-message-timestamp]');
+  let low = 0;
+  let high = rows.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (rows[middle].getBoundingClientRect().bottom <= containerBounds.top) low = middle + 1;
+    else high = middle;
+  }
+  const anchor = rows[low] ?? null;
+  return {
+    height: container.scrollHeight,
+    top: container.scrollTop,
+    anchor,
+    anchorOffset: anchor ? anchor.getBoundingClientRect().top - containerBounds.top : null,
+  };
+}
+
+/** Keeps the captured row still after a layout commit, including browsers without native scroll anchoring. */
+export function restoreChatScrollAnchor(container: HTMLDivElement, saved: ChatScrollAnchor): void {
+  if (saved.anchor?.isConnected && saved.anchorOffset !== null) {
+    // Reading geometry also flushes native anchoring where supported; apply only the remaining shift.
+    const offset = saved.anchor.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    const delta = offset - saved.anchorOffset;
+    if (Math.abs(delta) > 0.5) container.scrollTop += delta;
+  } else {
+    const top = saved.top + Math.max(container.scrollHeight - saved.height, 0);
+    if (Math.abs(container.scrollTop - top) > 0.5) container.scrollTop = top;
+  }
+}
+
+// ---------------------------
 
 //----------------- DEPLOYMENT MODE ------------
 

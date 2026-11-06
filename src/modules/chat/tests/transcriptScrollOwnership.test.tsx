@@ -259,6 +259,35 @@ describe('search jump ownership', () => {
 });
 
 describe('layout changes during live output', () => {
+  it('keeps a small upward wheel or touch gesture detached through the following scroll event', async () => {
+    const messages = new Map<string, NormalizedMessage[]>([
+      [SESSION_A, [buildMessage(0, '2026-01-01T00:00:00.000Z')]],
+    ]);
+    const { result } = await renderChatSessionState({ session: { id: SESSION_A } as ProjectSession, store: createStore(messages) });
+    const { element: container } = createContainer(5000, 500);
+    (result.current.scrollContainerRef as { current: HTMLDivElement | null }).current = container;
+    act(() => result.current.handleScroll());
+
+    for (const input of ['wheel', 'touch']) {
+      container.scrollTop = 4500;
+      act(() => result.current.handleScroll(new Event('scroll')));
+      expect(result.current.isUserScrolledUp).toBe(false);
+      act(() => {
+        if (input === 'wheel') result.current.handleScroll({ type: 'wheel', deltaY: -8 });
+        else {
+          result.current.handleScroll({ type: 'touchstart', touches: [{ clientY: 200 }] });
+          result.current.handleScroll({ type: 'touchmove', touches: [{ clientY: 208 }] });
+        }
+      });
+      // A scroll event queued by the previous bottom-follow frame can arrive before the gesture moves the viewport.
+      act(() => result.current.handleScroll(new Event('scroll')));
+      expect(result.current.isUserScrolledUp).toBe(true);
+      container.scrollTop = 4492;
+      act(() => result.current.handleScroll(new Event('scroll')));
+      expect(result.current.isUserScrolledUp).toBe(true);
+    }
+  });
+
   it('keeps following when the working indicator reduces the viewport height', async () => {
     const messages = new Map<string, NormalizedMessage[]>([
       [SESSION_A, [buildMessage(0, '2026-01-01T00:00:00.000Z')]],

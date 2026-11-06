@@ -2,7 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { MutableRefObject } from 'react';
 
 import { api } from '@/shared/api';
-import type { MarkSessionIdle, SessionActivityMap,Project,ProjectSession,LLMProvider,NormalizedMessage,ChatMessage,DiffCalculator } from '@/shared/types';
+import { captureChatScrollAnchor, restoreChatScrollAnchor } from '@/shared/utils';
+import { getIntrinsicMessageKey } from '@/modules/chat/utils/messageKeys';
+import type { MarkSessionIdle, SessionActivityMap,Project,ProjectSession,LLMProvider,NormalizedMessage,ChatMessage,DiffCalculator,ChatScrollAnchor } from '@/shared/types';
 import type { SessionStore } from '@/modules/chat/hooks/useSessionStore';
 import { SESSION_MESSAGES_PAGE_SIZE } from '@/modules/chat/utils/sessionMessagePagination';
 import { createMessageHistoryRefreshCoordinator } from '@/modules/chat/utils/messageHistoryRefreshCoordinator';
@@ -113,13 +115,6 @@ type UseChatSessionStateArgs = {
   sessionStore: SessionStore;
 };
 
-type ScrollRestoreState = {
-  height: number;
-  top: number;
-  anchor: HTMLElement | null;
-  anchorOffset: number | null;
-};
-
 type SessionReadingPosition = {
   savedAt: number;
   top: number;
@@ -129,30 +124,6 @@ type SessionReadingPosition = {
   messageCount: number;
   scrolledUp: boolean;
 };
-
-function captureScrollRestoreState(container: HTMLDivElement): ScrollRestoreState {
-  const containerBounds = container.getBoundingClientRect();
-  const wrappers = container.querySelectorAll<HTMLElement>('.chat-transcript-content > [data-message-timestamp]');
-  const rows = wrappers.length ? wrappers : container.querySelectorAll<HTMLElement>('[data-message-timestamp]');
-  // Query geometry logarithmically even after hundreds of history pages have been cached.
-  let low = 0;
-  let high = rows.length;
-  while (low < high) {
-    const middle = (low + high) >>> 1;
-    if (rows[middle].getBoundingClientRect().bottom < containerBounds.top) low = middle + 1;
-    else high = middle;
-  }
-  const anchor = rows[low] ?? null;
-
-  return {
-    height: container.scrollHeight,
-    top: container.scrollTop,
-    anchor,
-    anchorOffset: anchor
-      ? anchor.getBoundingClientRect().top - containerBounds.top
-      : null,
-  };
-}
 
 /* ------------------------------------------------------------------ */
 /*  Helper: Convert a ChatMessage to a NormalizedMessage for the store */
@@ -262,7 +233,7 @@ export function useChatSessionState({
   const isLoadingMoreRef = useRef(false);
   const allMessagesLoadedRef = useRef(false);
   const olderRequestRef = useRef<symbol | null>(null);
-  const pendingScrollRestoreRef = useRef<ScrollRestoreState | null>(null);
+  const pendingScrollRestoreRef = useRef<ChatScrollAnchor | null>(null);
   const pendingInitialScrollRef = useRef(true);
   const messagesOffsetRef = useRef(0);
   const scrollPositionRef = useRef({ height: 0, top: 0 });
@@ -384,7 +355,7 @@ export function useChatSessionState({
           || !isActiveRef.current || activeSessionIdRef.current !== sessionId) return;
         const container = scrollContainerRef.current;
         if (container && !readingRestoreRef.current) {
-          pendingScrollRestoreRef.current = captureScrollRestoreState(container);
+          pendingScrollRestoreRef.current = captureChatScrollAnchor(container);
         }
         // Preserve the same head when background work added a newer tail.
         setVisibleMessageCount(prev => prev + addedCount);
@@ -540,7 +511,7 @@ export function useChatSessionState({
           beforePublish: (count) => {
             if (!isCurrentRequest() || count === 0) return;
             // Capture after the network wait: the reader can keep scrolling while it runs.
-            pendingScrollRestoreRef.current = captureScrollRestoreState(container);
+            pendingScrollRestoreRef.current = captureChatScrollAnchor(container);
             setVisibleMessageCount(prev => prev + count);
           },
         });
@@ -576,6 +547,9 @@ export function useChatSessionState({
     if (event?.type === 'touchstart') { lastTouchYRef.current = touchY ?? null; return; }
     const touchBrowsing = event?.type === 'touchmove' && touchY !== undefined
       && lastTouchYRef.current !== null && touchY > lastTouchYRef.current;
+    const movingTowardBottom = (event?.type === 'wheel' && (event.deltaY ?? 0) > 0)
+      || (event?.type === 'touchmove' && touchY !== undefined
+        && lastTouchYRef.current !== null && touchY < lastTouchYRef.current);
     if (touchY !== undefined) lastTouchYRef.current = touchY;
     const browsingIntent = (event?.type === 'wheel' && (event.deltaY ?? 0) < 0) || touchBrowsing;
     if (browsingIntent) {
@@ -588,13 +562,18 @@ export function useChatSessionState({
     }
     if (readingRestoreRef.current) return;
     const movedUp = container.scrollTop < scrollPositionRef.current.top - 1;
-    const nearBottom = !browsingIntent && (isNearBottom()
+    const movedDown = container.scrollTop > scrollPositionRef.current.top + 1;
+    // After an upward gesture, following resumes at the bottom itself. The
+    // wider follow threshold otherwise reattaches after the first small wheel/touch delta.
+    const bottomGap = container.scrollHeight - container.clientHeight - container.scrollTop;
+    const reachedBottom = bottomGap <= 1 && (movedDown || movingTowardBottom);
+    const nearBottom = !browsingIntent && ((isUserScrolledUpRef.current ? reachedBottom : isNearBottom())
       || (event?.type === 'scroll' && !isUserScrolledUpRef.current && (!movedUp || followFrameRef.current !== 0)));
     // Timers and resize callbacks read this before React's next commit.
     isUserScrolledUpRef.current = !nearBottom;
     setIsUserScrolledUp(!nearBottom);
     scrollPositionRef.current = { height: container.scrollHeight, top: container.scrollTop };
-    const viewport = captureScrollRestoreState(container);
+    const viewport = captureChatScrollAnchor(container);
     latestReadingPositionRef.current = {
       savedAt: Date.now(), top: container.scrollTop,
       anchorTimestamp: viewport.anchor?.getAttribute('data-message-timestamp') ?? null,
@@ -609,7 +588,7 @@ export function useChatSessionState({
     // Export/search can leave older rows cached outside the visible tail window.
     // Reveal these locally before requesting the next remote page.
     if (chatMessages.length > visibleMessageCount) {
-      pendingScrollRestoreRef.current = captureScrollRestoreState(container);
+      pendingScrollRestoreRef.current = captureChatScrollAnchor(container);
       setVisibleMessageCount(prev => Math.min(chatMessages.length, prev + HISTORY_PAGE_SIZE));
       return;
     }
@@ -624,16 +603,7 @@ export function useChatSessionState({
 
     const container = scrollContainerRef.current;
     if (pendingScrollRestoreRef.current) {
-      const { height, top, anchor, anchorOffset } = pendingScrollRestoreRef.current;
-      if (anchor?.isConnected && anchorOffset !== null) {
-        const nextAnchorOffset = (
-          anchor.getBoundingClientRect().top
-          - container.getBoundingClientRect().top
-        );
-        container.scrollTop += nextAnchorOffset - anchorOffset;
-      } else {
-        container.scrollTop = top + Math.max(container.scrollHeight - height, 0);
-      }
+      restoreChatScrollAnchor(container, pendingScrollRestoreRef.current);
       pendingScrollRestoreRef.current = null;
       return;
     }
@@ -684,7 +654,7 @@ export function useChatSessionState({
   useLayoutEffect(() => {
     const container = scrollContainerRef.current;
     if (!isActive || isLoadingSessionMessages || readingRestoreRef.current || !container || !chatMessages.length) return;
-    const viewport = captureScrollRestoreState(container);
+    const viewport = captureChatScrollAnchor(container);
     latestReadingPositionRef.current = {
       savedAt: Date.now(), top: container.scrollTop,
       anchorTimestamp: viewport.anchor?.getAttribute('data-message-timestamp') ?? null,
@@ -718,6 +688,7 @@ export function useChatSessionState({
     isLoadingMoreRef.current = false;
     setIsLoadingMoreMessages(false);
     pendingScrollRestoreRef.current = null;
+    isUserScrolledUpRef.current = false;
     setIsUserScrolledUp(false);
   }, [selectedProject?.projectId, selectedSession?.id]);
 
@@ -1124,10 +1095,27 @@ export function useChatSessionState({
     fetchInitialTokenUsage();
   }, [selectedSession?.id]);
 
+  // Remember the committed window's head so live replies cannot evict rows the reader is browsing.
+  const readingWindowRef = useRef<{ sessionId: string | null; head: string | null }>({ sessionId: null, head: null });
   const visibleMessages = useMemo(() => {
-    if (chatMessages.length <= visibleMessageCount) return chatMessages;
-    return chatMessages.slice(-visibleMessageCount);
-  }, [chatMessages, visibleMessageCount]);
+    let start = Math.max(0, chatMessages.length - visibleMessageCount);
+    const previous = readingWindowRef.current;
+    if (isUserScrolledUp && previous.sessionId === activeSessionId && previous.head) {
+      const previousStart = chatMessages.findIndex(message => getIntrinsicMessageKey(message) === previous.head);
+      if (previousStart >= 0) start = Math.min(start, previousStart);
+    }
+    return start === 0 ? chatMessages : chatMessages.slice(start);
+  }, [activeSessionId, chatMessages, isUserScrolledUp, visibleMessageCount]);
+
+  useLayoutEffect(() => {
+    readingWindowRef.current = {
+      sessionId: activeSessionId,
+      head: visibleMessages[0] ? getIntrinsicMessageKey(visibleMessages[0]) : null,
+    };
+    if (isUserScrolledUp && visibleMessages.length > visibleMessageCount) {
+      setVisibleMessageCount(visibleMessages.length);
+    }
+  }, [activeSessionId, isUserScrolledUp, visibleMessageCount, visibleMessages]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -1216,7 +1204,7 @@ export function useChatSessionState({
     setIsLoadingAllMessages(true);
 
     const container = scrollContainerRef.current;
-    const scrollRestoreState = container ? captureScrollRestoreState(container) : null;
+    const scrollRestoreState = container ? captureChatScrollAnchor(container) : null;
 
     try {
       const slot = await sessionStore.fetchFromServer(requestSessionId, {

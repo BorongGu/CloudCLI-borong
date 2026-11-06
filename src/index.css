@@ -600,6 +600,13 @@
     contain-intrinsic-size: auto 96px;
   }
 
+  /* LazyMessageRow already bounds mounted content. A second estimated-height
+     layer made each remount shrink and expand again while browsing history. */
+  .chat-lazy-row .chat-message {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+
   /* Mobile touch optimization and safe areas */
   @media (max-width: 768px) {
     * {

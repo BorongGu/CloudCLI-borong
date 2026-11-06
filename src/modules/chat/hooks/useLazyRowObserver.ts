@@ -1,19 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { RefObject } from 'react';
+import { flushSync } from 'react-dom';
+
+import type { LazyRowObserver } from '@/shared/types';
+import { captureChatScrollAnchor, restoreChatScrollAnchor } from '@/shared/utils';
 
 /** How far beyond the viewport a transcript row keeps (or gains) its mounted content. */
 const LAZY_ROW_VIEWPORT_MARGIN_PX = 1200;
 
-export type LazyRowObserver = {
-  /** Starts watching an element; returns the matching cleanup. */
-  observe: (
-    element: Element,
-    onNearViewportChange: (isNearViewport: boolean) => void,
-  ) => () => void;
-};
-
 /**
- * One shared IntersectionObserver for every LazyMessageRow of a transcript,
+ * Used by ChatMessagesPane to share one IntersectionObserver across its LazyMessageRows,
  * rooted at its scroll container. Returns null where IntersectionObserver does
  * not exist (jsdom), which keeps every row permanently mounted — the
  * pre-existing behavior.
@@ -21,7 +17,9 @@ export type LazyRowObserver = {
 export function useLazyRowObserver(
   scrollContainerRef: RefObject<HTMLDivElement>,
 ): LazyRowObserver | null {
+  // One observer and callback registry keep the mounted band bounded for long transcripts.
   const observerRef = useRef<IntersectionObserver | null>(null);
+  // Row subscriptions are kept stable as messages enter and leave the mounted band.
   const callbacksRef = useRef(new Map<Element, (isNearViewport: boolean) => void>());
   const isSupported = typeof IntersectionObserver !== 'undefined';
 
@@ -33,19 +31,25 @@ export function useLazyRowObserver(
   const observe = useCallback<LazyRowObserver['observe']>((element, onNearViewportChange) => {
     if (!observerRef.current) {
       observerRef.current = new IntersectionObserver((observerEntries) => {
-        for (const entry of observerEntries) {
-          // A zero-sized rect means the row is inside a display:none subtree
-          // (the Chat tab is hidden), not that the user scrolled away — keep
-          // the row's state, and its recorded height, intact.
-          if (
-            !entry.isIntersecting
-            && entry.boundingClientRect.width === 0
-            && entry.boundingClientRect.height === 0
-          ) {
-            continue;
+        const container = scrollContainerRef.current;
+        const anchor = container ? captureChatScrollAnchor(container) : null;
+        // Commit the whole band together, then compensate before the browser paints.
+        // Safari also needs this compensation when estimated rows above the reader gain real heights.
+        flushSync(() => {
+          for (const entry of observerEntries) {
+            // A zero-sized rect belongs to a hidden tab: retain its row state and measured height.
+            if (
+              !entry.isIntersecting
+              && entry.boundingClientRect.width === 0
+              && entry.boundingClientRect.height === 0
+            ) {
+              continue;
+            }
+            callbacksRef.current.get(entry.target)?.(entry.isIntersecting);
           }
-          callbacksRef.current.get(entry.target)?.(entry.isIntersecting);
-        }
+        });
+        // A concurrent session switch can replace the captured transcript during the commit.
+        if (container && anchor?.anchor?.isConnected) restoreChatScrollAnchor(container, anchor);
       }, {
         root: scrollContainerRef.current,
         rootMargin: `${LAZY_ROW_VIEWPORT_MARGIN_PX}px 0px`,

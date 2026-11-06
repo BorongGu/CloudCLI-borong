@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import type { ChatMessage } from '@/shared/types';
-import type { LazyRowObserver } from '@/modules/chat/hooks/useLazyRowObserver';
+import type { ChatMessage, LazyRowObserver } from '@/shared/types';
 
 /**
  * Mounts a transcript row's real content only while the row is near the
@@ -17,8 +16,8 @@ import type { LazyRowObserver } from '@/modules/chat/hooks/useLazyRowObserver';
  *
  * The placeholder reuses the row's last measured height, so scrolling back
  * through previously seen content changes no scroll geometry at all; rows
- * never yet measured use an estimate and rely on browser scroll anchoring
- * while they settle.
+ * never yet measured use an estimate. The shared observer keeps the visible
+ * row anchored while a batch receives its real heights.
  */
 
 /** Placeholder height for rows that have never been measured. */
@@ -43,6 +42,7 @@ export default function LazyMessageRow({
   initiallyNearViewport,
   children,
 }: LazyMessageRowProps) {
+  // Mount only nearby content and retain its exact height while it is outside the render band.
   const [isNearViewport, setIsNearViewport] = useState(initiallyNearViewport);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const elementRef = useRef<HTMLDivElement | null>(null);
@@ -77,6 +77,7 @@ export default function LazyMessageRow({
   return (
     <div
       ref={elementRef}
+      className="chat-lazy-row"
       data-message-timestamp={timestamp || undefined}
       style={isMounted ? undefined : { height: measuredHeight ?? ESTIMATED_ROW_HEIGHT_PX }}
     >
