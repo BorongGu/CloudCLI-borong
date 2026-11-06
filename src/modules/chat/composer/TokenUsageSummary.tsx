@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useComposerMenuAnchor } from '@/shared/hooks/useComposerMenuAnchor';
 import { api } from '@/shared/api';
+import { SubscriptionUsageAccounts } from '@/shared/ui/SubscriptionUsageAccounts';
 import type { LLMProvider, ProviderUsageSnapshot, ProviderUsageWindow } from '@/shared/types';
 
 type TokenUsageSummaryProps = {
@@ -78,9 +79,7 @@ function TokenUsageSummary({ usage, onClick, provider, sessionId, model }: Token
   };
   const number = (value: number) => `${Math.round(value * 10) / 10}%`;
   const remaining = (window: ProviderUsageWindow) => Math.max(0, Math.min(100, 100 - window.usedPercent));
-  const date = (value: string) => new Date(value).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const toggle = () => { updateAnchor(); setIsOpen(current => !current); };
-  const planLabel = (plan: string) => ({ prolite: 'Pro Lite', pro: 'Pro', plus: 'Plus', team: 'Team', business: 'Business', enterprise: 'Enterprise', free: 'Free' }[plan] || plan);
   const buttonClass = 'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background/70 px-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:px-2';
 
   // Other composer consumers can still open the existing cumulative token details.
@@ -114,18 +113,7 @@ function TokenUsageSummary({ usage, onClick, provider, sessionId, model }: Token
             {data?.context.model && <p className="mt-1 break-all text-[11px] text-muted-foreground/70">{data.context.model}</p>}
             <button type="button" onClick={() => { close(); onClick?.(); }} className="mt-2 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-primary">{t('usage.sessionTokens')}{usage?.used != null ? ` · ${formatTokenCount(Number(usage.used))}` : ''}</button>
           </section>
-          {(data?.accounts || []).map(account => (
-            <section key={account.id} className="mt-4" aria-label={`${account.provider === 'codex' ? 'Codex' : 'OpenCode Go'} ${account.label}`}>
-              <div className="flex items-center gap-2 text-xs font-medium"><span>{account.provider === 'codex' ? 'Codex' : `OpenCode Go · ${account.label}`}</span>{account.plan && <span className="font-normal text-muted-foreground">{planLabel(account.plan)}</span>}{account.active && <span className="ml-auto rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">{t('usage.current')}</span>}{!account.enabled && <span className="text-muted-foreground">{t('usage.disabled')}</span>}</div>
-              {account.windows.map(window => <div key={window.id} className="mt-2.5">
-                <div className="flex justify-between gap-2 text-[11px]"><span className="text-muted-foreground">{window.label ? `${window.label} · ` : ''}{windowLabel(window)}</span><span>{t('usage.remaining', { percent: number(remaining(window)) })}</span></div>
-                <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${account.label} ${windowLabel(window)}`} aria-valuenow={remaining(window)} aria-valuetext={t('usage.remaining', { percent: number(remaining(window)) })} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-primary/70" style={{ width: `${remaining(window)}%` }} /></div>
-                {window.resetsAt && <p className="mt-1 text-[10px] text-muted-foreground/70">{t('usage.resets', { date: date(window.resetsAt) })}</p>}
-              </div>)}
-              {account.status !== 'ok' && <p className="mt-2 text-[11px] text-muted-foreground">{t(`usage.${account.status === 'stale' ? 'stale' : account.error === 'not_configured' ? 'notConfigured' : account.error === 'api_key' ? 'apiKey' : 'unavailable'}`)}</p>}
-              {account.checkedAt && <p className="mt-2 text-[10px] text-muted-foreground/60">{t('usage.updated', { date: date(account.checkedAt) })}</p>}
-            </section>
-          ))}
+          <div className="mt-4 space-y-4"><SubscriptionUsageAccounts accounts={data?.accounts || []} /></div>
           {snapshot.loading && !data && <p className="mt-3 text-xs text-muted-foreground">{t('usage.loading')}</p>}
           {snapshot.error && <p className="mt-3 text-xs text-muted-foreground">{t('usage.unavailable')}</p>}
         </div>, document.body,
