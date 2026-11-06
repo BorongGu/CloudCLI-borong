@@ -339,4 +339,24 @@ CREATE TABLE IF NOT EXISTS group_deliveries (
   PRIMARY KEY(message_id, member_id)
 );
 CREATE INDEX IF NOT EXISTS idx_group_delivery_status ON group_deliveries(status, member_id);
+
+CREATE TABLE IF NOT EXISTS context_snapshots (
+  id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source_session_id TEXT NOT NULL,
+  payload TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS context_packages (
+  id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  snapshot_id TEXT NOT NULL REFERENCES context_snapshots(id) ON DELETE CASCADE,
+  payload TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS context_deliveries (
+  id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  package_id TEXT NOT NULL REFERENCES context_packages(id) ON DELETE CASCADE,
+  target_session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+  request_id TEXT NOT NULL, mode TEXT NOT NULL, instruction TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', error TEXT, prompt TEXT NOT NULL,
+  created_at TEXT NOT NULL, UNIQUE(user_id, request_id)
+);
+CREATE INDEX IF NOT EXISTS idx_context_delivery_target ON context_deliveries(target_session_id, status);
 `;

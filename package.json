@@ -6,7 +6,8 @@
   "type": "module",
   "main": "dist-server/server/index.js",
   "bin": {
-    "cloudcli": "dist-server/server/modules/cli/cli.js"
+    "cloudcli": "dist-server/server/modules/cli/cli.js",
+    "orbit-context": "scripts/orbit-context.mjs"
   },
   "files": [
     "electron/",

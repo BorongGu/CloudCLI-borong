@@ -7,6 +7,12 @@ import ts from 'typescript';
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const output = process.env.CLOUDCLI_PATCH_DIR || path.join(os.homedir(), '.config/cloudcli/backend-patch');
 const files = [
+  'server/modules/database/repositories/context-transfer.db.ts',
+  'server/modules/context-transfer/index.ts',
+  'server/modules/context-transfer/context-transfer.routes.ts',
+  'server/modules/context-transfer/services/context-snapshot.service.ts',
+  'server/modules/context-transfer/services/context-package.service.ts',
+  'server/modules/context-transfer/services/context-delivery.service.ts',
   'server/modules/database/migrations.ts',
   'server/modules/database/repositories/sessions.db.ts',
   'server/modules/websocket/services/session-upsert-broadcast.service.ts',
@@ -87,3 +93,4 @@ for (const file of files) {
 }
 
 fs.copyFileSync(path.join(root, 'scripts/orbit-group.mjs'), path.join(output, 'orbit-group.mjs'));
+fs.copyFileSync(path.join(root, 'scripts/orbit-context.mjs'), path.join(output, 'orbit-context.mjs'));

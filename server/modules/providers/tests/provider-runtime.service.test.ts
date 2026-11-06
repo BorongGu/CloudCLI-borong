@@ -47,6 +47,8 @@ function createProvider(id: LLMProvider, runtime: IProviderRuntime): IProvider {
 function createService(providers: IProvider[]) {
   const providerMap = new Map(providers.map((provider) => [provider.id, provider]));
   return createProviderRuntimeService({
+    claimContext: () => [],
+    settleContext: () => {},
     groupInstructions: () => undefined,
     listProviders: () => providers,
     resolveProvider(providerName) {

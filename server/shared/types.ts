@@ -22,6 +22,61 @@ export type ApiSuccessShape<TData = unknown> = {
 export type AnyRecord = Record<string, any>;
 
 // ---------------------------
+//----------------- SESSION CONTEXT TRANSFER ------------
+/** Immutable evidence from one session's normalized transcript; refs belong to its snapshot. */
+export type ContextRecord = {
+  ref: string; turn: number; messageId: string; anchorId?: string; timestamp: string;
+  kind: 'message' | 'tool' | 'tool_result' | 'compaction'; role?: 'user' | 'assistant';
+  content: string; toolName?: string; toolId?: string; input?: unknown; result?: unknown;
+  attachments?: unknown; isError?: boolean;
+};
+
+/** Frozen single-session source. Provider history remains the authority; capture records its cutoff and fingerprint. */
+export type ContextSnapshot = {
+  id: string; sourceSessionId: string; provider: LLMProvider; projectPath: string | null;
+  title: string; createdAt: string; fingerprint: string; sourceWasRunning: boolean;
+  records: ContextRecord[]; limitations: string[];
+};
+
+/** Semantic topic selection supplied by a caller that has read the snapshot; ranges include complete user turns. */
+export type ContextScope = { kind: 'all_topics' } | {
+  kind: 'recent_topic'; title: string; rationale: string; confidence: 'high' | 'medium' | 'low';
+  focus: Array<{ from: number; to: number }>;
+  background: Array<{ from: number; to: number; reason: string }>;
+};
+
+/** Cited caller-authored synthesis, preserving observation, proposal and uncertainty as distinct states. */
+export type ContextBriefing = {
+  author: string;
+  topics: Array<{ title: string; summary: string; turns: number[] }>;
+  items: Array<{
+    kind: 'goal' | 'constraint' | 'fact' | 'decision' | 'disagreement' | 'progress' | 'artifact' | 'verification' | 'open_question' | 'next_step';
+    text: string; refs: string[]; status: 'observed' | 'reported' | 'proposed' | 'uncertain' | 'superseded';
+  }>;
+};
+
+/** Validated creation contract; scope and granularity are independent. Recent topics require a semantic selection. */
+export type ContextPackageInput = {
+  snapshotId: string; scope: ContextScope; granularity: 'coarse' | 'fine';
+  briefing: ContextBriefing; maxChars: number;
+};
+
+/** Portable context package. Every selected source record remains available even when the inline text budget is smaller. */
+export type ContextPackage = ContextPackageInput & {
+  id: string; createdAt: string; sourceSessionId: string; snapshotFingerprint: string;
+  selectedRefs: string[]; inlineRefs: string[]; omittedRefs: string[]; text: string;
+  bundlePath: string; recordsPath: string; limitations: string[];
+};
+
+/** Durable transfer receipt. Pending attachments are claimed once on the next target turn; uncertain sends need review. */
+export type ContextDelivery = {
+  id: string; packageId: string; targetSessionId: string; requestId: string;
+  mode: 'attach' | 'start' | 'steer'; instruction: string;
+  status: 'pending' | 'submitting' | 'delivered' | 'failed' | 'uncertain' | 'cancelled';
+  error: string | null; createdAt: string;
+};
+
+// ---------------------------
 //----------------- CODEX NATIVE GOALS ------------
 /** Persisted Codex goal returned by App Server and forwarded to the chat client. */
 export type CodexGoal = {

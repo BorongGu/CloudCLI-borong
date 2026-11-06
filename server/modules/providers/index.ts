@@ -1,7 +1,7 @@
 export { sessionSynchronizerService } from './services/session-synchronizer.service.js';
 export { providerSkillsService } from './services/skills.service.js';
 export { providerMcpService } from './services/mcp.service.js';
-export { providerRuntimeService } from './services/provider-runtime.service.js';
+export { providerRuntimeService, createProviderRuntimeService } from './services/provider-runtime.service.js';
 
 // Goal state is consumed by the websocket gateway when reattaching native work.
 export { codexGoalsService } from './services/codex-goals.service.js';

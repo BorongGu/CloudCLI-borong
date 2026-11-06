@@ -1,7 +1,7 @@
 import { providerRegistry } from '@/modules/providers/provider.registry.js';
 import { providerModelsService } from '@/modules/providers/services/provider-models.service.js';
 import { sessionsService } from '@/modules/providers/services/sessions.service.js';
-import { groupsDb } from '@/modules/database/index.js';
+import { contextTransferDb, groupsDb } from '@/modules/database/index.js';
 import { GROUP_MODE_SYSTEM_PROMPT } from '@/shared/index.js';
 import type { IProvider } from '@/shared/interfaces.js';
 import type {
@@ -15,6 +15,8 @@ import type {
 } from '@/shared/types.js';
 
 type ProviderRuntimeServiceDependencies = {
+  claimContext: typeof contextTransferDb.claim;
+  settleContext: typeof contextTransferDb.settle;
   groupInstructions(sessionId: string): string | undefined;
   listProviders(): IProvider[];
   resolveProvider(provider: string): IProvider;
@@ -28,6 +30,8 @@ type ProviderRuntimeServiceDependencies = {
 };
 
 const defaultDependencies: ProviderRuntimeServiceDependencies = {
+  claimContext: sessionId => contextTransferDb.claim(sessionId),
+  settleContext: (id, status, error) => contextTransferDb.settle(id, status, error),
   groupInstructions: sessionId => groupsDb.membership(sessionId) ? GROUP_MODE_SYSTEM_PROMPT : undefined,
   listProviders: () => providerRegistry.listProviders(),
   resolveProvider: (provider) => providerRegistry.resolveProvider(provider),
@@ -38,7 +42,8 @@ const defaultDependencies: ProviderRuntimeServiceDependencies = {
 };
 
 /**
- * Creates the application-facing provider runtime dispatcher.
+ * Creates the application-facing provider runtime dispatcher. Context-transfer
+ * integration tests use this factory to exercise the shared attachment boundary.
  *
  * The provider registry owns each concrete runtime. This service supplies the
  * registry-backed model/session lookups at execution time so runtime adapters
@@ -67,7 +72,7 @@ export function createProviderRuntimeService(
     },
   });
 
-  const run = (
+  const run = async (
     providerName: LLMProvider,
     command: string,
     options: AnyRecord,
@@ -75,7 +80,32 @@ export function createProviderRuntimeService(
   ): Promise<unknown> => {
     const provider = dependencies.resolveProvider(providerName);
     const instructions = typeof options.sessionId === 'string' ? dependencies.groupInstructions(options.sessionId) : undefined;
-    return provider.runtime.run(command, { ...options, ...(instructions ? { groupSystemPrompt: instructions } : {}) }, writer, createRuntimeContext(provider));
+    const attachments = typeof options.sessionId === 'string' ? dependencies.claimContext(options.sessionId) : [];
+    const input = attachments.length ? `${attachments.map(item => item.prompt).join('\n\n')}\n\n## Current user message\n${command}` : command;
+    let completed = false;
+    let failure: string | null = null;
+    const observed = attachments.length ? new Proxy(writer, {
+      get(target, key) {
+        if (key === 'send') return (data: unknown) => {
+          const event = data as { kind?: string; exitCode?: number; aborted?: boolean } | null;
+          if (event?.kind === 'complete') {
+            completed = true;
+            if (event.aborted || event.exitCode && event.exitCode !== 0) failure = event.aborted ? 'Target turn was interrupted.' : `Target exited with code ${event.exitCode}.`;
+          }
+          target.send(data);
+        };
+        const value = Reflect.get(target, key);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    }) : writer;
+    try {
+      const result = await provider.runtime.run(input, { ...options, ...(instructions ? { groupSystemPrompt: instructions } : {}) }, observed, createRuntimeContext(provider));
+      for (const item of attachments) dependencies.settleContext(item.id, completed && !failure ? 'delivered' : 'uncertain', failure || (completed ? null : 'The provider ended without a completion acknowledgement.'));
+      return result;
+    } catch (error) {
+      for (const item of attachments) dependencies.settleContext(item.id, 'uncertain', error instanceof Error ? error.message : String(error));
+      throw error;
+    }
   };
 
   return {

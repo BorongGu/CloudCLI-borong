@@ -53,7 +53,8 @@ import { fileTreeRoutes } from './modules/file-tree/index.js';
 import { worktreesRoutes } from './modules/worktrees/index.js';
 import browserUseMcpRoutes from './modules/browser-use/browser-use-mcp.routes.js';
 import { browserUseService } from './modules/browser-use/browser-use.service.js';
-import { initializeDatabase, sessionsDb } from './modules/database/index.js';
+import { contextTransferDb, initializeDatabase, sessionsDb } from './modules/database/index.js';
+import { contextTransferRoutes } from './modules/context-transfer/index.js';
 import { configureWebPush } from './modules/notifications/index.js';
 import { groupsRoutes, groupBridgeRoutes, initializeGroupDispatcher, closeGroupDispatcher } from './modules/groups/index.js';
 
@@ -200,6 +201,7 @@ app.use('/api/browser-use', authenticateToken, browserUseRoutes);
 app.use('/api/providers', authenticateToken, providerRoutes);
 app.use('/api/scheduled-messages', authenticateToken, scheduledMessagesRoutes);
 app.use('/api/groups', authenticateToken, groupsRoutes);
+app.use('/api/context', contextTransferRoutes);
 
 // Agent API Routes (uses API key authentication)
 app.use('/api/agent', agentRoutes);
@@ -336,6 +338,7 @@ async function startServer() {
     try {
         // Initialize authentication database
         await initializeDatabase();
+        contextTransferDb.recover();
 
         // Configure Web Push (VAPID keys)
         configureWebPush();
