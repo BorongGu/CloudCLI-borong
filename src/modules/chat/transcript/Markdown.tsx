@@ -15,6 +15,7 @@ import { MarkdownImage } from '@/modules/chat/transcript/MarkdownImage';
 import { normalizeInlineCodeFences } from '@/modules/chat/utils/chatFormatting';
 import { normalizeLatexDelimiters } from '@/modules/chat/utils/latexDelimiters';
 import { copyMathSelection } from '@/modules/chat/utils/mathClipboard';
+import { remarkCodexFileCitations } from '@/modules/chat/utils/remarkCodexFileCitations';
 import { copyTextToClipboard } from '@/shared/utils';
 import { SyntaxHighlighter } from '@/shared/syntaxHighlighter';
 import { usePaletteOps } from '@/modules/command-palette';
@@ -354,7 +355,7 @@ function MarkdownBodyRenderer({ children, breaks = false, inkFrom, restricted = 
   const hasHtmlBreaks = useMemo(() => /<br\s*\/?>/i.test(content), [content]);
   const remarkPlugins = useMemo(
     () => {
-      const plugins: unknown[] = [remarkGfm, remarkCjkFriendly];
+      const plugins: unknown[] = [remarkGfm, remarkCjkFriendly, remarkCodexFileCitations];
       if (hasMath) {
         plugins.push([remarkMath, { singleDollarTextMath: false }]);
       }
@@ -380,17 +381,19 @@ function MarkdownBodyRenderer({ children, breaks = false, inkFrom, restricted = 
       ...markdownComponents,
       ...(restricted ? { img: ({ alt }: { alt?: string }) => <span>{alt || ''}</span> } : {}),
       'stream-ink': InkText,
-      a: ({ href, children: linkChildren }: { href?: string; children?: React.ReactNode }) => {
+      a: ({ href, node, children: linkChildren }: { href?: string; node?: Element; children?: React.ReactNode }) => {
         // Prefer the href when it is a real path; otherwise fall back to the
         // link text, since models often emit `[src/foo.ts]()` with an empty href.
+        const citedPath = node?.properties['data-codex-file-path'];
+        const citationPath = typeof citedPath === 'string' ? citedPath : undefined;
         const linkText = childrenToText(linkChildren);
-        const fileRef = looksLikeFilePath(href) ? href : looksLikeFilePath(linkText) ? linkText : undefined;
+        const fileRef = citationPath ?? (looksLikeFilePath(href) ? href : looksLikeFilePath(linkText) ? linkText : undefined);
 
         if (fileRef && !isExternalHref(href)) {
           if (restricted) return <span>{linkChildren}</span>;
           return (
             <a
-              href={href || fileRef}
+              href={citationPath ? '#' : href || fileRef}
               className="cursor-pointer text-primary hover:underline"
               onClick={(event) => {
                 event.preventDefault();
@@ -399,11 +402,11 @@ function MarkdownBodyRenderer({ children, breaks = false, inkFrom, restricted = 
                 // trailing space (``[`src/foo.ts:12` ]()``), and that space
                 // defeats the `$`-anchored suffix strip.
                 const reference = fileRef.trim();
-                if (reference.endsWith('/')) {
+                if (!citationPath && reference.endsWith('/')) {
                   openDirectory(reference);
                   return;
                 }
-                openFileInEditor(stripLineSuffix(reference), lineFromRef(reference));
+                openFileInEditor(citationPath ?? stripLineSuffix(reference), citationPath ? null : lineFromRef(reference));
               }}
             >
               {linkChildren}
